@@ -9,5 +9,4 @@ pub fn main() anyerror!void {
 test "functionality" {
     _ = @import("encoder.zig");
     _ = @import("decoder.zig");
-    _ = @import("Instruction.zig");
 }

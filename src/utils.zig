@@ -50,6 +50,12 @@ pub const Register = enum {
             31 => if (x) if (sp) Self.sp else Self.xzr else if (sp) Self.wsp else Self.wzr,
         };
     }
+
+    pub fn format(value: *const Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        try writer.writeAll(@tagName(value.*));
+    }
 };
 
 pub const Width = enum {
@@ -67,4 +73,8 @@ pub fn Field(comptime ty: type, comptime mem: anytype) type {
     comptime {
         return std.meta.fieldInfo(ty, mem).field_type;
     }
+}
+
+pub fn bytes(T: type, int: anytype) T {
+    return std.mem.readIntSliceLittle(T, &std.mem.toBytes(int));
 }

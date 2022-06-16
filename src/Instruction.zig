@@ -73,7 +73,7 @@ pub const Instruction = union(enum) {
     TST,
     MOV: struct {
         width: Width,
-        ext: enum(u2) { N = 0b00, Z = 0b10, K = 0b11 },
+        ext: enum(u2) { n = 0b00, z = 0b10, k = 0b11 },
         imm16: u16,
         rd: Register,
     },
@@ -114,9 +114,11 @@ pub const Instruction = union(enum) {
     EON,
 
     pub fn fmtPrint(self: *const Self, writer: anytype) !void {
-        _ = self;
-        _ = writer;
-        std.debug.todo("fmt instruction");
+        switch (self.*) {
+            .MOV => |mov| try std.fmt.format(writer, "mov{s} {}, #0x{x}", .{ @tagName(mov.ext), mov.rd, mov.imm16 }),
+
+            else => std.debug.todo("fmt instruction"),
+        }
     }
 };
 
@@ -146,5 +148,3 @@ pub const LogInstr = struct {
         },
     },
 };
-
-pub const BInstr = ;

@@ -5,6 +5,7 @@ const LogInstr = @import("instruction.zig").LogInstr;
 const Register = @import("utils.zig").Register;
 const Width = @import("utils.zig").Width;
 const Field = @import("utils.zig").Field;
+const bytes = @import("utils.zig").bytes;
 
 const Error = error{
     EndOfStream,
@@ -28,7 +29,7 @@ const Disassembler = struct {
     fn next(self: *Self) Error!?Instruction {
         const reader = self.stream.reader();
 
-        const op = reader.readIntLittle(u32) catch return error.EndOfStream;
+        const op = reader.readIntLittle(u32) catch return null;
 
         const op0 = op >> 31;
         const op1 = @truncate(u4, op >> 25);
@@ -41,7 +42,7 @@ const Disassembler = struct {
             0b1000, 0b1001 => return try decodeDataProcImm(op), // Data processing - Imm
             0b1010, 0b1011 => return try decodeBranchExcpSysInstr(op), // Branches, exceptions, system instructions
             0b0100, 0b0110, 0b1100, 0b1110 => return error.Unimplemented, // Load/Store
-            0b0101, 0b1101 => return error.Unimplemented, // Data processing - Reg
+            0b0101, 0b1101 => return try decodeDataProcReg(op), // Data processing - Reg
             0b0111, 0b1111 => return error.Unimplemented, // Data processing - Scalar FP and SIMD
         }
     }
@@ -67,8 +68,8 @@ const Disassembler = struct {
             0b000, 0b001 => .{ // pc rel
                 .ADR = .{
                     .p = (op >> 31) == 1,
-                    .immhi = @truncate(u19, op >> 5),
-                    .immlo = @truncate(u2, op >> 29),
+                    .immhi = bytes(u19, op >> 5),
+                    .immlo = bytes(u2, op >> 29),
                     .rd = Register.from(@truncate(u5, op), .x, false),
                 },
             },
@@ -81,7 +82,7 @@ const Disassembler = struct {
                     .width = width,
                     .rn = Register.from(@truncate(u5, op >> 5), width, s),
                     .rd = Register.from(@truncate(u5, op), width, true),
-                    .payload = .{ .imm12 = @truncate(u12, op >> 10) },
+                    .payload = .{ .imm12 = bytes(u12, op >> 10) },
                 };
                 break :blk if (add) .{ .ADD = payload } else .{ .SUB = payload };
             },
@@ -97,8 +98,8 @@ const Disassembler = struct {
                     .rn = Register.from(@truncate(u5, op >> 5), .x, true),
                     .rd = Register.from(@truncate(u5, op), .x, true),
                     .payload = .{ .imm_tag = .{
-                        .uimm6 = @truncate(u6, op >> 16),
-                        .uimm4 = @truncate(u4, op >> 10),
+                        .uimm6 = bytes(u6, op >> 16),
+                        .uimm4 = bytes(u4, op >> 10),
                     } },
                 };
                 break :blk if (sf and s == 0x0 and o2 == 0x0)
@@ -117,8 +118,8 @@ const Disassembler = struct {
                     .rn = Register.from(@truncate(u5, op >> 5), width, !s),
                     .rd = Register.from(@truncate(u5, op), width, !s),
                     .payload = .{ .imm = .{
-                        .immr = @truncate(u6, op >> 16),
-                        .imms = @truncate(u6, op >> 10),
+                        .immr = bytes(u6, op >> 16),
+                        .imms = bytes(u6, op >> 10),
                     } },
                 };
                 break :blk if (@enumToInt(width) == 0 and n == 1) error.Unallocated else switch (opc) {
@@ -137,7 +138,7 @@ const Disassembler = struct {
                 else .{ .MOV = .{
                     .width = width,
                     .ext = @intToEnum(Field(Field(Instruction, .MOV), .ext), opc),
-                    .imm16 = @truncate(u16, op >> 5),
+                    .imm16 = bytes(u16, op >> 5),
                     .rd = Register.from(@truncate(u5, op), width, false),
                 } };
             },
@@ -150,8 +151,8 @@ const Disassembler = struct {
                 else .{ .BFM = .{
                     .width = width,
                     .tag = @intToEnum(Field(Field(Instruction, .BFM), .tag), opc),
-                    .immr = @truncate(u6, op >> 16),
-                    .imms = @truncate(u6, op >> 10),
+                    .immr = bytes(u6, op >> 16),
+                    .imms = bytes(u6, op >> 10),
                     .rn = Register.from(@truncate(u5, op >> 5), width, false),
                     .rd = Register.from(@truncate(u5, op), width, false),
                 } };
@@ -161,7 +162,7 @@ const Disassembler = struct {
                 const op21 = @truncate(u2, op >> 29);
                 const n = @truncate(u1, op >> 22);
                 const o0 = @truncate(u1, op >> 21);
-                const imms = @truncate(u6, op >> 10);
+                const imms = bytes(u6, op >> 10);
                 break :blk if ((@enumToInt(width) == 1 and op21 == 0x0 and n == 0x1 and o0 == 0x0) or
                     (@enumToInt(width) == 0 and op21 == 0x0 and n == 0x0 and o0 == 0x0 and imms < 0b100000))
                 .{ .EXTR = .{
@@ -183,7 +184,7 @@ const Disassembler = struct {
             0b000, 0b100 => .{ // unconditional branch, imm
                 .B = .{
                     .l = (op >> 31) == 1,
-                    .imm26 = @truncate(u26, op),
+                    .imm26 = bytes(u26, op),
                 },
             },
             0b001, 0b101 => blk: { // {compare,test} and branch
@@ -193,7 +194,7 @@ const Disassembler = struct {
                     break :blk .{ .CBZ = .{
                         .n = n,
                         .width = width,
-                        .imm19 = @truncate(u19, op >> 5),
+                        .imm19 = bytes(u19, op >> 5),
                         .rt = Register.from(@truncate(u5, op), width, false),
                     } };
                 } else { // test and branch
@@ -201,7 +202,7 @@ const Disassembler = struct {
                         .n = n,
                         .width = width,
                         .b40 = @truncate(u5, op >> 19),
-                        .imm14 = @truncate(u14, op >> 5),
+                        .imm14 = bytes(u14, op >> 5),
                         .rt = Register.from(@truncate(u5, op), width, false),
                     } };
                 }
@@ -209,12 +210,24 @@ const Disassembler = struct {
             0b011, 0b111 => unreachable,
         };
     }
+
+    fn decodeDataProcReg(op: u32) Error!Instruction {
+        const op0 = @truncate(u1, op >> 30);
+        const op1 = @truncate(u1, op >> 28);
+        const op2 = @truncate(u4, op >> 21);
+        const op3 = @truncate(u6, op >> 10);
+        _ = op0;
+        _ = op1;
+        _ = op2;
+        _ = op3;
+        return error.Unimplemented;
+    }
 };
 
-test "functionality" {
+test "disassembler functionality" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var disassembler = Disassembler.init(&.{
-        0x41, 0x01, 0x80, 0xD2, // mov x1, #10
+        0x41, 0x01, 0x80, 0xD2, // mov x1, #xa
         0xE1, 0x03, 0x00, 0xAA, // mov x1, x0
     });
 
@@ -227,7 +240,8 @@ test "functionality" {
     }
 
     try std.testing.expectEqualStrings(
-        \\mov x1, #10
+        \\movz x1, #0xa
         \\mov x1, x0
+        \\
     , text.items);
 }
