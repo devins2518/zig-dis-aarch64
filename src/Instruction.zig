@@ -1,15 +1,36 @@
-tag: Tag,
+const std = @import("std");
+const Register = @import("utils.zig").Register;
+const Width = @import("utils.zig").Width;
 
-const Tag = enum {
+pub const Instruction = union(enum) {
+    const Self = @This();
     // Branches, Exception generating, and System instructions
     // zig fmt: off
-    B,         // Branch
-    BRK,       // Breakpoint Instruction
-    CBZ,       // Compare and branch
-    MRS,       // Move System register to general-purpose register
-    MSR,       // Move general-purpose register to System register, Move immediate to PE state field
-    NOP,       // No operation
+    B: struct {   // Branch
+        l: bool,
+        imm26: u26,
+    },
+    BRK,          // Breakpoint Instruction
+    CBZ: struct { // Compare and branch
+        n: bool,
+        width: Width,
+        imm19: u19,
+        rt: Register,
+    },
+    TBZ: struct { // Test and branch
+        n: bool,
+        width: Width,
+        b40: u5,
+        imm14: u14,
+        rt: Register,
+    },
+    MRS,          // Move System register to general-purpose register
+    MSR,          // Move general-purpose register to System register, Move immediate to PE state field
+    NOP,          // No operation
     // zig fmt: on
+
+    // Undefined
+    UDF: u16,
 
     // Loads and stores
     LDR, // Load
@@ -33,10 +54,8 @@ const Tag = enum {
     STMIN,
     SWP,
     CAS,
-    ADDG,
     GMI,
     IRG,
-    SUBG,
     SUBP,
     STG,
     LDG,
@@ -44,31 +63,88 @@ const Tag = enum {
     SET,
 
     // Data processing
-    ADD,
-    SUB,
+    ADD: AddSubInstr,
+    SUB: AddSubInstr,
     CMP,
-    AND,
-    EOR,
-    ORR,
+    AND: LogInstr,
+    ANDS: LogInstr,
+    EOR: LogInstr,
+    ORR: LogInstr,
     TST,
-    MOV,
-    ADR,
-    BFM,
+    MOV: struct {
+        width: Width,
+        ext: enum(u2) { N = 0b00, Z = 0b10, K = 0b11 },
+        imm16: u16,
+        rd: Register,
+    },
+    ADR: struct {
+        p: bool,
+        immhi: u19,
+        immlo: u2,
+        rd: Register,
+    },
+    BFM: struct {
+        width: Width,
+        tag: enum { signed, none, unsigned },
+        immr: u6,
+        imms: u6,
+        rn: Register,
+        rd: Register,
+    },
     BFC,
     BFI,
     BFX,
-    EXTR,
+    EXTR: struct {
+        width: Width,
+        rm: Register,
+        imms: u6,
+        rn: Register,
+        rd: Register,
+    },
     ASR,
     LSL,
     LSR,
     ROR,
     SXT,
-    CMP,
     NEG,
     ADC,
     SBC,
     NGC,
-    AND,
     BIC,
     EON,
+
+    pub fn fmtPrint(self: *const Self, writer: anytype) !void {
+        _ = self;
+        _ = writer;
+        std.debug.todo("fmt instruction");
+    }
 };
+
+pub const AddSubInstr = struct {
+    s: bool,
+    width: Width,
+    rn: Register,
+    rd: Register,
+    payload: union(enum) {
+        imm12: u12,
+        imm_tag: struct {
+            uimm6: u6,
+            uimm4: u4,
+        },
+    },
+};
+
+pub const LogInstr = struct {
+    s: bool,
+    width: Width,
+    rn: Register,
+    rd: Register,
+    payload: union(enum) {
+        imm: struct {
+            immr: u6,
+            imms: u6,
+        },
+    },
+};
+
+pub const BInstr = ;
