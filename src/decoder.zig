@@ -84,7 +84,7 @@ const Disassembler = struct {
                     .rd = Register.from(@truncate(u5, op), width, true),
                     .payload = .{ .imm12 = bytes(u12, op >> 10) },
                 };
-                break :blk if (add) .{ .ADD = payload } else .{ .SUB = payload };
+                break :blk if (add) Instruction{ .ADD = payload } else Instruction{ .SUB = payload };
             },
             0b011 => blk: { // add/sub with tags
                 const width = .x;
@@ -103,7 +103,7 @@ const Disassembler = struct {
                     } },
                 };
                 break :blk if (sf and s == 0x0 and o2 == 0x0)
-                    if (add) .{ .ADD = payload } else .{ .SUB = payload }
+                    if (add) Instruction{ .ADD = payload } else Instruction{ .SUB = payload }
                 else
                     error.Unallocated;
             },
@@ -123,10 +123,9 @@ const Disassembler = struct {
                     } },
                 };
                 break :blk if (@enumToInt(width) == 0 and n == 1) error.Unallocated else switch (opc) {
-                    0b00 => .{ .AND = payload },
-                    0b01 => .{ .ORR = payload },
-                    0b10 => .{ .EOR = payload },
-                    0b11 => .{ .ANDS = payload },
+                    0b00, 0b11 => Instruction{ .AND = payload },
+                    0b01 => Instruction{ .ORR = payload },
+                    0b10 => Instruction{ .EOR = payload },
                 };
             },
             0b101 => blk: { // move wide
@@ -191,14 +190,14 @@ const Disassembler = struct {
                 const width = Width.from(@truncate(u1, op >> 31));
                 const n = @truncate(u1, op >> 24) == 1;
                 if (@truncate(u1, op >> 25) == 1) { // compare and branch
-                    break :blk .{ .CBZ = .{
+                    break :blk Instruction{ .CBZ = .{
                         .n = n,
                         .width = width,
                         .imm19 = bytes(u19, op >> 5),
                         .rt = Register.from(@truncate(u5, op), width, false),
                     } };
                 } else { // test and branch
-                    break :blk .{ .TBZ = .{
+                    break :blk Instruction{ .TBZ = .{
                         .n = n,
                         .width = width,
                         .b40 = @truncate(u5, op >> 19),
@@ -217,10 +216,39 @@ const Disassembler = struct {
         const op2 = @truncate(u4, op >> 21);
         const op3 = @truncate(u6, op >> 10);
         _ = op0;
-        _ = op1;
-        _ = op2;
         _ = op3;
-        return error.Unimplemented;
+        if (op1 == 0) {
+            switch (op2) {
+                0b0000...0b0111 => blk: { // log shift reg
+                    const width = Width.from(op >> 31);
+                    const opc = @truncate(u2, op >> 29);
+                    const n = @truncate(u1, op >> 21) == 1;
+                    const imm6 = bytes(u6, op >> 10);
+                    const payload = .{
+                        .s = opc == 0b11,
+                        .width = width,
+                        .rn = Register.from(@truncate(u5, op >> 5), width, false),
+                        .rd = Register.from(@truncate(u5, op), width, false),
+                        .payload = .{
+                            .rm = Register.from(@truncate(u5, op >> 16), width, false),
+                            .imm6 = bytes(u6, op >> 10),
+                            .n = n,
+                        },
+                    };
+                    break :blk if (width == .w and imm6 >= 0b100000)
+                        error.Unallocated
+                    else switch (opc) {
+                        0b00, 0b11 => Instruction{ .AND = payload },
+                        0b01 => Instruction{ .ORR = payload },
+                        0b10 => Instruction{ .EOR = payload },
+                    };
+                },
+                0b1000, 0b1010, 0b1100, 0b1110 => return error.Unimplemented, // add/sub shift reg
+                0b1001, 0b1011, 0b1101, 0b1111 => return error.Unimplemented, // add/sub ext reg
+            }
+        } else {
+            return error.Unimplemented;
+        }
     }
 };
 

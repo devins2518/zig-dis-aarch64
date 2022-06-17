@@ -75,6 +75,6 @@ pub fn Field(comptime ty: type, comptime mem: anytype) type {
     }
 }
 
-pub fn bytes(T: type, int: anytype) T {
+pub fn bytes(comptime T: type, int: anytype) T {
     return std.mem.readIntSliceLittle(T, &std.mem.toBytes(int));
 }

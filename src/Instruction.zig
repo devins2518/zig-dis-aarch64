@@ -67,7 +67,6 @@ pub const Instruction = union(enum) {
     SUB: AddSubInstr,
     CMP,
     AND: LogInstr,
-    ANDS: LogInstr,
     EOR: LogInstr,
     ORR: LogInstr,
     TST,
@@ -145,6 +144,11 @@ pub const LogInstr = struct {
         imm: struct {
             immr: u6,
             imms: u6,
+        },
+        shift_reg: struct {
+            rm: Register,
+            imm6: u6,
+            n: bool, // Normal (n = 0 = ADD, n = 1 = BIC, ...)
         },
     },
 };
