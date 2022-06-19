@@ -2,6 +2,8 @@ const std = @import("std");
 const Instruction = @import("instruction.zig").Instruction;
 const AddSubInstr = @import("instruction.zig").AddSubInstr;
 const LogInstr = @import("instruction.zig").LogInstr;
+const MovInstr = @import("instruction.zig").MovInstr;
+const ExtractInstr = @import("instruction.zig").ExtractInstr;
 const Register = @import("utils.zig").Register;
 const Width = @import("utils.zig").Width;
 const Field = @import("utils.zig").Field;
@@ -48,7 +50,8 @@ const Disassembler = struct {
     }
 
     fn decodeReserve(op: u32) Error!Instruction {
-        return if (op >> 16 == 0x0) .{ .UDF = @truncate(u16, op) } else error.Unimplemented;
+        _ = op;
+        return error.Unimplemented;
     }
 
     fn decodeSME(op: u32) Error!Instruction {
@@ -65,148 +68,51 @@ const Disassembler = struct {
         const op0 = @truncate(u3, op >> 23);
 
         return switch (op0) {
-            0b000, 0b001 => .{ // pc rel
-                .ADR = .{
-                    .p = (op >> 31) == 1,
-                    .immhi = bytes(u19, op >> 5),
-                    .immlo = bytes(u2, op >> 29),
-                    .rd = Register.from(@truncate(u5, op), .x, false),
-                },
-            },
-            0b010 => blk: { // add/sub
+            0b000, 0b001 => error.Unimplemented,
+            0b010 => error.Unimplemented,
+            0b011 => error.Unimplemented,
+            0b100 => blk: {
                 const width = Width.from(op >> 31);
-                const add = (op >> 30) == 0;
-                const s = @truncate(u1, op >> 29) == 0x1;
-                const payload = .{
-                    .s = s,
-                    .width = width,
-                    .rn = Register.from(@truncate(u5, op >> 5), width, s),
-                    .rd = Register.from(@truncate(u5, op), width, true),
-                    .payload = .{ .imm12 = bytes(u12, op >> 10) },
-                };
-                break :blk if (add) Instruction{ .ADD = payload } else Instruction{ .SUB = payload };
-            },
-            0b011 => blk: { // add/sub with tags
-                const width = .x;
-                const sf = op >> 31 == 0x1;
-                const add = (op >> 30) == 0;
-                const s = @truncate(u1, op >> 29);
-                const o2 = @truncate(u1, op >> 22);
-                const payload = .{
-                    .s = false,
-                    .width = width,
-                    .rn = Register.from(@truncate(u5, op >> 5), .x, true),
-                    .rd = Register.from(@truncate(u5, op), .x, true),
-                    .payload = .{ .imm_tag = .{
-                        .uimm6 = bytes(u6, op >> 16),
-                        .uimm4 = bytes(u4, op >> 10),
-                    } },
-                };
-                break :blk if (sf and s == 0x0 and o2 == 0x0)
-                    if (add) Instruction{ .ADD = payload } else Instruction{ .SUB = payload }
-                else
-                    error.Unallocated;
-            },
-            0b100 => blk: { // logical
-                const width = Width.from(op >> 31);
-                const opc = @truncate(u2, op >> 29);
                 const n = @truncate(u1, op >> 22);
-                const s = opc == 0b11;
-                const payload = .{
-                    .s = s,
+                const opc = @truncate(u2, op >> 29);
+                const payload = LogInstr{
+                    .s = opc == 0b11,
+                    .n = @truncate(u1, op >> 22),
                     .width = width,
-                    .rn = Register.from(@truncate(u5, op >> 5), width, !s),
-                    .rd = Register.from(@truncate(u5, op), width, !s),
+                    .rn = Register.from(op >> 5, width, true),
+                    .rd = Register.from(op, width, false),
                     .payload = .{ .imm = .{
-                        .immr = bytes(u6, op >> 16),
-                        .imms = bytes(u6, op >> 10),
+                        .immr = @truncate(u6, op >> 16),
+                        .imms = @truncate(u6, op >> 10),
                     } },
                 };
-                break :blk if (@enumToInt(width) == 0 and n == 1) error.Unallocated else switch (opc) {
-                    0b00, 0b11 => Instruction{ .AND = payload },
-                    0b01 => Instruction{ .ORR = payload },
-                    0b10 => Instruction{ .EOR = payload },
+                break :blk if (width == .w and n == 1) error.Unallocated else switch (opc) {
+                    0b00, 0b11 => Instruction{ .@"and" = payload },
+                    0b01 => Instruction{ .orr = payload },
+                    0b10 => Instruction{ .eor = payload },
                 };
             },
-            0b101 => blk: { // move wide
+            0b101 => blk: {
                 const width = Width.from(op >> 31);
+                const opc = @truncate(u2, op >> 29);
                 const hw = @truncate(u2, op >> 21);
-                const opc = @truncate(u2, op >> 29);
                 break :blk if (opc == 0b01 or (width == .w and (hw == 0b10 or hw == 0b11)))
-                    error.Unallocated
-                else .{ .MOV = .{
-                    .width = width,
-                    .ext = @intToEnum(Field(Field(Instruction, .MOV), .ext), opc),
+                    error.Unimplemented
+                else .{ .mov = .{
+                    .ext = @intToEnum(Field(MovInstr, .ext), opc),
                     .imm16 = bytes(u16, op >> 5),
-                    .rd = Register.from(@truncate(u5, op), width, false),
+                    .rd = Register.from(op, width, false),
                 } };
             },
-            0b110 => blk: { // bitfield
-                const width = Width.from(op >> 31);
-                const opc = @truncate(u2, op >> 29);
-                const n = @truncate(u1, op >> 22);
-                break :blk if (opc == 0b11 or @enumToInt(width) != n)
-                    error.Unallocated
-                else .{ .BFM = .{
-                    .width = width,
-                    .tag = @intToEnum(Field(Field(Instruction, .BFM), .tag), opc),
-                    .immr = bytes(u6, op >> 16),
-                    .imms = bytes(u6, op >> 10),
-                    .rn = Register.from(@truncate(u5, op >> 5), width, false),
-                    .rd = Register.from(@truncate(u5, op), width, false),
-                } };
-            },
-            0b111 => blk: { // extract
-                const width = Width.from(op >> 31);
-                const op21 = @truncate(u2, op >> 29);
-                const n = @truncate(u1, op >> 22);
-                const o0 = @truncate(u1, op >> 21);
-                const imms = bytes(u6, op >> 10);
-                break :blk if ((@enumToInt(width) == 1 and op21 == 0x0 and n == 0x1 and o0 == 0x0) or
-                    (@enumToInt(width) == 0 and op21 == 0x0 and n == 0x0 and o0 == 0x0 and imms < 0b100000))
-                .{ .EXTR = .{
-                    .width = width,
-                    .rm = Register.from(@truncate(u5, op >> 16), width, false),
-                    .imms = imms,
-                    .rn = Register.from(@truncate(u5, op >> 5), width, false),
-                    .rd = Register.from(@truncate(u5, op), width, false),
-                } } else error.Unallocated;
-            },
+            0b110 => error.Unimplemented,
+            0b111 => error.Unimplemented,
         };
     }
 
     fn decodeBranchExcpSysInstr(op: u32) Error!Instruction {
         const op0 = @truncate(u3, op >> 29);
         return switch (op0) {
-            0b010 => error.Unimplemented, // conditional branch, imm
-            0b110 => error.Unimplemented,
-            0b000, 0b100 => .{ // unconditional branch, imm
-                .B = .{
-                    .l = (op >> 31) == 1,
-                    .imm26 = bytes(u26, op),
-                },
-            },
-            0b001, 0b101 => blk: { // {compare,test} and branch
-                const width = Width.from(@truncate(u1, op >> 31));
-                const n = @truncate(u1, op >> 24) == 1;
-                if (@truncate(u1, op >> 25) == 1) { // compare and branch
-                    break :blk Instruction{ .CBZ = .{
-                        .n = n,
-                        .width = width,
-                        .imm19 = bytes(u19, op >> 5),
-                        .rt = Register.from(@truncate(u5, op), width, false),
-                    } };
-                } else { // test and branch
-                    break :blk Instruction{ .TBZ = .{
-                        .n = n,
-                        .width = width,
-                        .b40 = @truncate(u5, op >> 19),
-                        .imm14 = bytes(u14, op >> 5),
-                        .rt = Register.from(@truncate(u5, op), width, false),
-                    } };
-                }
-            },
-            0b011, 0b111 => unreachable,
+            else => error.Unimplemented,
         };
     }
 
@@ -216,36 +122,10 @@ const Disassembler = struct {
         const op2 = @truncate(u4, op >> 21);
         const op3 = @truncate(u6, op >> 10);
         _ = op0;
+        _ = op2;
         _ = op3;
         if (op1 == 0) {
-            switch (op2) {
-                0b0000...0b0111 => blk: { // log shift reg
-                    const width = Width.from(op >> 31);
-                    const opc = @truncate(u2, op >> 29);
-                    const n = @truncate(u1, op >> 21) == 1;
-                    const imm6 = bytes(u6, op >> 10);
-                    const payload = .{
-                        .s = opc == 0b11,
-                        .width = width,
-                        .rn = Register.from(@truncate(u5, op >> 5), width, false),
-                        .rd = Register.from(@truncate(u5, op), width, false),
-                        .payload = .{
-                            .rm = Register.from(@truncate(u5, op >> 16), width, false),
-                            .imm6 = bytes(u6, op >> 10),
-                            .n = n,
-                        },
-                    };
-                    break :blk if (width == .w and imm6 >= 0b100000)
-                        error.Unallocated
-                    else switch (opc) {
-                        0b00, 0b11 => Instruction{ .AND = payload },
-                        0b01 => Instruction{ .ORR = payload },
-                        0b10 => Instruction{ .EOR = payload },
-                    };
-                },
-                0b1000, 0b1010, 0b1100, 0b1110 => return error.Unimplemented, // add/sub shift reg
-                0b1001, 0b1011, 0b1101, 0b1111 => return error.Unimplemented, // add/sub ext reg
-            }
+            return error.Unimplemented;
         } else {
             return error.Unimplemented;
         }
@@ -256,7 +136,16 @@ test "disassembler functionality" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var disassembler = Disassembler.init(&.{
         0x41, 0x01, 0x80, 0xD2, // mov x1, #xa
-        0xE1, 0x03, 0x00, 0xAA, // mov x1, x0
+        0x5f, 0x01, 0x80, 0x72, // movk wzr, #0xa
+        0x5f, 0x01, 0x80, 0x92, // movn wzr, #0xa
+        0xa0, 0x0c, 0x00, 0x12, // and  w0, w5, #0xf
+        0xa0, 0x0c, 0x00, 0x32, // orr  w0, w5, #0xf
+        0xa0, 0x0c, 0x00, 0x52, // eor  w0, w5, #0xf
+        0xa0, 0x0c, 0x00, 0x72, // ands w0, w5, #0xf
+        0xa0, 0x0c, 0x40, 0x92, // and  x0, x5, #0xf
+        0xa0, 0x0c, 0x40, 0xb2, // orr  x0, x5, #0xf
+        0xa0, 0x0c, 0x40, 0xd2, // eor  x0, x5, #0xf
+        0xa0, 0x0c, 0x40, 0xf2, // ands x0, x5, #0xf
     });
 
     var text = std.ArrayList(u8).init(gpa.allocator());
@@ -269,7 +158,16 @@ test "disassembler functionality" {
 
     try std.testing.expectEqualStrings(
         \\movz x1, #0xa
-        \\mov x1, x0
+        \\movk wzr, #0xa
+        \\movn xzr, #0xa
+        \\and  w0, w5, #0xf
+        \\orr  w0, w5, #0xf
+        \\eor  w0, w5, #0xf
+        \\ands w0, w5, #0xf
+        \\and  x0, x5, #0xf
+        \\orr  x0, x5, #0xf
+        \\eor  x0, x5, #0xf
+        \\ands x0, x5, #0xf
         \\
     , text.items);
 }

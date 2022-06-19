@@ -13,9 +13,10 @@ pub const Register = enum {
     wsp, sp,
     // zig fmt: on
 
-    pub fn from(enc: u5, width: Width, sp: bool) Self {
+    pub fn from(enc: anytype, width: Width, sp: bool) Self {
+        const reg = @truncate(u5, enc);
         const x = width == .x;
-        return switch (enc) {
+        return switch (reg) {
             0 => if (x) Self.x0 else Self.w0,
             1 => if (x) Self.x1 else Self.w1,
             2 => if (x) Self.x2 else Self.w2,
