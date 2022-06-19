@@ -127,21 +127,15 @@ pub const LogInstr = struct {
         },
     },
 
-    pub fn format(
-        self: *const @This(),
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         const s = if (self.s) "s" else " ";
         var buf: [100:0]u8 = undefined;
         const p = switch (self.payload) {
-            .imm => |imm| blk: {
-                const mask = decodeBitMasks(self.n, imm.imms, imm.immr, self.width);
-                break :blk std.fmt.bufPrintZ(&buf, "#0x{x}", .{mask}) catch unreachable;
-            },
+            .imm => |imm| std.fmt.bufPrintZ(
+                &buf,
+                "#0x{x}",
+                .{self.decodeBitMasks(imm.imms, imm.immr)},
+            ) catch unreachable,
             else => std.debug.todo(""),
         };
         try std.fmt.format(writer, "{s} {s}, {s}, {s}", .{
@@ -150,6 +144,32 @@ pub const LogInstr = struct {
             @tagName(self.rn),
             p,
         });
+    }
+
+    // https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/
+    fn decodeBitMasks(self: *const @This(), imms: u6, immr: u6) u64 {
+        const lookup = [_]u64{
+            0xffffffffffffffff, // size = 64
+            0x00000000ffffffff, // size = 32
+            0x0000ffff0000ffff, // size = 16
+            0x00ff00ff00ff00ff, // size = 8
+            0x0f0f0f0f0f0f0f0f, // size = 4
+            0x3333333333333333, // size = 2
+        };
+
+        const pattern: u32 = (@intCast(u32, self.n) << 6) | (~imms & 0x3f);
+
+        if ((pattern & (pattern - 1)) == 0) @panic("decode failure");
+
+        const leading_zeroes = @clz(u32, pattern);
+        const thing: u32 = 0x7fffffff;
+        const ones = (imms + 1) & (thing >> @truncate(u5, leading_zeroes));
+        const mask = lookup[leading_zeroes - 25];
+        const ret = std.math.rotr(u64, mask ^ (mask << @truncate(u6, ones)), @intCast(u32, immr));
+        return if (self.width == .w)
+            @truncate(u32, ret)
+        else
+            ret;
     }
 };
 
@@ -211,25 +231,3 @@ pub const ExtractInstr = struct {
     rn: Register,
     rd: Register,
 };
-
-fn decodeBitMasks(immN: u1, imms: u6, immr: u6, width: Width) u64 {
-    const len: u5 = @truncate(u5, 31 - @clz(u32, @as(u32, immN) << 6 | (~imms & 0x3f)));
-    if (len < 1) @panic("decode failure");
-
-    var size = @as(u32, 1) << len;
-    const levels = size - 1;
-    const s = imms & levels;
-    const r = immr & levels;
-
-    var ret: u64 = (@as(u64, 1) << @truncate(u6, s + 1)) - 1;
-    var i: usize = 1;
-    while (i <= r) : (i += 1) ret = std.math.rotr(u64, ret, size);
-
-    if ((size == 32 and width == .w) or (size == 64 and width == .x)) {
-        ret |= (ret << @truncate(u6, size));
-        size *= 2;
-    }
-
-    if (width == .w) ret &= 0xFFFFFFFF;
-    return ret;
-}

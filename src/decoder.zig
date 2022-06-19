@@ -146,6 +146,8 @@ test "disassembler functionality" {
         0xa0, 0x0c, 0x40, 0xb2, // orr  x0, x5, #0xf
         0xa0, 0x0c, 0x40, 0xd2, // eor  x0, x5, #0xf
         0xa0, 0x0c, 0x40, 0xf2, // ands x0, x5, #0xf
+        0x00, 0x00, 0x7c, 0x92, // and  x0, x0, #0x10
+        0x00, 0x00, 0x7a, 0x92, // and x0, x0, #0x40
     });
 
     var text = std.ArrayList(u8).init(gpa.allocator());
@@ -168,6 +170,8 @@ test "disassembler functionality" {
         \\orr  x0, x5, #0xf
         \\eor  x0, x5, #0xf
         \\ands x0, x5, #0xf
+        \\and  x0, x0, #0x10
+        \\and  x0, x0, #0x40
         \\
     , text.items);
 }
