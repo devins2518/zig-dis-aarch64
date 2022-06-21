@@ -17,7 +17,7 @@ const Error = error{
     Unimplemented,
 };
 
-const Disassembler = struct {
+pub const Disassembler = struct {
     const Self = @This();
 
     code: []const u8,
@@ -30,7 +30,7 @@ const Disassembler = struct {
         };
     }
 
-    fn next(self: *Self) Error!?Instruction {
+    pub fn next(self: *Self) Error!?Instruction {
         const reader = self.stream.reader();
 
         const op = reader.readIntLittle(u32) catch return null;
