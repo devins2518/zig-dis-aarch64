@@ -88,8 +88,19 @@ pub const Instruction = union(enum) {
 
     pub fn fmtPrint(self: *const Self, writer: anytype) !void {
         switch (self.*) {
-            .mov => |mov| try std.fmt.format(writer, "mov{s} {}, #0x{x}", .{ @tagName(mov.ext), mov.rd, mov.imm16 }),
+            .mov => |mov| try std.fmt.format(writer, "mov{s} {}, #{}", .{ @tagName(mov.ext), mov.rd, mov.imm16 }),
             .@"and", .bic, .orr, .orn, .eor, .eon => |log| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), log }),
+            .adr, .adrp => |log| try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), log }),
+            .add, .sub => |addsub| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), addsub }),
+            .bfm => |bfm| try std.fmt.format(writer, "{}", .{bfm}),
+            .extr => |extr| try std.fmt.format(writer, "extr {s}, {s}, {s}, #{}", .{
+                @tagName(extr.rd),
+                @tagName(extr.rn),
+                @tagName(extr.rm),
+                extr.imms,
+            }),
+            // TODO:
+            // {add,sub}g
             else => std.debug.todo("fmt instruction"),
         }
     }
@@ -101,13 +112,35 @@ pub const AddSubInstr = struct {
     rn: Register,
     rd: Register,
     payload: union(enum) {
-        imm12: u12,
+        imm12: struct {
+            sh: u1,
+            imm: u12,
+        },
         imm_tag: struct {
-            uimm6: u6,
-            uimm4: u4,
+            imm6: u6,
+            imm4: u4,
         },
         carry: Register,
     },
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        const s = if (self.s) "s" else "";
+        try std.fmt.format(writer, "{s} {s}, {s}", .{
+            s,
+            @tagName(self.rd),
+            @tagName(self.rn),
+        });
+
+        switch (self.payload) {
+            .imm12 => |imm| {
+                try std.fmt.format(writer, ", #{}", .{imm.imm});
+                if (imm.sh == 1)
+                    try std.fmt.format(writer, ", lsl #12", .{});
+            },
+            .imm_tag => std.debug.todo(""),
+            .carry => std.debug.todo(""),
+        }
+    }
 };
 
 pub const LogInstr = struct {
@@ -128,22 +161,20 @@ pub const LogInstr = struct {
     },
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        const s = if (self.s) "s" else " ";
-        var buf: [100:0]u8 = undefined;
-        const p = switch (self.payload) {
-            .imm => |imm| std.fmt.bufPrintZ(
-                &buf,
-                "#0x{x}",
-                .{self.decodeBitMasks(imm.imms, imm.immr)},
-            ) catch unreachable,
-            else => std.debug.todo(""),
-        };
-        try std.fmt.format(writer, "{s} {s}, {s}, {s}", .{
+        const s = if (self.s) "s" else "";
+        try std.fmt.format(writer, "{s} {s}, {s}, ", .{
             s,
             @tagName(self.rd),
             @tagName(self.rn),
-            p,
         });
+        switch (self.payload) {
+            .imm => |imm| std.fmt.format(
+                writer,
+                "#{}",
+                .{self.decodeBitMasks(imm.imms, imm.immr)},
+            ) catch unreachable,
+            else => unreachable,
+        }
     }
 
     // https://dougallj.wordpress.com/2021/10/30/bit-twiddling-optimising-aarch64-logical-immediate-encoding-and-decoding/
@@ -162,14 +193,10 @@ pub const LogInstr = struct {
         if ((pattern & (pattern - 1)) == 0) @panic("decode failure");
 
         const leading_zeroes = @clz(u32, pattern);
-        const thing: u32 = 0x7fffffff;
-        const ones = (imms + 1) & (thing >> @truncate(u5, leading_zeroes));
+        const ones = (imms + 1) & (@as(u32, 0x7fffffff) >> @truncate(u5, leading_zeroes));
         const mask = lookup[leading_zeroes - 25];
         const ret = std.math.rotr(u64, mask ^ (mask << @truncate(u6, ones)), @intCast(u32, immr));
-        return if (self.width == .w)
-            @truncate(u32, ret)
-        else
-            ret;
+        return if (self.width == .w) @truncate(u32, ret) else ret;
     }
 };
 
@@ -198,9 +225,20 @@ pub const DataProcInstr = struct {
 };
 
 pub const PCRelAddrInstr = struct {
+    p: bool,
     rd: Register,
     immhi: u19,
     immlo: u2,
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        var imm = @as(u64, self.immhi) << 2 | self.immlo;
+        if (imm & (@as(u64, 1) << (21 - 1)) != 0)
+            imm |= ~((@as(u64, 1) << 32) - 1);
+        try std.fmt.format(writer, "{s}, #{}", .{
+            @tagName(self.rd),
+            imm,
+        });
+    }
 };
 
 pub const MovInstr = struct {
@@ -214,6 +252,8 @@ pub const MovInstr = struct {
 };
 
 pub const BitfieldInstr = struct {
+    n: u1,
+    width: Width,
     ext: enum(u2) {
         signed = 0b00,
         none = 0b01,
@@ -223,6 +263,49 @@ pub const BitfieldInstr = struct {
     imms: u6,
     rn: Register,
     rd: Register,
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        const width: u8 = if (self.width == .w) 32 else 64;
+        const name = switch (self.ext) {
+            .signed => if (self.imms < self.immr)
+                "sbfiz"
+            else if (self.bfxPreferred()) "sbfx" else std.debug.todo("sbfm aliasing"),
+            .unsigned => if (self.imms < self.immr)
+                "ubfiz"
+            else if (self.bfxPreferred()) "ubfx" else std.debug.todo("ubfm aliasing"),
+            .none => if (self.imms < self.immr)
+                if (self.rn == .wzr or self.rn == .xzr) "bfc" else "bfi"
+            else
+                "bfxil",
+        };
+        if (self.imms < self.immr)
+            try std.fmt.format(writer, "{s} {s}, {s}, #{}, #{}", .{
+                name,
+                @tagName(self.rd),
+                @tagName(self.rn),
+                width - self.immr,
+                self.imms + 1,
+            })
+        else
+            try std.fmt.format(writer, "{s} {s}, {s}, #{}, #{}", .{
+                name,
+                @tagName(self.rd),
+                @tagName(self.rn),
+                self.immr,
+                self.imms,
+            });
+    }
+
+    fn bfxPreferred(self: *const @This()) bool {
+        const imms = self.imms;
+        const immr = self.immr;
+        return !((imms != 0b011111 and imms + 1 == immr) or
+            (imms != 0b111111 and imms + 1 == immr) or
+            (imms == 0b011111) or
+            (imms == 0b111111) or
+            (immr == 0 and imms == 0b000111) or
+            (immr == 0 and imms == 0b001111));
+    }
 };
 
 pub const ExtractInstr = struct {

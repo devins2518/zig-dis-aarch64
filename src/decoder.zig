@@ -1,13 +1,15 @@
 const std = @import("std");
-const Instruction = @import("instruction.zig").Instruction;
-const AddSubInstr = @import("instruction.zig").AddSubInstr;
-const LogInstr = @import("instruction.zig").LogInstr;
-const MovInstr = @import("instruction.zig").MovInstr;
-const ExtractInstr = @import("instruction.zig").ExtractInstr;
 const Register = @import("utils.zig").Register;
 const Width = @import("utils.zig").Width;
 const Field = @import("utils.zig").Field;
-const bytes = @import("utils.zig").bytes;
+
+const AddSubInstr = @import("instruction.zig").AddSubInstr;
+const BitfieldInstr = @import("instruction.zig").BitfieldInstr;
+const ExtractInstr = @import("instruction.zig").ExtractInstr;
+const Instruction = @import("instruction.zig").Instruction;
+const LogInstr = @import("instruction.zig").LogInstr;
+const MovInstr = @import("instruction.zig").MovInstr;
+const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
 
 const Error = error{
     EndOfStream,
@@ -68,9 +70,60 @@ const Disassembler = struct {
         const op0 = @truncate(u3, op >> 23);
 
         return switch (op0) {
-            0b000, 0b001 => error.Unimplemented,
-            0b010 => error.Unimplemented,
-            0b011 => error.Unimplemented,
+            0b000, 0b001 => blk: {
+                const p = op >> 31 == 1;
+                const payload = PCRelAddrInstr{
+                    .p = p,
+                    .rd = Register.from(op, .x, false),
+                    .immhi = @truncate(u19, op >> 5),
+                    .immlo = @truncate(u2, op >> 29),
+                };
+                break :blk if (p)
+                    Instruction{ .adrp = payload }
+                else
+                    Instruction{ .adr = payload };
+            },
+            0b010 => blk: {
+                const s = @truncate(u1, op >> 29) == 1;
+                const op1 = @truncate(u1, op >> 30);
+                const width = Width.from(op >> 31);
+                const payload = AddSubInstr{
+                    .s = @truncate(u1, op >> 29) == 1,
+                    .width = width,
+                    .rn = Register.from(op >> 5, width, s),
+                    .rd = Register.from(op, width, s),
+                    .payload = .{ .imm12 = .{
+                        .sh = @truncate(u1, op >> 22),
+                        .imm = @truncate(u12, op >> 10),
+                    } },
+                };
+                break :blk if (op1 == 0)
+                    Instruction{ .add = payload }
+                else
+                    Instruction{ .sub = payload };
+            },
+            0b011 => blk: {
+                const o2 = @truncate(u1, op >> 2);
+                const sf = @truncate(u1, op >> 31);
+                const s = @truncate(u1, op >> 29) == 1;
+                const add = @truncate(u1, op >> 30) == 0;
+                const payload = AddSubInstr{
+                    .s = s,
+                    .width = .x,
+                    .rn = Register.from(op >> 5, .x, s),
+                    .rd = Register.from(op, .x, s),
+                    .payload = .{ .imm_tag = .{
+                        .imm6 = @truncate(u6, op >> 16),
+                        .imm4 = @truncate(u4, op >> 10),
+                    } },
+                };
+                break :blk if (o2 == 1 or sf == 0 or (sf == 1 and s))
+                    error.Unallocated
+                else if (add)
+                    Instruction{ .add = payload }
+                else
+                    Instruction{ .sub = payload };
+            },
             0b100 => blk: {
                 const width = Width.from(op >> 31);
                 const n = @truncate(u1, op >> 22);
@@ -97,15 +150,50 @@ const Disassembler = struct {
                 const opc = @truncate(u2, op >> 29);
                 const hw = @truncate(u2, op >> 21);
                 break :blk if (opc == 0b01 or (width == .w and (hw == 0b10 or hw == 0b11)))
-                    error.Unimplemented
+                    error.Unallocated
                 else .{ .mov = .{
                     .ext = @intToEnum(Field(MovInstr, .ext), opc),
-                    .imm16 = bytes(u16, op >> 5),
+                    .imm16 = @truncate(u16, op >> 5),
                     .rd = Register.from(op, width, false),
                 } };
             },
-            0b110 => error.Unimplemented,
-            0b111 => error.Unimplemented,
+            0b110 => blk: {
+                const opc = @truncate(u2, op >> 29);
+                const n = @truncate(u1, op >> 22);
+                const width = Width.from(op >> 31);
+                break :blk if (opc == 0b11 or (width == .w and n == 0b1))
+                    error.Unallocated
+                else
+                    Instruction{ .bfm = BitfieldInstr{
+                        .n = n,
+                        .width = width,
+                        .ext = @intToEnum(Field(BitfieldInstr, .ext), opc),
+                        .immr = @truncate(u6, op >> 16),
+                        .imms = @truncate(u6, op >> 10),
+                        .rn = Register.from(op >> 5, width, false),
+                        .rd = Register.from(op, width, false),
+                    } };
+            },
+            0b111 => blk: {
+                const width = Width.from(op >> 31);
+                const op21 = @truncate(u2, op >> 29);
+                const n = @truncate(u1, op >> 22);
+                const o0 = @truncate(u1, op >> 21);
+                const imms = @truncate(u6, op >> 10);
+                break :blk if (op21 != 0b00 or
+                    (op21 == 0b00 and o0 == 1) or
+                    (@enumToInt(width) == 0 and imms >= 0b100000) or
+                    (@enumToInt(width) == 0 and n == 1) or
+                    (@enumToInt(width) == 1 and n == 0))
+                    error.Unallocated
+                else
+                    Instruction{ .extr = ExtractInstr{
+                        .rm = Register.from(op >> 16, width, false),
+                        .imms = imms,
+                        .rn = Register.from(op >> 5, width, false),
+                        .rd = Register.from(op, width, false),
+                    } };
+            },
         };
     }
 
@@ -122,32 +210,263 @@ const Disassembler = struct {
         const op2 = @truncate(u4, op >> 21);
         const op3 = @truncate(u6, op >> 10);
         _ = op0;
-        _ = op2;
-        _ = op3;
-        if (op1 == 0) {
-            return error.Unimplemented;
-        } else {
-            return error.Unimplemented;
-        }
+        return if (op1 == 0) switch (op2) {
+            0b0000...0b0111 => blk: { // logical shifted reg
+                break :blk error.Unimplemented;
+            },
+            0b1000, 0b1010, 0b1100, 0b1110 => blk: { // add/sub shifted reg
+                break :blk error.Unimplemented;
+            },
+
+            0b1001, 0b1011, 0b1101, 0b1111 => blk: { // add/sub extended reg
+                break :blk error.Unimplemented;
+            },
+        } else switch (op2) {
+            0b0000 => blk: { // add/sub with carry, rotr onto flags, eval onto flags
+                break :blk switch (op3) {
+                    0b000000 => error.Unimplemented,
+                    0b000001, 0b100001 => error.Unimplemented,
+                    0b000010, 0b010010, 0b100010, 0b110010 => error.Unimplemented,
+                    else => error.Unallocated,
+                };
+            },
+            0b0010 => blk: { // cond compare
+                break :blk error.Unimplemented;
+            },
+            0b0100 => blk: { // condselect
+                break :blk error.Unimplemented;
+            },
+            0b0110 => blk: { // data processing 1/2 source
+                break :blk error.Unimplemented;
+            },
+            0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111 => blk: { // data processing 3 source
+                break :blk error.Unimplemented;
+            },
+            else => error.Unallocated,
+        };
     }
 };
 
-test "disassembler functionality" {
+test "arithmetic" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var disassembler = Disassembler.init(&.{
-        0x41, 0x01, 0x80, 0xD2, // mov x1, #xa
-        0x5f, 0x01, 0x80, 0x72, // movk wzr, #0xa
-        0x5f, 0x01, 0x80, 0x92, // movn wzr, #0xa
-        0xa0, 0x0c, 0x00, 0x12, // and  w0, w5, #0xf
-        0xa0, 0x0c, 0x00, 0x32, // orr  w0, w5, #0xf
-        0xa0, 0x0c, 0x00, 0x52, // eor  w0, w5, #0xf
-        0xa0, 0x0c, 0x00, 0x72, // ands w0, w5, #0xf
-        0xa0, 0x0c, 0x40, 0x92, // and  x0, x5, #0xf
-        0xa0, 0x0c, 0x40, 0xb2, // orr  x0, x5, #0xf
-        0xa0, 0x0c, 0x40, 0xd2, // eor  x0, x5, #0xf
-        0xa0, 0x0c, 0x40, 0xf2, // ands x0, x5, #0xf
-        0x00, 0x00, 0x7c, 0x92, // and  x0, x0, #0x10
-        0x00, 0x00, 0x7a, 0x92, // and x0, x0, #0x40
+        // Add/Subtract with carry/borrow
+        0x41, 0x00, 0x03, 0x1a,
+        0x41, 0x00, 0x03, 0x9a,
+        0x85, 0x00, 0x03, 0x3a,
+        0x85, 0x00, 0x03, 0xba,
+        0x41, 0x00, 0x03, 0x5a,
+        0x41, 0x00, 0x03, 0xda,
+        0x41, 0x00, 0x03, 0x7a,
+        0x41, 0x00, 0x03, 0xfa,
+        // Add/Subtract with (optionally shifted) immediate
+        0x83, 0x00, 0x10, 0x11,
+        0x83, 0x00, 0x10, 0x91,
+        0x83, 0x00, 0x50, 0x11,
+        0x83, 0x00, 0x40, 0x11,
+        0x83, 0x00, 0x50, 0x91,
+        0x83, 0x00, 0x40, 0x91,
+        0xff, 0x83, 0x00, 0x91,
+        0x83, 0x00, 0x10, 0x31,
+        0x83, 0x00, 0x50, 0x31,
+        0x83, 0x00, 0x10, 0xb1,
+        0x83, 0x00, 0x50, 0xb1,
+        0xff, 0x83, 0x00, 0xb1,
+        0x83, 0x00, 0x10, 0x51,
+        0x83, 0x00, 0x50, 0x51,
+        0x83, 0x00, 0x10, 0xd1,
+        0x83, 0x00, 0x50, 0xd1,
+        0xff, 0x83, 0x00, 0xd1,
+        0x83, 0x00, 0x10, 0x71,
+        0x83, 0x00, 0x50, 0x71,
+        0x83, 0x00, 0x10, 0xf1,
+        0x83, 0x00, 0x50, 0xf1,
+        0xff, 0x83, 0x00, 0xf1,
+        // Add/Subtract register with (optional) shift
+        0xac, 0x01, 0x0e, 0x0b,
+        0xac, 0x01, 0x0e, 0x8b,
+        0xac, 0x31, 0x0e, 0x0b,
+        0xac, 0x31, 0x0e, 0x8b,
+        0xac, 0x29, 0x4e, 0x0b,
+        0xac, 0x29, 0x4e, 0x8b,
+        0xac, 0x1d, 0x8e, 0x0b,
+        0xac, 0x9d, 0x8e, 0x8b,
+        0xac, 0x01, 0x0e, 0x4b,
+        0xac, 0x01, 0x0e, 0xcb,
+        0xac, 0x31, 0x0e, 0x4b,
+        0xac, 0x31, 0x0e, 0xcb,
+        0xac, 0x29, 0x4e, 0x4b,
+        0xac, 0x29, 0x4e, 0xcb,
+        0xac, 0x1d, 0x8e, 0x4b,
+        0xac, 0x9d, 0x8e, 0xcb,
+        0xac, 0x01, 0x0e, 0x2b,
+        0xac, 0x01, 0x0e, 0xab,
+        0xac, 0x31, 0x0e, 0x2b,
+        0xac, 0x31, 0x0e, 0xab,
+        0xac, 0x29, 0x4e, 0x2b,
+        0xac, 0x29, 0x4e, 0xab,
+        0xac, 0x1d, 0x8e, 0x2b,
+        0xac, 0x9d, 0x8e, 0xab,
+        0xac, 0x01, 0x0e, 0x6b,
+        0xac, 0x01, 0x0e, 0xeb,
+        0xac, 0x31, 0x0e, 0x6b,
+        0xac, 0x31, 0x0e, 0xeb,
+        0xac, 0x29, 0x4e, 0x6b,
+        0xac, 0x29, 0x4e, 0xeb,
+        0xac, 0x1d, 0x8e, 0x6b,
+        0xac, 0x9d, 0x8e, 0xeb,
+        // Add/Subtract with (optional) extend
+        0x41, 0x00, 0x23, 0x0b,
+        0x41, 0x20, 0x23, 0x0b,
+        0x41, 0x40, 0x23, 0x0b,
+        0x41, 0x60, 0x23, 0x0b,
+        0x41, 0x80, 0x23, 0x0b,
+        0x41, 0xa0, 0x23, 0x0b,
+        0x41, 0xc0, 0x23, 0x0b,
+        0x41, 0xe0, 0x23, 0x0b,
+        0x41, 0x00, 0x23, 0x8b,
+        0x41, 0x20, 0x23, 0x8b,
+        0x41, 0x40, 0x23, 0x8b,
+        0x41, 0x80, 0x23, 0x8b,
+        0x41, 0xa0, 0x23, 0x8b,
+        0x41, 0xc0, 0x23, 0x8b,
+        0xe1, 0x43, 0x23, 0x0b,
+        0xe1, 0x43, 0x23, 0x0b,
+        0x5f, 0x60, 0x23, 0x8b,
+        0x5f, 0x60, 0x23, 0x8b,
+        0x41, 0x00, 0x23, 0x4b,
+        0x41, 0x20, 0x23, 0x4b,
+        0x41, 0x40, 0x23, 0x4b,
+        0x41, 0x60, 0x23, 0x4b,
+        0x41, 0x80, 0x23, 0x4b,
+        0x41, 0xa0, 0x23, 0x4b,
+        0x41, 0xc0, 0x23, 0x4b,
+        0x41, 0xe0, 0x23, 0x4b,
+        0x41, 0x00, 0x23, 0xcb,
+        0x41, 0x20, 0x23, 0xcb,
+        0x41, 0x40, 0x23, 0xcb,
+        0x41, 0x80, 0x23, 0xcb,
+        0x41, 0xa0, 0x23, 0xcb,
+        0x41, 0xc0, 0x23, 0xcb,
+        0xe1, 0x43, 0x23, 0x4b,
+        0xe1, 0x43, 0x23, 0x4b,
+        0x5f, 0x60, 0x23, 0xcb,
+        0x5f, 0x60, 0x23, 0xcb,
+        0x41, 0x00, 0x23, 0x2b,
+        0x41, 0x20, 0x23, 0x2b,
+        0x41, 0x40, 0x23, 0x2b,
+        0x41, 0x60, 0x23, 0x2b,
+        0x41, 0x80, 0x23, 0x2b,
+        0x41, 0xa0, 0x23, 0x2b,
+        0x41, 0xc0, 0x23, 0x2b,
+        0x41, 0xe0, 0x23, 0x2b,
+        0x41, 0x00, 0x23, 0xab,
+        0x41, 0x20, 0x23, 0xab,
+        0x41, 0x40, 0x23, 0xab,
+        0x41, 0x80, 0x23, 0xab,
+        0x41, 0xa0, 0x23, 0xab,
+        0x41, 0xc0, 0x23, 0xab,
+        0xe1, 0x43, 0x23, 0x2b,
+        0xe1, 0x43, 0x23, 0x2b,
+        0x41, 0x00, 0x23, 0x6b,
+        0x41, 0x20, 0x23, 0x6b,
+        0x41, 0x40, 0x23, 0x6b,
+        0x41, 0x60, 0x23, 0x6b,
+        0x41, 0x80, 0x23, 0x6b,
+        0x41, 0xa0, 0x23, 0x6b,
+        0x41, 0xc0, 0x23, 0x6b,
+        0x41, 0xe0, 0x23, 0x6b,
+        0x41, 0x00, 0x23, 0xeb,
+        0x41, 0x20, 0x23, 0xeb,
+        0x41, 0x40, 0x23, 0xeb,
+        0x41, 0x80, 0x23, 0xeb,
+        0x41, 0xa0, 0x23, 0xeb,
+        0x41, 0xc0, 0x23, 0xeb,
+        0xe1, 0x43, 0x23, 0x6b,
+        0xe1, 0x43, 0x23, 0x6b,
+        0x1f, 0x41, 0x28, 0xeb,
+        0x3f, 0x41, 0x28, 0x6b,
+        0xff, 0x43, 0x28, 0x6b,
+        0xff, 0x43, 0x28, 0xeb,
+        0x3f, 0x41, 0x28, 0x4b,
+        0xe1, 0x43, 0x28, 0x4b,
+        0xff, 0x43, 0x28, 0x4b,
+        0x3f, 0x41, 0x28, 0xcb,
+        0xe1, 0x43, 0x28, 0xcb,
+        0xff, 0x43, 0x28, 0xcb,
+        0xe1, 0x43, 0x28, 0x6b,
+        0xe1, 0x43, 0x28, 0xeb,
+        // Signed/Unsigned divide
+        0x41, 0x0c, 0xc3, 0x1a,
+        0x41, 0x0c, 0xc3, 0x9a,
+        0x41, 0x08, 0xc3, 0x1a,
+        0x41, 0x08, 0xc3, 0x9a,
+        // Variable shifts
+        0x41, 0x28, 0xc3, 0x1a,
+        0x41, 0x28, 0xc3, 0x9a,
+        0x41, 0x20, 0xc3, 0x1a,
+        0x41, 0x20, 0xc3, 0x9a,
+        0x41, 0x24, 0xc3, 0x1a,
+        0x41, 0x24, 0xc3, 0x9a,
+        0x41, 0x2c, 0xc3, 0x1a,
+        0x41, 0x2c, 0xc3, 0x9a,
+        // One operand instructions
+        0x41, 0x14, 0xc0, 0x5a,
+        0x41, 0x14, 0xc0, 0xda,
+        0x41, 0x10, 0xc0, 0x5a,
+        0x41, 0x10, 0xc0, 0xda,
+        0x41, 0x00, 0xc0, 0x5a,
+        0x41, 0x00, 0xc0, 0xda,
+        0x41, 0x08, 0xc0, 0x5a,
+        0x41, 0x0c, 0xc0, 0xda,
+        0x41, 0x04, 0xc0, 0x5a,
+        0x41, 0x04, 0xc0, 0xda,
+        0x41, 0x08, 0xc0, 0xda,
+        // 6.6.1 Multiply-add instructions
+        0x41, 0x10, 0x03, 0x1b,
+        0x41, 0x10, 0x03, 0x9b,
+        0x41, 0x90, 0x03, 0x1b,
+        0x41, 0x90, 0x03, 0x9b,
+        0x41, 0x10, 0x23, 0x9b,
+        0x41, 0x90, 0x23, 0x9b,
+        0x41, 0x10, 0xa3, 0x9b,
+        0x41, 0x90, 0xa3, 0x9b,
+        // Multiply-high instructions
+        0x41, 0x7c, 0x43, 0x9b,
+        0x41, 0x7c, 0xc3, 0x9b,
+        // Move immediate instructions
+        0x20, 0x00, 0x80, 0x52,
+        0x20, 0x00, 0x80, 0xd2,
+        0x20, 0x00, 0xa0, 0x52,
+        0x20, 0x00, 0xa0, 0xd2,
+        0x40, 0x00, 0x80, 0x12,
+        0x40, 0x00, 0x80, 0x92,
+        0x40, 0x00, 0xa0, 0x12,
+        0x40, 0x00, 0xa0, 0x92,
+        0x20, 0x00, 0x80, 0x72,
+        0x20, 0x00, 0x80, 0xf2,
+        0x20, 0x00, 0xa0, 0x72,
+        0x20, 0x00, 0xa0, 0xf2,
+        // Conditionally set flags instructions
+        0x1f, 0x00, 0x00, 0x31,
+        0x1f, 0xfc, 0x03, 0xb1,
+        0x23, 0x08, 0x42, 0x3a,
+        0x23, 0x08, 0x42, 0xba,
+        0x23, 0x08, 0x42, 0x7a,
+        0x23, 0x08, 0x42, 0xfa,
+        0x23, 0x00, 0x42, 0x3a,
+        0x23, 0x00, 0x42, 0xba,
+        0x23, 0x00, 0x42, 0x7a,
+        0x23, 0x00, 0x42, 0xfa,
+        // Conditional select instructions
+        0x41, 0x00, 0x83, 0x1a,
+        0x41, 0x00, 0x83, 0x9a,
+        0x41, 0x04, 0x83, 0x1a,
+        0x41, 0x04, 0x83, 0x9a,
+        0x41, 0x00, 0x83, 0x5a,
+        0x41, 0x00, 0x83, 0xda,
+        0x41, 0x04, 0x83, 0x5a,
+        0x41, 0x04, 0x83, 0xda,
     });
 
     var text = std.ArrayList(u8).init(gpa.allocator());
@@ -159,19 +478,246 @@ test "disassembler functionality" {
     }
 
     try std.testing.expectEqualStrings(
-        \\movz x1, #0xa
-        \\movk wzr, #0xa
-        \\movn xzr, #0xa
-        \\and  w0, w5, #0xf
-        \\orr  w0, w5, #0xf
-        \\eor  w0, w5, #0xf
-        \\ands w0, w5, #0xf
-        \\and  x0, x5, #0xf
-        \\orr  x0, x5, #0xf
-        \\eor  x0, x5, #0xf
-        \\ands x0, x5, #0xf
-        \\and  x0, x0, #0x10
-        \\and  x0, x0, #0x40
+        \\adc  w1, w2, w3
+        \\adc  x1, x2, x3
+        \\adcs w5, w4, w3
+        \\adcs x5, x4, x3
+        \\sbc  w1, w2, w3
+        \\sbc  x1, x2, x3
+        \\sbcs w1, w2, w3
+        \\sbcs x1, x2, x3
+        \\add w3, w4, #1024
+        \\add x3, x4, #1024
+        \\add w3, w4, #1024, lsl #12
+        \\add x3, x4, #1024, lsl #12
+        \\add x3, x4, #0, lsl #12
+        \\add sp, sp, #32
+        \\adds w3, w4, #1024
+        \\adds w3, w4, #1024, lsl #12
+        \\adds x3, x4, #1024
+        \\adds x3, x4, #1024, lsl #12
+        \\cmn  sp, #32
+        \\sub w3, w4, #1024
+        \\sub w3, w4, #1024, lsl #12
+        \\sub x3, x4, #1024
+        \\sub x3, x4, #1024, lsl #12
+        \\sub sp, sp, #32
+        \\subs w3, w4, #1024
+        \\subs w3, w4, #1024, lsl #12
+        \\subs x3, x4, #1024
+        \\subs x3, x4, #1024, lsl #12
+        \\cmp  sp, #32
+        \\add w12, w13, w14
+        \\add x12, x13, x14
+        \\add w12, w13, w14, lsl #12
+        \\add x12, x13, x14, lsl #12
+        \\add w12, w13, w14, lsr #10
+        \\add x12, x13, x14, lsr #10
+        \\add w12, w13, w14, asr #7
+        \\add x12, x13, x14, asr #39
+        \\sub w12, w13, w14
+        \\sub x12, x13, x14
+        \\sub w12, w13, w14, lsl #12
+        \\sub x12, x13, x14, lsl #12
+        \\sub w12, w13, w14, lsr #10
+        \\sub x12, x13, x14, lsr #10
+        \\sub w12, w13, w14, asr #7
+        \\sub x12, x13, x14, asr #39
+        \\adds w12, w13, w14
+        \\adds x12, x13, x14
+        \\adds w12, w13, w14, lsl #12
+        \\adds x12, x13, x14, lsl #12
+        \\adds w12, w13, w14, lsr #10
+        \\adds x12, x13, x14, lsr #10
+        \\adds w12, w13, w14, asr #7
+        \\adds x12, x13, x14, asr #39
+        \\subs w12, w13, w14
+        \\subs x12, x13, x14
+        \\subs w12, w13, w14, lsl #12
+        \\subs x12, x13, x14, lsl #12
+        \\subs w12, w13, w14, lsr #10
+        \\subs x12, x13, x14, lsr #10
+        \\subs w12, w13, w14, asr #7
+        \\subs x12, x13, x14, asr #39
+        \\add w1, w2, w3, uxtb
+        \\add w1, w2, w3, uxth
+        \\add w1, w2, w3
+        \\add w1, w2, w3, uxtx
+        \\add w1, w2, w3, sxtb
+        \\add w1, w2, w3, sxth
+        \\add w1, w2, w3, sxtw
+        \\add w1, w2, w3, sxtx
+        \\add x1, x2, w3, uxtb
+        \\add x1, x2, w3, uxth
+        \\add x1, x2, w3, uxtw
+        \\add x1, x2, w3, sxtb
+        \\add x1, x2, w3, sxth
+        \\add x1, x2, w3, sxtw
+        \\add w1, wsp, w3
+        \\add w1, wsp, w3
+        \\add sp, x2, x3
+        \\add sp, x2, x3
+        \\sub w1, w2, w3, uxtb
+        \\sub w1, w2, w3, uxth
+        \\sub w1, w2, w3
+        \\sub w1, w2, w3, uxtx
+        \\sub w1, w2, w3, sxtb
+        \\sub w1, w2, w3, sxth
+        \\sub w1, w2, w3, sxtw
+        \\sub w1, w2, w3, sxtx
+        \\sub x1, x2, w3, uxtb
+        \\sub x1, x2, w3, uxth
+        \\sub x1, x2, w3, uxtw
+        \\sub x1, x2, w3, sxtb
+        \\sub x1, x2, w3, sxth
+        \\sub x1, x2, w3, sxtw
+        \\sub w1, wsp, w3
+        \\sub w1, wsp, w3
+        \\sub sp, x2, x3
+        \\sub sp, x2, x3
+        \\adds w1, w2, w3, uxtb
+        \\adds w1, w2, w3, uxth
+        \\adds w1, w2, w3
+        \\adds w1, w2, w3, uxtx
+        \\adds w1, w2, w3, sxtb
+        \\adds w1, w2, w3, sxth
+        \\adds w1, w2, w3, sxtw
+        \\adds w1, w2, w3, sxtx
+        \\adds x1, x2, w3, uxtb
+        \\adds x1, x2, w3, uxth
+        \\adds x1, x2, w3, uxtw
+        \\adds x1, x2, w3, sxtb
+        \\adds x1, x2, w3, sxth
+        \\adds x1, x2, w3, sxtw
+        \\adds w1, wsp, w3
+        \\adds w1, wsp, w3
+        \\subs w1, w2, w3, uxtb
+        \\subs w1, w2, w3, uxth
+        \\subs w1, w2, w3
+        \\subs w1, w2, w3, uxtx
+        \\subs w1, w2, w3, sxtb
+        \\subs w1, w2, w3, sxth
+        \\subs w1, w2, w3, sxtw
+        \\subs w1, w2, w3, sxtx
+        \\subs x1, x2, w3, uxtb
+        \\subs x1, x2, w3, uxth
+        \\subs x1, x2, w3, uxtw
+        \\subs x1, x2, w3, sxtb
+        \\subs x1, x2, w3, sxth
+        \\subs x1, x2, w3, sxtw
+        \\subs w1, wsp, w3
+        \\subs w1, wsp, w3
+        \\cmp x8, w8, uxtw
+        \\cmp w9, w8, uxtw
+        \\cmp wsp, w8
+        \\cmp sp, w8
+        \\sub wsp, w9, w8
+        \\sub w1, wsp, w8
+        \\sub wsp, wsp, w8
+        \\sub sp, x9, w8
+        \\sub x1, sp, w8
+        \\sub sp, sp, w8
+        \\subs w1, wsp, w8
+        \\subs x1, sp, w8
+        \\sdiv w1, w2, w3
+        \\sdiv x1, x2, x3
+        \\udiv w1, w2, w3
+        \\udiv x1, x2, x3
+        \\asr w1, w2, w3
+        \\asr x1, x2, x3
+        \\lsl w1, w2, w3
+        \\lsl x1, x2, x3
+        \\lsr w1, w2, w3
+        \\lsr x1, x2, x3
+        \\ror w1, w2, w3
+        \\ror x1, x2, x3
+        \\cls w1, w2
+        \\cls x1, x2
+        \\clz w1, w2
+        \\clz x1, x2
+        \\rbit w1, w2
+        \\rbit x1, x2
+        \\rev w1, w2
+        \\rev x1, x2
+        \\rev16 w1, w2
+        \\rev16 x1, x2
+        \\rev32 x1, x2
+        \\madd   w1, w2, w3, w4
+        \\madd   x1, x2, x3, x4
+        \\msub   w1, w2, w3, w4
+        \\msub   x1, x2, x3, x4
+        \\smaddl x1, w2, w3, x4
+        \\smsubl x1, w2, w3, x4
+        \\umaddl x1, w2, w3, x4
+        \\umsubl x1, w2, w3, x4
+        \\smulh x1, x2, x3
+        \\umulh x1, x2, x3
+        \\mov w0, #1
+        \\mov x0, #1
+        \\mov w0, #65536
+        \\mov x0, #65536
+        \\mov w0, #-3
+        \\mov x0, #-3
+        \\mov w0, #-131073
+        \\mov x0, #-131073
+        \\movk w0, #1
+        \\movk x0, #1
+        \\movk w0, #1, lsl #16
+        \\movk x0, #1, lsl #16
+        \\cmn w0, #0
+        \\cmn x0, #0xff
+        \\ccmn w1, #2, #3, eq
+        \\ccmn x1, #2, #3, eq
+        \\ccmp w1, #2, #3, eq
+        \\ccmp x1, #2, #3, eq
+        \\ccmn w1, w2, #3, eq
+        \\ccmn x1, x2, #3, eq
+        \\ccmp w1, w2, #3, eq
+        \\ccmp x1, x2, #3, eq
+        \\csel w1, w2, w3, eq
+        \\csel x1, x2, x3, eq
+        \\csinc w1, w2, w3, eq
+        \\csinc x1, x2, x3, eq
+        \\csinv w1, w2, w3, eq
+        \\csinv x1, x2, x3, eq
+        \\csneg w1, w2, w3, eq
+        \\csneg x1, x2, x3, eq
+        \\
+    , text.items);
+}
+
+test "bitfield" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var disassembler = Disassembler.init(&.{
+        // 5.4.4 Bitfield Operations
+        0x41, 0x3c, 0x01, 0x33,
+        0x41, 0x3c, 0x41, 0xb3,
+        0x41, 0x3c, 0x01, 0x13,
+        0x41, 0x3c, 0x41, 0x93,
+        0x41, 0x3c, 0x01, 0x53,
+        0x41, 0x3c, 0x41, 0xd3,
+        // 5.4.5 Extract (immediate)
+        0x41, 0x3c, 0x83, 0x13,
+        0x62, 0x04, 0xc4, 0x93,
+    });
+
+    var text = std.ArrayList(u8).init(gpa.allocator());
+    defer text.deinit();
+
+    while (try disassembler.next()) |inst| {
+        try inst.fmtPrint(text.writer());
+        try text.append('\n');
+    }
+
+    try std.testing.expectEqualStrings(
+        \\bfxil w1, w2, #1, #15
+        \\bfxil x1, x2, #1, #15
+        \\sbfx w1, w2, #1, #15
+        \\sbfx x1, x2, #1, #15
+        \\ubfx w1, w2, #1, #15
+        \\ubfx x1, x2, #1, #15
+        \\extr w1, w2, w3, #15
+        \\extr x2, x3, x4, #1
         \\
     , text.items);
 }
