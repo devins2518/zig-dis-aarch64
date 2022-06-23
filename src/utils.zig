@@ -52,10 +52,47 @@ pub const Register = enum {
         };
     }
 
-    pub fn format(value: *const Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn toInt(self: *const Self) u5 {
+        return switch (self.*) {
+            .x0, .w0 => 0b00000,
+            .x1, .w1 => 0b00001,
+            .x2, .w2 => 0b00010,
+            .x3, .w3 => 0b00011,
+            .x4, .w4 => 0b00100,
+            .x5, .w5 => 0b00101,
+            .x6, .w6 => 0b00110,
+            .x7, .w7 => 0b00111,
+            .x8, .w8 => 0b01000,
+            .x9, .w9 => 0b01001,
+            .x10, .w10 => 0b01010,
+            .x11, .w11 => 0b01011,
+            .x12, .w12 => 0b01100,
+            .x13, .w13 => 0b01101,
+            .x14, .w14 => 0b01110,
+            .x15, .w15 => 0b01111,
+            .x16, .w16 => 0b10000,
+            .x17, .w17 => 0b10001,
+            .x18, .w18 => 0b10010,
+            .x19, .w19 => 0b10011,
+            .x20, .w20 => 0b10100,
+            .x21, .w21 => 0b10101,
+            .x22, .w22 => 0b10110,
+            .x23, .w23 => 0b10111,
+            .x24, .w24 => 0b11000,
+            .x25, .w25 => 0b11001,
+            .x26, .w26 => 0b11010,
+            .x27, .w27 => 0b11011,
+            .x28, .w28 => 0b11100,
+            .x29, .w29 => 0b11101,
+            .x30, .w30 => 0b11110,
+            .sp, .xzr, .wsp, .wzr => 0b11111,
+        };
+    }
+
+    pub fn format(self: *const Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        try writer.writeAll(@tagName(value.*));
+        try writer.writeAll(@tagName(self.*));
     }
 };
 

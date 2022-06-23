@@ -88,9 +88,10 @@ pub const Disassembler = struct {
                 const width = Width.from(op >> 31);
                 const payload = AddSubInstr{
                     .s = s,
+                    .op = if (op1 == 0) .add else .sub,
                     .width = width,
                     .rn = Register.from(op >> 5, width, true),
-                    .rd = Register.from(op, width, true),
+                    .rd = Register.from(op, width, !s),
                     .payload = .{ .imm12 = .{
                         .sh = @truncate(u1, op >> 22),
                         .imm = @truncate(u12, op >> 10),
@@ -108,6 +109,7 @@ pub const Disassembler = struct {
                 const add = @truncate(u1, op >> 30) == 0;
                 const payload = AddSubInstr{
                     .s = s,
+                    .op = if (add) .add else .sub,
                     .width = .x,
                     .rn = Register.from(op >> 5, .x, s),
                     .rd = Register.from(op, .x, s),
@@ -152,6 +154,8 @@ pub const Disassembler = struct {
                     error.Unallocated
                 else .{ .mov = .{
                     .ext = @intToEnum(Field(MovInstr, .ext), opc),
+                    .width = width,
+                    .hw = @truncate(u2, op >> 21),
                     .imm16 = @truncate(u16, op >> 5),
                     .rd = Register.from(op, width, false),
                 } };
@@ -248,6 +252,7 @@ pub const Disassembler = struct {
                 const add = @truncate(u1, op >> 30) == 0;
                 const payload = AddSubInstr{
                     .s = s,
+                    .op = if (add) .add else .sub,
                     .width = width,
                     .rn = Register.from(op >> 5, width, false),
                     .rd = Register.from(op, width, false),
@@ -271,9 +276,10 @@ pub const Disassembler = struct {
                 const imm3 = @truncate(u3, op >> 10);
                 const payload = AddSubInstr{
                     .s = s,
+                    .op = if (add) .add else .sub,
                     .width = width,
-                    .rn = Register.from(op >> 5, width, false),
-                    .rd = Register.from(op, width, false),
+                    .rn = Register.from(op >> 5, width, true),
+                    .rd = Register.from(op, width, !s),
                     .payload = .{ .ext_reg = .{
                         .rm = Register.from(op >> 16, width, false),
                         .option = @truncate(u3, op >> 13),
@@ -290,16 +296,17 @@ pub const Disassembler = struct {
         } else return switch (op2) {
             0b0000 => switch (op3) {
                 0b000000 => {
-                    const add = @truncate(u1, op >> 30) == 0;
+                    const adc = @truncate(u1, op >> 30) == 0;
                     const width = Width.from(op >> 31);
                     const payload = AddSubInstr{
                         .s = @truncate(u1, op >> 29) == 1,
+                        .op = if (adc) .adc else .sbc,
                         .width = width,
                         .rn = Register.from(op >> 5, width, false),
                         .rd = Register.from(op, width, false),
                         .payload = .{ .carry = Register.from(op >> 16, width, false) },
                     };
-                    return if (add)
+                    return if (adc)
                         Instruction{ .adc = payload }
                     else
                         Instruction{ .sbc = payload };
@@ -364,7 +371,7 @@ pub const Disassembler = struct {
                 const s = @truncate(u1, op >> 29);
                 const payload = DataProcInstr{
                     // TODO: check for sp
-                    .rm = if (one_source) Register.from(op >> 16, width, false) else null,
+                    .rm = if (!one_source) Register.from(op >> 16, width, false) else null,
                     .rn = Register.from(op >> 5, width, false),
                     .rd = Register.from(op, width, false),
                 };
@@ -473,9 +480,19 @@ pub const Disassembler = struct {
                 const op31 = @truncate(u3, op >> 21);
                 const o0 = @truncate(u1, op >> 15);
                 const payload = DataProcInstr{
-                    .rm = Register.from(op >> 16, width, false),
+                    .rm = if (op31 == 0b000)
+                        Register.from(op >> 16, width, false)
+                    else if (op31 == 0b010 or op31 == 0b110)
+                        Register.from(op >> 16, .x, false)
+                    else
+                        Register.from(op >> 16, .w, false),
                     .ra = Register.from(op >> 10, width, false),
-                    .rn = Register.from(op >> 5, width, false),
+                    .rn = if (op31 == 0b000)
+                        Register.from(op >> 5, width, false)
+                    else if (op31 == 0b010 or op31 == 0b110)
+                        Register.from(op >> 5, .x, false)
+                    else
+                        Register.from(op >> 5, .w, false),
                     .rd = Register.from(op >> 0, width, false),
                 };
                 return if (op54 != 0b00)
@@ -799,7 +816,7 @@ test "arithmetic" {
         \\subs x12, x13, x14, asr #39
         \\add w1, w2, w3, uxtb
         \\add w1, w2, w3, uxth
-        \\add w1, w2, w3
+        \\add w1, w2, w3, uxtw
         \\add w1, w2, w3, uxtx
         \\add w1, w2, w3, sxtb
         \\add w1, w2, w3, sxth
@@ -817,7 +834,7 @@ test "arithmetic" {
         \\add sp, x2, x3
         \\sub w1, w2, w3, uxtb
         \\sub w1, w2, w3, uxth
-        \\sub w1, w2, w3
+        \\sub w1, w2, w3, uxtw
         \\sub w1, w2, w3, uxtx
         \\sub w1, w2, w3, sxtb
         \\sub w1, w2, w3, sxth
@@ -835,7 +852,7 @@ test "arithmetic" {
         \\sub sp, x2, x3
         \\adds w1, w2, w3, uxtb
         \\adds w1, w2, w3, uxth
-        \\adds w1, w2, w3
+        \\adds w1, w2, w3, uxtw
         \\adds w1, w2, w3, uxtx
         \\adds w1, w2, w3, sxtb
         \\adds w1, w2, w3, sxth
@@ -851,7 +868,7 @@ test "arithmetic" {
         \\adds w1, wsp, w3
         \\subs w1, w2, w3, uxtb
         \\subs w1, w2, w3, uxth
-        \\subs w1, w2, w3
+        \\subs w1, w2, w3, uxtw
         \\subs w1, w2, w3, uxtx
         \\subs w1, w2, w3, sxtb
         \\subs w1, w2, w3, sxth
@@ -868,15 +885,15 @@ test "arithmetic" {
         \\cmp x8, w8, uxtw
         \\cmp w9, w8, uxtw
         \\cmp wsp, w8
-        \\cmp sp, w8
+        \\cmp sp, w8, uxtw
         \\sub wsp, w9, w8
         \\sub w1, wsp, w8
         \\sub wsp, wsp, w8
-        \\sub sp, x9, w8
-        \\sub x1, sp, w8
-        \\sub sp, sp, w8
+        \\sub sp, x9, w8, uxtw
+        \\sub x1, sp, w8, uxtw
+        \\sub sp, sp, w8, uxtw
         \\subs w1, wsp, w8
-        \\subs x1, sp, w8
+        \\subs x1, sp, w8, uxtw
         \\sdiv w1, w2, w3
         \\sdiv x1, x2, x3
         \\udiv w1, w2, w3
@@ -910,20 +927,20 @@ test "arithmetic" {
         \\umsubl x1, w2, w3, x4
         \\smulh x1, x2, x3
         \\umulh x1, x2, x3
-        \\mov w0, #1
-        \\mov x0, #1
-        \\mov w0, #65536
-        \\mov x0, #65536
-        \\mov w0, #-3
-        \\mov x0, #-3
-        \\mov w0, #-131073
-        \\mov x0, #-131073
+        \\movz w0, #1
+        \\movz x0, #1
+        \\movz w0, #1, lsl #16
+        \\movz x0, #1, lsl #16
+        \\movn w0, #2
+        \\movn x0, #2
+        \\movn w0, #2, lsl #16
+        \\movn x0, #2, lsl #16
         \\movk w0, #1
         \\movk x0, #1
         \\movk w0, #1, lsl #16
         \\movk x0, #1, lsl #16
         \\cmn w0, #0
-        \\cmn x0, #0xff
+        \\cmn x0, #255
         \\ccmn w1, #2, #3, eq
         \\ccmn x1, #2, #3, eq
         \\ccmp w1, #2, #3, eq
