@@ -37,8 +37,3 @@ pub fn main() anyerror!void {
     try stdout.writeAll("disassembled:\n");
     try stdout.print("  {s}  {s}", .{ input_hex, buf.items });
 }
-
-test "functionality" {
-    _ = @import("encoder.zig");
-    _ = @import("decoder.zig");
-}
