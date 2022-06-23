@@ -1,7 +1,15 @@
 const std = @import("std");
 const Disassembler = @import("decoder.zig").Disassembler;
 
-test "arithmetic" {
+test "a64 ignored fields" {
+    return error.SkipZigTest;
+}
+
+test "arm64 advsimd" {
+    return error.SkipZigTest;
+}
+
+test "arm64 arithmetic" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var disassembler = Disassembler.init(&.{
         // Add/Subtract with carry/borrow
@@ -441,7 +449,11 @@ test "arithmetic" {
     , text.items);
 }
 
-test "bitfield" {
+test "arm64 basic a64 undefined" {
+    return error.SkipZigTest;
+}
+
+test "arm64 bitfield" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var disassembler = Disassembler.init(&.{
         // 5.4.4 Bitfield Operations
@@ -475,4 +487,395 @@ test "bitfield" {
         \\extr x2, x3, x4, #1
         \\
     , text.items);
+}
+
+test "arm64 branch" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var disassembler = Disassembler.init(&.{
+        // Unconditional branch (register) instructions.
+        0xc0, 0x03, 0x5f, 0xd6,
+        0x20, 0x00, 0x5f, 0xd6,
+        0xe0, 0x03, 0xbf, 0xd6,
+        0xe0, 0x03, 0x9f, 0xd6,
+        0xa0, 0x00, 0x1f, 0xd6,
+        0x20, 0x01, 0x3f, 0xd6,
+        0x0B, 0x00, 0x18, 0x37,
+        // Exception generation instructions.
+        0x20, 0x00, 0x20, 0xd4,
+        0x41, 0x00, 0xa0, 0xd4,
+        0x62, 0x00, 0xa0, 0xd4,
+        0x83, 0x00, 0xa0, 0xd4,
+        0xa0, 0x00, 0x40, 0xd4,
+        0xc2, 0x00, 0x00, 0xd4,
+        0xe3, 0x00, 0x00, 0xd4,
+        0x01, 0x01, 0x00, 0xd4,
+        // // PC-relative branches (both positive and negative displacement)
+        0x07, 0x00, 0x00, 0x14,
+        0x06, 0x00, 0x00, 0x94,
+        0xa1, 0x00, 0x00, 0x54,
+        0x80, 0x00, 0x08, 0x36,
+        0xe1, 0xff, 0xf7, 0x36,
+        0x60, 0x00, 0x08, 0x37,
+        0x40, 0x00, 0x00, 0xb4,
+        0x20, 0x00, 0x00, 0xb5,
+        0x1f, 0x20, 0x03, 0xd5,
+        0xff, 0xff, 0xff, 0x17,
+        0xc1, 0xff, 0xff, 0x54,
+        0xa0, 0xff, 0x0f, 0x36,
+        0x80, 0xff, 0xff, 0xb4,
+        0x1f, 0x20, 0x03, 0xd5,
+    });
+
+    var text = std.ArrayList(u8).init(gpa.allocator());
+    defer text.deinit();
+
+    while (try disassembler.next()) |inst| {
+        try inst.fmtPrint(text.writer());
+        try text.append('\n');
+    }
+
+    try std.testing.expectEqualStrings(
+        \\ret
+        \\ret x1
+        \\drps
+        \\eret
+        \\br x5
+        \\blr x9
+        \\tbnz w11, #3, #0
+        \\brk #0x1
+        \\dcps1 #0x2
+        \\dcps2 #0x3
+        \\dcps3 #0x4
+        \\hlt #0x5
+        \\hvc #0x6
+        \\smc #0x7
+        \\svc #0x8
+        \\b #28
+        \\bl #24
+        \\b.ne #20
+        \\tbz w0, #1, #16
+        \\tbz w1, #30, #-4
+        \\tbnz w0, #1, #12
+        \\cbz x0, #8
+        \\cbnz x0, #4
+        \\nop
+        \\b #-4
+        \\b.ne #-8
+        \\tbz w0, #1, #-12
+        \\cbz x0, #-16
+        \\nop
+        \\
+    , text.items);
+}
+
+test "arm64 canonical form" {
+    return error.SkipZigTest;
+}
+
+test "arm64 crc32" {
+    return error.SkipZigTest;
+}
+
+test "arm64 crypto" {
+    return error.SkipZigTest;
+}
+
+test "arm64 invalid logical" {
+    return error.SkipZigTest;
+}
+
+test "arm64 logical" {
+    return error.SkipZigTest;
+}
+
+test "arm64 memory" {
+    return error.SkipZigTest;
+}
+
+test "arm64 non apple fmov" {
+    return error.SkipZigTest;
+}
+
+test "arm64 scalar fp" {
+    return error.SkipZigTest;
+}
+
+test "arm64 system" {
+    return error.SkipZigTest;
+}
+
+test "armv8.1a atomic" {
+    return error.SkipZigTest;
+}
+
+test "armv8.1a lor" {
+    return error.SkipZigTest;
+}
+
+test "armv8.1a pan" {
+    return error.SkipZigTest;
+}
+
+test "armv8.1a rdma" {
+    return error.SkipZigTest;
+}
+
+test "armv8.1a vhe" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a at" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a crypto" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a dotprod" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a mmfr2" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a persistent memory" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a statistical profiling" {
+    return error.SkipZigTest;
+}
+
+test "armv8.2a uao" {
+    return error.SkipZigTest;
+}
+
+test "armv8.3a complex" {
+    return error.SkipZigTest;
+}
+
+test "armv8.3a ID_ISAR6_EL1" {
+    return error.SkipZigTest;
+}
+
+test "armv8.3a js" {
+    return error.SkipZigTest;
+}
+
+test "armv8.3a rcpc" {
+    return error.SkipZigTest;
+}
+
+test "armv8.3a signed pointer" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a actmon" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a dit" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a flag" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a ldst" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a mpam" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a pmu" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a ras" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a tlb" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a trace" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a virt" {
+    return error.SkipZigTest;
+}
+
+test "armv8.4a vncr" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a bti" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a dataproc" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a mte" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a persistent memory" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a predres" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a rand" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a sb" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a specrestrict" {
+    return error.SkipZigTest;
+}
+
+test "armv8.5a ssbs" {
+    return error.SkipZigTest;
+}
+
+test " armv8.6a amvs.s" {
+    return error.SkipZigTest;
+}
+
+test "armv8.6a bf16" {
+    return error.SkipZigTest;
+}
+
+test "armv8.6a ecv" {
+    return error.SkipZigTest;
+}
+
+test "armv8.6a fgt" {
+    return error.SkipZigTest;
+}
+
+test "armv8.6a simd matmul" {
+    return error.SkipZigTest;
+}
+
+test "armv8.7a hcx" {
+    return error.SkipZigTest;
+}
+
+test "armv8.7a ls64" {
+    return error.SkipZigTest;
+}
+
+test "armv8.7a wfxt" {
+    return error.SkipZigTest;
+}
+
+test "armv8.7a xs" {
+    return error.SkipZigTest;
+}
+
+test "armv8a fpmul err" {
+    return error.SkipZigTest;
+}
+
+test "armv8a fpmul" {
+    return error.SkipZigTest;
+}
+
+test "armv9a rme" {
+    return error.SkipZigTest;
+}
+
+test "basic a64 instructions" {
+    return error.SkipZigTest;
+}
+
+test "basic a64 undefined" {
+    return error.SkipZigTest;
+}
+
+test "basic a64 unpredictable" {
+    return error.SkipZigTest;
+}
+
+test "brbe" {
+    return error.SkipZigTest;
+}
+
+test "ete" {
+    return error.SkipZigTest;
+}
+
+test "fullfp16 neg" {
+    return error.SkipZigTest;
+}
+
+test "fullfp16 neon neg" {
+    return error.SkipZigTest;
+}
+
+test "gicv3 regs" {
+    return error.SkipZigTest;
+}
+
+test "ldp offset predictable" {
+    return error.SkipZigTest;
+}
+
+test "ldp postind.predictable" {
+    return error.SkipZigTest;
+}
+
+test "ldp preind.predictable" {
+    return error.SkipZigTest;
+}
+
+test "lit.local.cfg" {
+    return error.SkipZigTest;
+}
+
+test "neon instructions" {
+    return error.SkipZigTest;
+}
+
+test "ras extension" {
+    return error.SkipZigTest;
+}
+
+test "speculation barriers" {
+    return error.SkipZigTest;
+}
+
+test "tme" {
+    return error.SkipZigTest;
+}
+
+test "trace regs" {
+    return error.SkipZigTest;
+}
+
+test "trbe" {
+    return error.SkipZigTest;
+}
+
+test "udf" {
+    return error.SkipZigTest;
+}
+
+test "ignored fields" {
+    return error.SkipZigTest;
 }

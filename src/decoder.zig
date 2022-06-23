@@ -5,14 +5,20 @@ const Field = @import("utils.zig").Field;
 
 const AddSubInstr = @import("instruction.zig").AddSubInstr;
 const BitfieldInstr = @import("instruction.zig").BitfieldInstr;
+const BranchCondInstr = @import("instruction.zig").BranchCondInstr;
+const BranchInstr = @import("instruction.zig").BranchInstr;
+const CompBranchInstr = @import("instruction.zig").CompBranchInstr;
 const ConCompInstr = @import("instruction.zig").ConCompInstr;
 const Condition = @import("instruction.zig").Condition;
 const DataProcInstr = @import("instruction.zig").DataProcInstr;
+const ExceptionInstr = @import("instruction.zig").ExceptionInstr;
 const ExtractInstr = @import("instruction.zig").ExtractInstr;
 const Instruction = @import("instruction.zig").Instruction;
 const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
+const SysWithRegInstr = @import("instruction.zig").SysWithRegInstr;
+const TestInstr = @import("instruction.zig").TestInstr;
 
 const Error = error{ EndOfStream, Unallocated, Unimplemented };
 
@@ -202,9 +208,121 @@ pub const Disassembler = struct {
 
     fn decodeBranchExcpSysInstr(op: u32) Error!Instruction {
         const op0 = @truncate(u3, op >> 29);
-        return switch (op0) {
-            else => error.Unimplemented,
-        };
+        const op1 = @truncate(u14, op >> 12);
+        const op2 = @truncate(u5, op);
+
+        if (op0 == 0b010 and op1 <= 0b01111111111111) {
+            const o0 = @truncate(u1, op >> 4);
+            const o1 = @truncate(u1, op >> 24);
+            const payload = BranchCondInstr{
+                .imm19 = @truncate(u19, op >> 5),
+                .cond = @intToEnum(Condition, @truncate(u4, op)),
+            };
+            return if (o0 == 0b0 and o1 == 0b0)
+                Instruction{ .bcond = payload }
+            else if (o0 == 0b1 and o1 == 0b0)
+                Instruction{ .bccond = payload }
+            else
+                error.Unallocated;
+        } else if (op0 == 0b110 and op1 <= 0b00111111111111) {
+            const opc = @truncate(u3, op >> 21);
+            const opc2 = @truncate(u3, op >> 2);
+            const ll = @truncate(u2, op);
+            const payload = ExceptionInstr{ .imm16 = @truncate(u16, op >> 5) };
+            return if (opc == 0b000 and opc2 == 0b000 and ll == 0b01)
+                Instruction{ .svc = payload }
+            else if (opc == 0b000 and opc2 == 0b000 and ll == 0b10)
+                Instruction{ .hvc = payload }
+            else if (opc == 0b000 and opc2 == 0b000 and ll == 0b11)
+                Instruction{ .smc = payload }
+            else if (opc == 0b001 and opc2 == 0b000 and ll == 0b00)
+                Instruction{ .brk = payload }
+            else if (opc == 0b010 and opc2 == 0b000 and ll == 0b00)
+                Instruction{ .hlt = payload }
+            else if (opc == 0b011 and opc2 == 0b000 and ll == 0b00)
+                Instruction{ .tcancel = payload }
+            else if (opc == 0b101 and opc2 == 0b000 and ll == 0b01)
+                Instruction{ .dcps1 = payload }
+            else if (opc == 0b101 and opc2 == 0b000 and ll == 0b10)
+                Instruction{ .dcps2 = payload }
+            else if (opc == 0b101 and opc2 == 0b000 and ll == 0b11)
+                Instruction{ .dcps3 = payload }
+            else
+                error.Unallocated;
+        } else if (op0 == 0b110 and op1 == 0b01000000110001) {
+            const crm = @truncate(u4, op >> 8);
+            const o2 = @truncate(u3, op >> 5);
+            const payload = SysWithRegInstr{
+                .rd = Register.from(op, .x, false),
+            };
+            return if (crm == 0b0000 and o2 == 0b000)
+                Instruction{ .wfet = payload }
+            else if (crm == 0b0000 and o2 == 0b001)
+                Instruction{ .wfit = payload }
+            else
+                error.Unallocated;
+        } else if (op0 == 0b110 and op1 == 0b01000000110010 and op2 == 0b11111) {
+            @panic("hint");
+        } else if (op0 == 0b110 and op1 == 0b01000000110011) {
+            @panic("barriers");
+        } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100000 and @truncate(u4, op1) == 0b0100) {
+            @panic("pstate");
+        } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100100) {
+            @panic("system with results");
+        } else if (op0 == 0b110 and (@truncate(u7, op1 >> 7) == 0b0100001 or @truncate(u7, op1 >> 7) == 0b0100101)) {
+            @panic("system instructions");
+        } else if (op0 == 0b110 and (@truncate(u6, op1 >> 8) == 0b010001 or @truncate(u6, op1 >> 8) == 0b010011)) {
+            @panic("system register");
+        } else if (op0 == 0b110 and op1 >= 0b10000000000000) {
+            const opc = @truncate(u4, op >> 21);
+            const o2 = @truncate(u5, op >> 16);
+            const o3 = @truncate(u6, op >> 10);
+            const o4 = @truncate(u5, op);
+            const rn = Register.from(op >> 5, .x, false);
+            const payload = BranchInstr{ .cond = rn };
+            return if (opc == 0b0000 and o2 == 0b11111 and o3 == 0b000000 and o4 == 0b00000)
+                Instruction{ .br = payload }
+            else if (opc == 0b0001 and o2 == 0b11111 and o3 == 0b000000 and o4 == 0b00000)
+                Instruction{ .blr = payload }
+            else if (opc == 0b0010 and o2 == 0b11111 and o3 == 0b000000 and o4 == 0b00000)
+                Instruction{ .ret = payload }
+            else if (opc == 0b0100 and o2 == 0b11111 and
+                o3 == 0b000000 and o4 == 0b00000 and rn.toInt() == 0b11111)
+                @as(Instruction, Instruction.eret) // TODO: stage1 moment
+            else if (opc == 0b0101 and o2 == 0b11111 and
+                o3 == 0b000000 and o4 == 0b00000 and rn.toInt() == 0b11111)
+                @as(Instruction, Instruction.drps) // TODO: stage1 moment
+            else
+                error.Unimplemented; // Pauth
+        } else if (op0 == 0b000 or op0 == 0b100) {
+            const o = @truncate(u1, op >> 31);
+            const payload = BranchInstr{ .imm = @truncate(u26, op) };
+            return if (o == 0)
+                Instruction{ .b = payload }
+            else
+                Instruction{ .bl = payload };
+        } else if ((op0 == 0b001 or op0 == 0b101) and op1 <= 0b01111111111111) {
+            const width = Width.from(op >> 31);
+            const neg = @truncate(u1, op >> 24) == 1;
+            const payload = CompBranchInstr{
+                .imm19 = @truncate(u19, op >> 5),
+                .rt = Register.from(op, width, false),
+            };
+            return if (neg)
+                Instruction{ .cbnz = payload }
+            else
+                Instruction{ .cbz = payload };
+        } else if ((op0 == 0b001 or op0 == 0b101) and op1 >= 0b10000000000000) {
+            const o = @truncate(u1, op >> 24);
+            const payload = TestInstr{
+                .imm14 = @truncate(u14, op >> 5),
+                .rt = Register.from(op, .x, false),
+            };
+            return if (o == 0)
+                Instruction{ .tbz = payload }
+            else
+                Instruction{ .tbnz = payload };
+        } else return error.Unallocated;
     }
 
     fn decodeDataProcReg(op: u32) Error!Instruction {

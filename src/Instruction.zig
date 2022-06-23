@@ -91,6 +91,71 @@ pub const Instruction = union(enum) {
     // Extract
     extr: ExtractInstr,
 
+    // Branch
+    // Conditional branch (immediate)
+    bcond: BranchCondInstr,
+    bccond: BranchCondInstr,
+    // Exception generation
+    svc: ExceptionInstr,
+    hvc: ExceptionInstr,
+    smc: ExceptionInstr,
+    brk: ExceptionInstr,
+    hlt: ExceptionInstr,
+    tcancel: ExceptionInstr,
+    dcps1: ExceptionInstr,
+    dcps2: ExceptionInstr,
+    dcps3: ExceptionInstr,
+    // System instructions with register argument
+    wfet: SysWithRegInstr,
+    wfit: SysWithRegInstr,
+    // Hints
+    hint,
+    nop,
+    yield,
+    wfe,
+    wfi,
+    sev,
+    sevl,
+    dgh,
+    xpac,
+    pacia1716,
+    pacib1716,
+    autia1716,
+    autib1716,
+    esb,
+    psb_csync,
+    tsb_csync,
+    csdb,
+    paciaz,
+    paciasp,
+    pacibz,
+    pacibsp,
+    autiaz,
+    autiasp,
+    autibz,
+    autibsp,
+    bti,
+    // Barriers
+    // PSTATE
+    // System with result
+    // System instructions
+    // System register move
+    // Unconditional branch (register)
+    br: BranchInstr,
+    blr: BranchInstr,
+    ret: BranchInstr,
+    eret,
+    drps,
+    // Unconditional branch (immediate)
+    b: BranchInstr,
+    bl: BranchInstr,
+    // Compare and branch (immediate)
+    cbz: CompBranchInstr,
+    cbnz: CompBranchInstr,
+    // Test and branch (immediate)
+    tbz: TestInstr,
+    tbnz: TestInstr,
+
     pub fn fmtPrint(self: *const Self, writer: anytype) !void {
         switch (self.*) {
             .mov => |mov| try std.fmt.format(writer, "{}", .{mov}),
@@ -184,7 +249,7 @@ pub const Instruction = union(enum) {
                 @tagName(instr.rm),
                 @tagName(instr.cond),
             }),
-            // else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
+            else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
 };
@@ -485,4 +550,32 @@ pub const ExtractInstr = struct {
     imms: u6,
     rn: Register,
     rd: Register,
+};
+
+pub const BranchCondInstr = struct {
+    imm19: u19,
+    cond: Condition,
+};
+
+pub const ExceptionInstr = struct {
+    imm16: u16,
+};
+
+pub const SysWithRegInstr = struct {
+    rd: Register,
+};
+
+pub const BranchInstr = union(enum) {
+    imm: u26,
+    cond: Register,
+};
+
+pub const TestInstr = struct {
+    imm14: u14,
+    rt: Register,
+};
+
+pub const CompBranchInstr = struct {
+    imm19: u19,
+    rt: Register,
 };
