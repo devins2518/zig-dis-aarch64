@@ -69,6 +69,11 @@ pub const Instruction = union(enum) {
     lsrv: DataProcInstr,
     asrv: DataProcInstr,
     rorv: DataProcInstr,
+    subp: DataProcInstr,
+    irg: DataProcInstr,
+    gmi: DataProcInstr,
+    pacga: DataProcInstr,
+    subps: DataProcInstr,
     // Data processing (1 source)
     rbit: DataProcInstr,
     clz: DataProcInstr,
@@ -91,17 +96,12 @@ pub const Instruction = union(enum) {
             .mov => |mov| try std.fmt.format(writer, "mov{s} {}, #{}", .{ @tagName(mov.ext), mov.rd, mov.imm16 }),
             .@"and", .bic, .orr, .orn, .eor, .eon => |log| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), log }),
             .adr, .adrp => |log| try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), log }),
-            .add, .sub => |addsub| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), addsub }),
+            .add, .adc, .sub, .sbc => |addsub| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), addsub }),
             .bfm => |bfm| try std.fmt.format(writer, "{}", .{bfm}),
-            .extr => |extr| try std.fmt.format(writer, "extr {s}, {s}, {s}, #{}", .{
-                @tagName(extr.rd),
-                @tagName(extr.rn),
-                @tagName(extr.rm),
-                extr.imms,
-            }),
+            .extr => |extr| try std.fmt.format(writer, "extr {s}, {s}, {s}, #{}", .{ @tagName(extr.rd), @tagName(extr.rn), @tagName(extr.rm), extr.imms }),
             // TODO:
             // {add,sub}g
-            else => std.debug.todo("fmt instruction"),
+            else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
 };
@@ -121,11 +121,21 @@ pub const AddSubInstr = struct {
             imm4: u4,
         },
         carry: Register,
+        shift_reg: struct {
+            rm: Register,
+            imm6: u6,
+            shift: u2,
+        },
+        ext_reg: struct {
+            rm: Register,
+            option: u3,
+            imm3: u3,
+        },
     },
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         const s = if (self.s) "s" else "";
-        try std.fmt.format(writer, "{s} {s}, {s}", .{
+        try std.fmt.format(writer, "{s} {s}, {s}, ", .{
             s,
             @tagName(self.rd),
             @tagName(self.rn),
@@ -133,12 +143,14 @@ pub const AddSubInstr = struct {
 
         switch (self.payload) {
             .imm12 => |imm| {
-                try std.fmt.format(writer, ", #{}", .{imm.imm});
+                try std.fmt.format(writer, "#{}", .{imm.imm});
                 if (imm.sh == 1)
                     try std.fmt.format(writer, ", lsl #12", .{});
             },
-            .imm_tag => std.debug.todo(""),
-            .carry => std.debug.todo(""),
+            .imm_tag => std.debug.todo("imm tag"),
+            .carry => |rm| try std.fmt.format(writer, "{s}", .{@tagName(rm)}),
+            .shift_reg => |_| try std.fmt.format(writer, "TODO: shfit_reg addsub", .{}),
+            .ext_reg => |_| try std.fmt.format(writer, "TODO: shfit_reg addsub", .{}),
         }
     }
 };
@@ -218,8 +230,8 @@ pub const ConSelectInstr = struct {
 };
 
 pub const DataProcInstr = struct {
-    rm: ?Register,
-    ra: ?Register,
+    rm: ?Register = null,
+    ra: ?Register = null,
     rn: Register,
     rd: Register,
 };

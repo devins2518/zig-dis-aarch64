@@ -5,17 +5,16 @@ const Field = @import("utils.zig").Field;
 
 const AddSubInstr = @import("instruction.zig").AddSubInstr;
 const BitfieldInstr = @import("instruction.zig").BitfieldInstr;
+const ConCompInstr = @import("instruction.zig").ConCompInstr;
+const Condition = @import("instruction.zig").Condition;
+const DataProcInstr = @import("instruction.zig").DataProcInstr;
 const ExtractInstr = @import("instruction.zig").ExtractInstr;
 const Instruction = @import("instruction.zig").Instruction;
 const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
 
-const Error = error{
-    EndOfStream,
-    Unallocated,
-    Unimplemented,
-};
+const Error = error{ EndOfStream, Unallocated, Unimplemented };
 
 pub const Disassembler = struct {
     const Self = @This();
@@ -88,10 +87,10 @@ pub const Disassembler = struct {
                 const op1 = @truncate(u1, op >> 30);
                 const width = Width.from(op >> 31);
                 const payload = AddSubInstr{
-                    .s = @truncate(u1, op >> 29) == 1,
+                    .s = s,
                     .width = width,
-                    .rn = Register.from(op >> 5, width, s),
-                    .rd = Register.from(op, width, s),
+                    .rn = Register.from(op >> 5, width, true),
+                    .rd = Register.from(op, width, true),
                     .payload = .{ .imm12 = .{
                         .sh = @truncate(u1, op >> 22),
                         .imm = @truncate(u12, op >> 10),
@@ -210,39 +209,297 @@ pub const Disassembler = struct {
         const op2 = @truncate(u4, op >> 21);
         const op3 = @truncate(u6, op >> 10);
         _ = op0;
-        return if (op1 == 0) switch (op2) {
+
+        // TODO: refactor to use return on top if (fixed in stage2)
+        // https://github.com/ziglang/zig/issues/10601
+        if (op1 == 0) return switch (op2) {
             0b0000...0b0111 => blk: { // logical shifted reg
-                break :blk error.Unimplemented;
+                const imm6 = @truncate(u6, op >> 10);
+                const opc = @truncate(u2, op >> 29);
+                const width = Width.from(op >> 31);
+                const n = @truncate(u1, op >> 21);
+                const payload = LogInstr{
+                    .s = opc == 0b11,
+                    .n = @truncate(u1, op >> 21),
+                    .width = width,
+                    // TODO: check sp
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, width, false),
+                    .payload = .{ .shift_reg = .{
+                        .rm = Register.from(op >> 16, width, false),
+                        .imm6 = imm6,
+                    } },
+                };
+                break :blk if (width == .w and imm6 >= 0b100000)
+                    error.Unallocated
+                else switch (@as(u3, opc) << 2 | n) {
+                    0b000, 0b110 => Instruction{ .@"and" = payload },
+                    0b001, 0b111 => Instruction{ .bic = payload },
+                    0b010 => Instruction{ .orr = payload },
+                    0b011 => Instruction{ .orn = payload },
+                    0b100 => Instruction{ .eor = payload },
+                    0b101 => Instruction{ .eon = payload },
+                };
             },
+
             0b1000, 0b1010, 0b1100, 0b1110 => blk: { // add/sub shifted reg
-                break :blk error.Unimplemented;
+                const width = Width.from(op >> 31);
+                const s = @truncate(u1, op >> 29) == 1;
+                const add = @truncate(u1, op >> 30) == 0;
+                const payload = AddSubInstr{
+                    .s = s,
+                    .width = width,
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, width, false),
+                    .payload = .{ .shift_reg = .{
+                        .rm = Register.from(op >> 16, width, false),
+                        .imm6 = @truncate(u6, op >> 10),
+                        .shift = @truncate(u2, op >> 22),
+                    } },
+                };
+                break :blk if (add)
+                    Instruction{ .add = payload }
+                else
+                    Instruction{ .sub = payload };
             },
 
             0b1001, 0b1011, 0b1101, 0b1111 => blk: { // add/sub extended reg
-                break :blk error.Unimplemented;
-            },
-        } else switch (op2) {
-            0b0000 => blk: { // add/sub with carry, rotr onto flags, eval onto flags
-                break :blk switch (op3) {
-                    0b000000 => error.Unimplemented,
-                    0b000001, 0b100001 => error.Unimplemented,
-                    0b000010, 0b010010, 0b100010, 0b110010 => error.Unimplemented,
-                    else => error.Unallocated,
+                const width = Width.from(op >> 31);
+                const s = @truncate(u1, op >> 29) == 1;
+                const add = @truncate(u1, op >> 30) == 0;
+                const opt = @truncate(u2, op >> 22);
+                const imm3 = @truncate(u3, op >> 10);
+                const payload = AddSubInstr{
+                    .s = s,
+                    .width = width,
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, width, false),
+                    .payload = .{ .ext_reg = .{
+                        .rm = Register.from(op >> 16, width, false),
+                        .option = @truncate(u3, op >> 13),
+                        .imm3 = imm3,
+                    } },
                 };
+                break :blk if (imm3 > 0b100 or opt != 0b00)
+                    error.Unallocated
+                else if (add)
+                    Instruction{ .add = payload }
+                else
+                    Instruction{ .sub = payload };
             },
-            0b0010 => blk: { // cond compare
-                break :blk error.Unimplemented;
+        } else return switch (op2) {
+            0b0000 => switch (op3) {
+                0b000000 => {
+                    const add = @truncate(u1, op >> 30) == 0;
+                    const width = Width.from(op >> 31);
+                    const payload = AddSubInstr{
+                        .s = @truncate(u1, op >> 29) == 1,
+                        .width = width,
+                        .rn = Register.from(op >> 5, width, false),
+                        .rd = Register.from(op, width, false),
+                        .payload = .{ .carry = Register.from(op >> 16, width, false) },
+                    };
+                    return if (add)
+                        Instruction{ .adc = payload }
+                    else
+                        Instruction{ .sbc = payload };
+                },
+                0b000001, 0b100001 => error.Unimplemented, // rotr into flags
+                0b000010, 0b010010, 0b100010, 0b110010 => error.Unimplemented, // eval into flags
+                else => error.Unallocated,
             },
-            0b0100 => blk: { // condselect
-                break :blk error.Unimplemented;
+
+            0b0010 => { // cond compare
+                const reg = @truncate(u1, op >> 11) == 0;
+                const width = Width.from(op >> 31);
+                const o3 = @truncate(u1, op >> 4);
+                const o2 = @truncate(u1, op >> 10);
+                const s = @truncate(u1, op >> 29);
+                const cmn = @truncate(u1, op >> 30) == 0;
+                const payload = ConCompInstr{
+                    .cond = @intToEnum(Condition, @truncate(u4, op >> 12)),
+                    .rn = Register.from(op >> 5, width, false),
+                    .nzcv = @truncate(u4, op),
+                    .payload = if (reg) .{
+                        .rm = Register.from(op >> 16, width, false),
+                    } else .{ .imm5 = @truncate(u5, op >> 16) },
+                };
+                return if (o3 == 1 or o2 == 1 or s == 0)
+                    error.Unallocated
+                else if (cmn)
+                    Instruction{ .ccmn = payload }
+                else
+                    Instruction{ .ccmp = payload };
             },
-            0b0110 => blk: { // data processing 1/2 source
-                break :blk error.Unimplemented;
+
+            0b0100 => { // condselect
+                const width = Width.from(op >> 31);
+                const s = @truncate(u1, op >> 29);
+                const o = @truncate(u1, op >> 30);
+                const o2 = @truncate(u2, op >> 10);
+                const payload = .{
+                    .rm = Register.from(op >> 16, width, false),
+                    .cond = @intToEnum(Condition, @truncate(u4, op >> 12)),
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, width, false),
+                };
+                return if (s == 1 or o2 > 0b01)
+                    error.Unallocated
+                else if (o == 0 and o2 == 0b00)
+                    Instruction{ .csel = payload }
+                else if (o == 0 and o2 == 0b01)
+                    Instruction{ .csinc = payload }
+                else if (o == 1 and o2 == 0b00)
+                    Instruction{ .csinv = payload }
+                else if (o == 1 and o2 == 0b01)
+                    Instruction{ .csneg = payload }
+                else
+                    error.Unallocated;
             },
-            0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111 => blk: { // data processing 3 source
-                break :blk error.Unimplemented;
+
+            0b0110 => { // data processing 1/2 source
+                const width = Width.from(op >> 31);
+                const one_source = @truncate(u1, op >> 30) == 1;
+                const opcode = @truncate(u6, op >> 10);
+                const s = @truncate(u1, op >> 29);
+                const payload = DataProcInstr{
+                    // TODO: check for sp
+                    .rm = if (one_source) Register.from(op >> 16, width, false) else null,
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, width, false),
+                };
+                return if (one_source) blk: {
+                    const opcode2 = @truncate(u5, op >> 16);
+                    const rn = @truncate(u5, op >> 5);
+                    break :blk if (s == 1)
+                        error.Unallocated
+                    else if (opcode == 0b000000 and opcode2 == 0b00000)
+                        Instruction{ .rbit = payload }
+                    else if (opcode == 0b000001 and opcode2 == 0b00000)
+                        Instruction{ .rev16 = payload }
+                    else if (((opcode == 0b000010 and width == .w) or (opcode == 0b000011 and width == .x)) and opcode2 == 0b00000)
+                        Instruction{ .rev = payload }
+                    else if (opcode == 0b000100 and opcode2 == 0b00000)
+                        Instruction{ .clz = payload }
+                    else if (opcode == 0b000101 and opcode2 == 0b00000)
+                        Instruction{ .cls = payload }
+                    else if (width == .x and opcode == 0b000010 and opcode2 == 0b00000)
+                        Instruction{ .rev32 = payload }
+                    else if (width == .x and opcode == 0b000000 and opcode2 == 0b00001)
+                        @panic("pacia")
+                    else if (width == .x and opcode == 0b000001 and opcode2 == 0b00001)
+                        @panic("pacib")
+                    else if (width == .x and opcode == 0b000010 and opcode2 == 0b00001)
+                        @panic("pacda")
+                    else if (width == .x and opcode == 0b000011 and opcode2 == 0b00001)
+                        @panic("pacdb")
+                    else if (width == .x and opcode == 0b000100 and opcode2 == 0b00001)
+                        @panic("autia")
+                    else if (width == .x and opcode == 0b000101 and opcode2 == 0b00001)
+                        @panic("autib")
+                    else if (width == .x and opcode == 0b000110 and opcode2 == 0b00001)
+                        @panic("autda")
+                    else if (width == .x and opcode == 0b000111 and opcode2 == 0b00001)
+                        @panic("autdb")
+                    else if (width == .x and opcode == 0b001000 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("paciza")
+                    else if (width == .x and opcode == 0b001001 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("pacizb")
+                    else if (width == .x and opcode == 0b001001 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("pacizb")
+                    else if (width == .x and opcode == 0b001010 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("pacdza")
+                    else if (width == .x and opcode == 0b001011 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("pacdzb")
+                    else if (width == .x and opcode == 0b001100 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("autiza")
+                    else if (width == .x and opcode == 0b001101 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("autizb")
+                    else if (width == .x and opcode == 0b001110 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("autiza")
+                    else if (width == .x and opcode == 0b001111 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("autizb")
+                    else if (width == .x and opcode == 0b010000 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("xpaci")
+                    else if (width == .x and opcode == 0b010001 and opcode2 == 0b00001 and rn == 0b11111)
+                        @panic("xpacd")
+                    else
+                        error.Unallocated;
+                } else if (s == 0 and opcode == 0b000010)
+                    Instruction{ .udiv = payload }
+                else if (s == 0 and opcode == 0b000011)
+                    Instruction{ .sdiv = payload }
+                else if (s == 0 and opcode == 0b001000)
+                    Instruction{ .lslv = payload }
+                else if (s == 0 and opcode == 0b001001)
+                    Instruction{ .lsrv = payload }
+                else if (s == 0 and opcode == 0b001010)
+                    Instruction{ .asrv = payload }
+                else if (s == 0 and opcode == 0b001011)
+                    Instruction{ .rorv = payload }
+                else if (width == .w and s == 0 and opcode == 0b010000)
+                    Instruction{ .crc32b = payload }
+                else if (width == .w and s == 0 and opcode == 0b010001)
+                    Instruction{ .crc32h = payload }
+                else if (width == .w and s == 0 and opcode == 0b010010)
+                    Instruction{ .crc32w = payload }
+                else if (width == .w and s == 0 and opcode == 0b010100)
+                    Instruction{ .crc32cb = payload }
+                else if (width == .w and s == 0 and opcode == 0b010101)
+                    Instruction{ .crc32ch = payload }
+                else if (width == .w and s == 0 and opcode == 0b010110)
+                    Instruction{ .crc32cw = payload }
+                else if (width == .x and s == 0 and opcode == 0b000000)
+                    Instruction{ .subp = payload }
+                else if (width == .x and s == 0 and opcode == 0b000100)
+                    Instruction{ .irg = payload }
+                else if (width == .x and s == 0 and opcode == 0b000101)
+                    Instruction{ .gmi = payload }
+                else if (width == .x and s == 0 and opcode == 0b001100)
+                    Instruction{ .pacga = payload }
+                else if (width == .x and s == 0 and opcode == 0b010011)
+                    Instruction{ .crc32x = payload }
+                else if (width == .x and s == 0 and opcode == 0b010111)
+                    Instruction{ .crc32cx = payload }
+                else if (width == .x and s == 0 and opcode == 0b000000)
+                    Instruction{ .subps = payload }
+                else
+                    error.Unallocated;
             },
-            else => error.Unallocated,
+
+            0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111 => { // data processing 3 source
+                const width = Width.from(op >> 31);
+                const op54 = @truncate(u2, op >> 29);
+                const op31 = @truncate(u3, op >> 21);
+                const o0 = @truncate(u1, op >> 15);
+                const payload = DataProcInstr{
+                    .rm = Register.from(op >> 16, width, false),
+                    .ra = Register.from(op >> 10, width, false),
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op >> 0, width, false),
+                };
+                return if (op54 != 0b00)
+                    error.Unallocated
+                else if (op31 == 0 and o0 == 0)
+                    Instruction{ .madd = payload }
+                else if (op31 == 0 and o0 == 1)
+                    Instruction{ .msub = payload }
+                else if (width == .x and op31 == 0b001 and o0 == 0)
+                    Instruction{ .smaddl = payload }
+                else if (width == .x and op31 == 0b001 and o0 == 1)
+                    Instruction{ .smsubl = payload }
+                else if (width == .x and op31 == 0b010 and o0 == 0)
+                    Instruction{ .smulh = payload }
+                else if (width == .x and op31 == 0b101 and o0 == 0)
+                    Instruction{ .umaddl = payload }
+                else if (width == .x and op31 == 0b101 and o0 == 1)
+                    Instruction{ .umsubl = payload }
+                else if (width == .x and op31 == 0b110 and o0 == 0)
+                    Instruction{ .umulh = payload }
+                else
+                    error.Unallocated;
+            },
+            else => return error.Unallocated,
         };
     }
 };
@@ -478,17 +735,18 @@ test "arithmetic" {
     }
 
     try std.testing.expectEqualStrings(
-        \\adc  w1, w2, w3
-        \\adc  x1, x2, x3
+        \\adc w1, w2, w3
+        \\adc x1, x2, x3
         \\adcs w5, w4, w3
         \\adcs x5, x4, x3
-        \\sbc  w1, w2, w3
-        \\sbc  x1, x2, x3
+        \\sbc w1, w2, w3
+        \\sbc x1, x2, x3
         \\sbcs w1, w2, w3
         \\sbcs x1, x2, x3
         \\add w3, w4, #1024
         \\add x3, x4, #1024
         \\add w3, w4, #1024, lsl #12
+        \\add w3, w4, #0, lsl #12
         \\add x3, x4, #1024, lsl #12
         \\add x3, x4, #0, lsl #12
         \\add sp, sp, #32
@@ -496,7 +754,7 @@ test "arithmetic" {
         \\adds w3, w4, #1024, lsl #12
         \\adds x3, x4, #1024
         \\adds x3, x4, #1024, lsl #12
-        \\cmn  sp, #32
+        \\cmn sp, #32
         \\sub w3, w4, #1024
         \\sub w3, w4, #1024, lsl #12
         \\sub x3, x4, #1024
@@ -506,7 +764,7 @@ test "arithmetic" {
         \\subs w3, w4, #1024, lsl #12
         \\subs x3, x4, #1024
         \\subs x3, x4, #1024, lsl #12
-        \\cmp  sp, #32
+        \\cmp sp, #32
         \\add w12, w13, w14
         \\add x12, x13, x14
         \\add w12, w13, w14, lsl #12
@@ -642,10 +900,10 @@ test "arithmetic" {
         \\rev16 w1, w2
         \\rev16 x1, x2
         \\rev32 x1, x2
-        \\madd   w1, w2, w3, w4
-        \\madd   x1, x2, x3, x4
-        \\msub   w1, w2, w3, w4
-        \\msub   x1, x2, x3, x4
+        \\madd w1, w2, w3, w4
+        \\madd x1, x2, x3, x4
+        \\msub w1, w2, w3, w4
+        \\msub x1, x2, x3, x4
         \\smaddl x1, w2, w3, x4
         \\smsubl x1, w2, w3, x4
         \\umaddl x1, w2, w3, x4
