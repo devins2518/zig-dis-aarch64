@@ -17,6 +17,10 @@ pub fn build(b: *std.build.Builder) void {
     exe.setBuildMode(mode);
     exe.install();
 
+    const lib = b.addStaticLibrary("zig-dis-aarch64", "src/lib.zig");
+    lib.setBuildMode(mode);
+    lib.install();
+
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
