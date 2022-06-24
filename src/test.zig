@@ -10,8 +10,7 @@ test "arm64 advsimd" {
 }
 
 test "arm64 arithmetic" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var disassembler = Disassembler.init(&.{
+    try doTheTest(&.{
         // Add/Subtract with carry/borrow
         0x41, 0x00, 0x03, 0x1a,
         0x41, 0x00, 0x03, 0x9a,
@@ -229,17 +228,7 @@ test "arm64 arithmetic" {
         0x41, 0x00, 0x83, 0xda,
         0x41, 0x04, 0x83, 0x5a,
         0x41, 0x04, 0x83, 0xda,
-    });
-
-    var text = std.ArrayList(u8).init(gpa.allocator());
-    defer text.deinit();
-
-    while (try disassembler.next()) |inst| {
-        try inst.fmtPrint(text.writer());
-        try text.append('\n');
-    }
-
-    try std.testing.expectEqualStrings(
+    },
         \\adc w1, w2, w3
         \\adc x1, x2, x3
         \\adcs w5, w4, w3
@@ -446,7 +435,7 @@ test "arm64 arithmetic" {
         \\csneg w1, w2, w3, eq
         \\csneg x1, x2, x3, eq
         \\
-    , text.items);
+    );
 }
 
 test "arm64 basic a64 undefined" {
@@ -454,8 +443,7 @@ test "arm64 basic a64 undefined" {
 }
 
 test "arm64 bitfield" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var disassembler = Disassembler.init(&.{
+    try doTheTest(&.{
         // 5.4.4 Bitfield Operations
         0x41, 0x3c, 0x01, 0x33,
         0x41, 0x3c, 0x41, 0xb3,
@@ -466,17 +454,7 @@ test "arm64 bitfield" {
         // 5.4.5 Extract (immediate)
         0x41, 0x3c, 0x83, 0x13,
         0x62, 0x04, 0xc4, 0x93,
-    });
-
-    var text = std.ArrayList(u8).init(gpa.allocator());
-    defer text.deinit();
-
-    while (try disassembler.next()) |inst| {
-        try inst.fmtPrint(text.writer());
-        try text.append('\n');
-    }
-
-    try std.testing.expectEqualStrings(
+    },
         \\bfxil w1, w2, #1, #15
         \\bfxil x1, x2, #1, #15
         \\sbfx w1, w2, #1, #15
@@ -486,12 +464,11 @@ test "arm64 bitfield" {
         \\extr w1, w2, w3, #15
         \\extr x2, x3, x4, #1
         \\
-    , text.items);
+    );
 }
 
 test "arm64 branch" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var disassembler = Disassembler.init(&.{
+    try doTheTest(&.{
         // Unconditional branch (register) instructions.
         0xc0, 0x03, 0x5f, 0xd6,
         0x20, 0x00, 0x5f, 0xd6,
@@ -524,17 +501,7 @@ test "arm64 branch" {
         0xa0, 0xff, 0x0f, 0x36,
         0x80, 0xff, 0xff, 0xb4,
         0x1f, 0x20, 0x03, 0xd5,
-    });
-
-    var text = std.ArrayList(u8).init(gpa.allocator());
-    defer text.deinit();
-
-    while (try disassembler.next()) |inst| {
-        try inst.fmtPrint(text.writer());
-        try text.append('\n');
-    }
-
-    try std.testing.expectEqualStrings(
+    },
         \\ret
         \\ret x1
         \\drps
@@ -565,7 +532,7 @@ test "arm64 branch" {
         \\cbz x0, #-16
         \\nop
         \\
-    , text.items);
+    );
 }
 
 test "arm64 canonical form" {
@@ -878,4 +845,19 @@ test "udf" {
 
 test "ignored fields" {
     return error.SkipZigTest;
+}
+
+fn doTheTest(bytes: []const u8, expected: []const u8) !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var disassembler = Disassembler.init(bytes);
+
+    var text = std.ArrayList(u8).init(gpa.allocator());
+    defer text.deinit();
+
+    while (try disassembler.next()) |inst| {
+        try inst.fmtPrint(text.writer());
+        try text.append('\n');
+    }
+
+    try std.testing.expectEqualStrings(expected, text.items);
 }
