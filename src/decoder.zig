@@ -262,7 +262,60 @@ pub const Disassembler = struct {
             else
                 error.Unallocated;
         } else if (op0 == 0b110 and op1 == 0b01000000110010 and op2 == 0b11111) {
-            @panic("hint");
+            const crm = @truncate(u4, op >> 8);
+            const o2 = @truncate(u3, op >> 5);
+            return if (crm == 0b0000 and o2 == 0b000)
+                @as(Instruction, Instruction.nop)
+            else if (crm == 0b0000 and o2 == 0b001)
+                @as(Instruction, Instruction.yield)
+            else if (crm == 0b0000 and o2 == 0b010)
+                @as(Instruction, Instruction.wfe)
+            else if (crm == 0b0000 and o2 == 0b011)
+                @as(Instruction, Instruction.wfi)
+            else if (crm == 0b0000 and o2 == 0b100)
+                @as(Instruction, Instruction.sev)
+            else if (crm == 0b0000 and o2 == 0b101)
+                @as(Instruction, Instruction.sevl)
+            else if (crm == 0b0000 and o2 == 0b110)
+                @as(Instruction, Instruction.dgh)
+            else if (crm == 0b0000 and o2 == 0b111)
+                @as(Instruction, Instruction.xpac)
+            else if (crm == 0b0001 and o2 == 0b000)
+                @as(Instruction, Instruction.pacia1716)
+            else if (crm == 0b0001 and o2 == 0b010)
+                @as(Instruction, Instruction.pacib1716)
+            else if (crm == 0b0001 and o2 == 0b100)
+                @as(Instruction, Instruction.autia1716)
+            else if (crm == 0b0001 and o2 == 0b110)
+                @as(Instruction, Instruction.autib1716)
+            else if (crm == 0b0010 and o2 == 0b000)
+                @as(Instruction, Instruction.esb)
+            else if (crm == 0b0010 and o2 == 0b001)
+                @as(Instruction, Instruction.psb_csync)
+            else if (crm == 0b0010 and o2 == 0b010)
+                @as(Instruction, Instruction.tsb_csync)
+            else if (crm == 0b0010 and o2 == 0b100)
+                @as(Instruction, Instruction.csdb)
+            else if (crm == 0b0011 and o2 == 0b000)
+                @as(Instruction, Instruction.paciaz)
+            else if (crm == 0b0011 and o2 == 0b001)
+                @as(Instruction, Instruction.paciasp)
+            else if (crm == 0b0011 and o2 == 0b010)
+                @as(Instruction, Instruction.pacibz)
+            else if (crm == 0b0011 and o2 == 0b011)
+                @as(Instruction, Instruction.pacibsp)
+            else if (crm == 0b0011 and o2 == 0b100)
+                @as(Instruction, Instruction.autiaz)
+            else if (crm == 0b0011 and o2 == 0b101)
+                @as(Instruction, Instruction.autiasp)
+            else if (crm == 0b0011 and o2 == 0b110)
+                @as(Instruction, Instruction.autibz)
+            else if (crm == 0b0011 and o2 == 0b111)
+                @as(Instruction, Instruction.autibsp)
+            else if (crm == 0b0100 and @truncate(u1, o2) == 0b0)
+                @as(Instruction, Instruction.bti)
+            else
+                @as(Instruction, Instruction.hint);
         } else if (op0 == 0b110 and op1 == 0b01000000110011) {
             @panic("barriers");
         } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100000 and @truncate(u4, op1) == 0b0100) {
@@ -279,7 +332,7 @@ pub const Disassembler = struct {
             const o3 = @truncate(u6, op >> 10);
             const o4 = @truncate(u5, op);
             const rn = Register.from(op >> 5, .x, false);
-            const payload = BranchInstr{ .cond = rn };
+            const payload = BranchInstr{ .reg = rn };
             return if (opc == 0b0000 and o2 == 0b11111 and o3 == 0b000000 and o4 == 0b00000)
                 Instruction{ .br = payload }
             else if (opc == 0b0001 and o2 == 0b11111 and o3 == 0b000000 and o4 == 0b00000)
@@ -315,6 +368,8 @@ pub const Disassembler = struct {
         } else if ((op0 == 0b001 or op0 == 0b101) and op1 >= 0b10000000000000) {
             const o = @truncate(u1, op >> 24);
             const payload = TestInstr{
+                .b5 = @truncate(u1, op >> 31),
+                .b40 = @truncate(u5, op >> 19),
                 .imm14 = @truncate(u14, op >> 5),
                 .rt = Register.from(op, .x, false),
             };

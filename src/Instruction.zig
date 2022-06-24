@@ -249,6 +249,43 @@ pub const Instruction = union(enum) {
                 @tagName(instr.rm),
                 @tagName(instr.cond),
             }),
+            .ret, .br, .blr => |instr| {
+                try std.fmt.format(writer, "{s}", .{@tagName(self.*)});
+                const reg_int = instr.reg.toInt();
+                if (self.* != .ret or reg_int != 30)
+                    try std.fmt.format(writer, " {s}", .{@tagName(instr.reg)});
+            },
+            .tbz, .tbnz => |instr| {
+                try std.fmt.format(writer, "{s}", .{@tagName(self.*)});
+                const r = if (instr.b5 == 0) "w" else "x";
+                const t = instr.rt.toInt();
+                const imm = @as(u6, instr.b5) << 5 | instr.b40;
+                try std.fmt.format(writer, " {s}{}, #{}, #{}", .{ r, t, imm, @bitCast(i16, @as(u16, instr.imm14) << 2) });
+            },
+            .svc,
+            .hvc,
+            .smc,
+            .brk,
+            .hlt,
+            .tcancel,
+            .dcps1,
+            .dcps2,
+            .dcps3,
+            => |instr| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), instr.imm16 }),
+            .b, .bl => |instr| {
+                switch (instr) {
+                    .imm => |imm| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), @bitCast(i28, @as(u28, imm) << 2) }),
+                    .reg => |reg| try std.fmt.format(writer, "{s} {s}", .{ @tagName(self.*), @tagName(reg) }),
+                }
+            },
+            .bcond, .bccond => |instr| {
+                if (self.* == .bcond)
+                    try std.fmt.format(writer, "b", .{})
+                else
+                    try std.fmt.format(writer, "bc", .{});
+                try std.fmt.format(writer, ".{s} #{}", .{ @tagName(instr.cond), @bitCast(i21, @as(u21, instr.imm19) << 2) });
+            },
+            .cbz, .cbnz => |instr| try std.fmt.format(writer, "{s} {s}, #{}", .{ @tagName(self.*), @tagName(instr.rt), @bitCast(i21, @as(u21, instr.imm19) << 2) }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -567,10 +604,12 @@ pub const SysWithRegInstr = struct {
 
 pub const BranchInstr = union(enum) {
     imm: u26,
-    cond: Register,
+    reg: Register,
 };
 
 pub const TestInstr = struct {
+    b5: u1,
+    b40: u5,
     imm14: u14,
     rt: Register,
 };
