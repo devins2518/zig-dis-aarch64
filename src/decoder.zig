@@ -52,7 +52,7 @@ pub const Disassembler = struct {
             0b1010, 0b1011 => return try decodeBranchExcpSysInstr(op), // Branches, exceptions, system instructions
             0b0100, 0b0110, 0b1100, 0b1110 => return error.Unimplemented, // Load/Store
             0b0101, 0b1101 => return try decodeDataProcReg(op), // Data processing - Reg
-            0b0111, 0b1111 => return error.Unimplemented, // Data processing - Scalar FP and SIMD
+            0b0111, 0b1111 => return try decodeDataProcScalarFPSIMD(op), // Data processing - Scalar FP and SIMD
         }
     }
 
@@ -140,7 +140,7 @@ pub const Disassembler = struct {
                     .n = @truncate(u1, op >> 22),
                     .width = width,
                     .rn = Register.from(op >> 5, width, true),
-                    .rd = Register.from(op, width, false),
+                    .rd = Register.from(op, width, true),
                     .payload = .{ .imm = .{
                         .immr = @truncate(u6, op >> 16),
                         .imms = @truncate(u6, op >> 10),
@@ -691,5 +691,23 @@ pub const Disassembler = struct {
             },
             else => return error.Unallocated,
         };
+    }
+
+    fn decodeDataProcScalarFPSIMD(op: u32) Error!Instruction {
+        const op0 = @truncate(u4, op >> 28);
+        const op1 = @truncate(u2, op >> 23);
+        const op2 = @truncate(u4, op >> 19);
+        const op3 = @truncate(u9, op >> 10);
+        return if (op0 == 0b0100 and (op1 == 0b00 or op1 == 0b01) and @truncate(u3, op2) == 0b101 and
+            @truncate(u2, op3) == 0b10 and @truncate(u2, op3 >> 8) == 0b00)
+            @panic("crypto aes")
+        else if (op0 == 0b0101 and (op1 == 0b00 or op1 == 0b01) and @truncate(u1, op2 >> 2) == 0b0 and
+            @truncate(u2, op3) == 0b00 and @truncate(u1, op3 >> 5) == 0b0)
+            @panic("crypto 3reg sha")
+        else if (op0 == 0b0101 and (op1 == 0b00 or op1 == 0b01) and @truncate(u3, op2) == 0b101 and
+            @truncate(u2, op3) == 0b10 and @truncate(u2, op3 >> 8) == 0b00)
+            @panic("crypto 2reg sha")
+        else
+            error.Unimplemented;
     }
 };

@@ -271,7 +271,7 @@ pub const Instruction = union(enum) {
             .dcps1,
             .dcps2,
             .dcps3,
-            => |instr| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), instr.imm16 }),
+            => |instr| try std.fmt.format(writer, "{s} #0x{x}", .{ @tagName(self.*), instr.imm16 }),
             .b, .bl => |instr| {
                 switch (instr) {
                     .imm => |imm| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), @bitCast(i28, @as(u28, imm) << 2) }),
@@ -391,7 +391,7 @@ pub const AddSubInstr = struct {
                 if (!(std.mem.eql(u8, "lsl", option) or std.mem.eql(u8, "", option)) and ext.imm3 == 0) {
                     try std.fmt.format(writer, ", {s}", .{option});
                     if (ext.imm3 != 0)
-                        try std.fmt.format(writer, " #{}", .{ext.imm3});
+                        try std.fmt.format(writer, " #0x{x}", .{ext.imm3});
                 }
             },
         }
@@ -423,12 +423,8 @@ pub const LogInstr = struct {
             @tagName(self.rn),
         });
         switch (self.payload) {
-            .imm => |imm| std.fmt.format(
-                writer,
-                "#{}",
-                .{self.decodeBitMasks(imm.imms, imm.immr)},
-            ) catch unreachable,
-            else => unreachable,
+            .imm => |imm| try std.fmt.format(writer, "#0x{x}", .{self.decodeBitMasks(imm.imms, imm.immr)}),
+            .shift_reg => |_| {},
         }
     }
 
@@ -443,14 +439,14 @@ pub const LogInstr = struct {
             0x3333333333333333, // size = 2
         };
 
-        const pattern: u32 = (@intCast(u32, self.n) << 6) | (~imms & 0x3f);
+        const pattern = (@intCast(u32, self.n) << 6) | @truncate(u6, ~imms);
 
         if ((pattern & (pattern - 1)) == 0) @panic("decode failure");
 
         const leading_zeroes = @clz(u32, pattern);
         const ones = (imms + 1) & (@as(u32, 0x7fffffff) >> @truncate(u5, leading_zeroes));
         const mask = lookup[leading_zeroes - 25];
-        const ret = std.math.rotr(u64, mask ^ (mask << @truncate(u6, ones)), @intCast(u32, immr));
+        const ret = std.math.rotr(u64, mask ^ (mask << @truncate(u6, ones)), @as(u32, immr));
         return if (self.width == .w) @truncate(u32, ret) else ret;
     }
 };
@@ -543,10 +539,32 @@ pub const BitfieldInstr = struct {
         const name = switch (self.ext) {
             .signed => if (self.imms < self.immr)
                 "sbfiz"
-            else if (self.bfxPreferred()) "sbfx" else std.debug.todo("sbfm aliasing"),
+            else if (self.bfxPreferred())
+                "sbfx"
+            else if (self.imms == 0b011111 or self.imms == 0b111111)
+                "asr"
+            else if (self.immr == 0b000000 and self.imms == 0b000111)
+                "sxtb"
+            else if (self.immr == 0b000000 and self.imms == 0b001111)
+                "sxth"
+            else if (self.immr == 0b000000 and self.imms == 0b011111)
+                "sxtw"
+            else
+                unreachable,
             .unsigned => if (self.imms < self.immr)
                 "ubfiz"
-            else if (self.bfxPreferred()) "ubfx" else std.debug.todo("ubfm aliasing"),
+            else if (self.bfxPreferred())
+                "ubfx"
+            else if ((self.imms != 0b011111 or self.imms != 0b111111) and @intCast(u7, self.imms) + 1 == self.immr)
+                "lsl"
+            else if (self.imms == 0b011111 or self.imms == 0b111111)
+                "lsr"
+            else if (self.immr == 0b000000 and self.imms == 0b000111)
+                "uxtb"
+            else if (self.immr == 0b000000 and self.imms == 0b001111)
+                "uxth"
+            else
+                unreachable,
             .none => if (self.imms < self.immr)
                 if (self.rn == .wzr or self.rn == .xzr) "bfc" else "bfi"
             else
@@ -573,8 +591,8 @@ pub const BitfieldInstr = struct {
     fn bfxPreferred(self: *const @This()) bool {
         const imms = self.imms;
         const immr = self.immr;
-        return !((imms != 0b011111 and imms + 1 == immr) or
-            (imms != 0b111111 and imms + 1 == immr) or
+        return !((imms != 0b011111 and @intCast(u7, imms) + 1 == immr) or
+            (imms != 0b111111 and @intCast(u7, imms) + 1 == immr) or
             (imms == 0b011111) or
             (imms == 0b111111) or
             (immr == 0 and imms == 0b000111) or
