@@ -2289,7 +2289,7 @@ test "arm64 arithmetic" {
         0x41, 0x00, 0x83, 0xda,
         0x41, 0x04, 0x83, 0x5a,
         0x41, 0x04, 0x83, 0xda,
-    }, &.{
+    },
         \\adc w1, w2, w3
         \\adc x1, x2, x3
         \\adcs w5, w4, w3
@@ -2496,7 +2496,7 @@ test "arm64 arithmetic" {
         \\csneg w1, w2, w3, eq
         \\csneg x1, x2, x3, eq
         \\
-    });
+    );
 }
 
 test "arm64 basic a64 undefined" {
@@ -2515,7 +2515,7 @@ test "arm64 bitfield" {
         // 5.4.5 Extract (immediate)
         0x41, 0x3c, 0x83, 0x13,
         0x62, 0x04, 0xc4, 0x93,
-    }, &.{
+    },
         \\bfxil w1, w2, #1, #15
         \\bfxil x1, x2, #1, #15
         \\sbfx w1, w2, #1, #15
@@ -2525,7 +2525,7 @@ test "arm64 bitfield" {
         \\extr w1, w2, w3, #15
         \\extr x2, x3, x4, #1
         \\
-    });
+    );
 }
 
 test "arm64 branch" {
@@ -2562,7 +2562,7 @@ test "arm64 branch" {
         0xa0, 0xff, 0x0f, 0x36,
         0x80, 0xff, 0xff, 0xb4,
         0x1f, 0x20, 0x03, 0xd5,
-    }, &.{
+    },
         \\ret
         \\ret x1
         \\drps
@@ -2593,7 +2593,7 @@ test "arm64 branch" {
         \\cbz x0, #-16
         \\nop
         \\
-    });
+    );
 }
 
 test "arm64 canonical form" {
@@ -2624,7 +2624,7 @@ test "arm64 crc32" {
         0x2d, 0x56, 0xd9, 0x1a,
         0x7f, 0x58, 0xc5, 0x1a,
         0x12, 0x5e, 0xdf, 0x9a,
-    }, &.{
+    },
         \\crc32b w5, w7, w20
         \\crc32h w28, wzr, w30
         \\crc32w w0, w1, w2
@@ -2634,7 +2634,7 @@ test "arm64 crc32" {
         \\crc32cw wzr, w3, w5
         \\crc32cx w18, w16, xzr
         \\
-    });
+    );
 }
 
 test "arm64 crypto" {
@@ -2745,7 +2745,7 @@ test "arm64 logical" {
         0x41, 0x1c, 0xa3, 0xaa,
         0x41, 0x1c, 0xe3, 0x2a,
         0x41, 0x1c, 0xe3, 0xaa,
-    }, &.{
+    },
         \\and w0, w0, #0x1
         \\and x0, x0, #0x1
         \\and w1, w2, #0xf
@@ -2843,7 +2843,7 @@ test "arm64 logical" {
         \\orn w1, w2, w3, ror #7
         \\orn x1, x2, x3, ror #7
         \\
-    });
+    );
 }
 
 test "arm64 memory" {
@@ -7634,7 +7634,7 @@ test "ignored fields" {
     if (true) return error.SkipZigTest;
 }
 
-fn doTheTest(bytes: []const u8, expected: []const []const u8) !void {
+fn doTheTest(bytes: []const u8, expected: []const u8) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var disassembler = Disassembler.init(bytes);
 
@@ -7646,11 +7646,5 @@ fn doTheTest(bytes: []const u8, expected: []const []const u8) !void {
         try text.append('\n');
     }
 
-    for (expected) |output| {
-        if (std.testing.expectEqualStrings(output, text.items))
-            return
-        else |_|
-            continue;
-    }
-    return error.TestFailed;
+    try std.testing.expectEqualStrings(expected, text.items);
 }
