@@ -28,11 +28,6 @@ pub const Register = struct {
             try std.fmt.format(writer, "{s}{}", .{ @tagName(self.width), self.reg });
     }
 
-    pub fn toOther(self: Self) Self {
-        const other_width = if (self.width == .w) Width.x else Width.w;
-        return Self{ .reg = self.reg, .width = other_width, .sp = self.sp };
-    }
-
     pub fn getWidth(self: Self) Width {
         return self.width;
     }

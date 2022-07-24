@@ -173,8 +173,10 @@ pub const Instruction = union(enum) {
             .crc32w,
             .crc32cw,
             => |instr| {
-                const rd = if (instr.rd.getWidth() == .x) instr.rd.toOther() else instr.rd;
-                const rn = if (instr.rn.getWidth() == .x) instr.rn.toOther() else instr.rn;
+                var rd = instr.rd;
+                var rn = instr.rn;
+                rd.width = .w;
+                rn.width = .w;
                 try std.fmt.format(writer, "{s} {}, {}, {}", .{
                     @tagName(self.*),
                     rd,
