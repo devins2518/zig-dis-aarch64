@@ -1,21 +1,22 @@
 const std = @import("std");
-const Disassembler = @import("decoder.zig").Disassembler;
+const lib = @import("lib.zig");
+const Disassembler = lib.Disassembler;
 
 pub fn main() anyerror!void {
-    var gpa_alloc = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa = gpa_alloc.allocator();
-    const args = try std.process.argsAlloc(gpa);
-    defer std.process.argsFree(gpa, args);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
 
-    if (args.len == 0) {
-        std.debug.print("Send hex input in through arguments", .{});
+    if (args.len == 1) {
+        std.debug.print("Send hex input in through arguments\n", .{});
         std.process.exit(1);
     }
     const input_hex = args[1];
     const hex_len = @divExact(input_hex.len, 2);
 
     var i: usize = 0;
-    var bytes = std.ArrayList(u8).init(gpa);
+    var bytes = std.ArrayList(u8).init(allocator);
     try bytes.ensureTotalCapacity(hex_len);
     defer bytes.deinit();
 
@@ -24,7 +25,7 @@ pub fn main() anyerror!void {
         bytes.appendAssumeCapacity(try std.fmt.parseInt(u8, next_hex, 16));
     }
 
-    var buf = std.ArrayList(u8).init(gpa);
+    var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
 
     var disassembler = Disassembler.init(bytes.items);
