@@ -89,10 +89,42 @@ pub const Register = enum {
         };
     }
 
-    pub fn format(self: *const Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = fmt;
-        _ = options;
+    pub fn format(self: *const Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         try writer.writeAll(@tagName(self.*));
+    }
+
+    pub fn toOther(self: Self) Self {
+        return switch (self) {
+            // zig fmt: off
+            .w0 => .x0, .w1 => .x1, .w2 => .x2, .w3 => .x3, .w4 => .x4,
+            .w5 => .x5, .w6 => .x6, .w7 => .x7, .w8 => .x8, .w9 => .x9,
+            .w10 => .x10, .w11 => .x11, .w12 => .x12, .w13 => .x13, .w14 => .x14,
+            .w15 => .x15, .w16 => .x16, .w17 => .x17, .w18 => .x18, .w19 => .x19,
+            .w20 => .x20, .w21 => .x21, .w22 => .x22, .w23 => .x23, .w24 => .x24,
+            .w25 => .x25, .w26 => .x26, .w27 => .x27, .w28 => .x28, .w29 => .x29,
+            .w30 => .x30, .wsp => .sp, .wzr => .xzr,
+            .x0 => .w0, .x1 => .w1, .x2 => .w2, .x3 => .w3, .x4 => .w4,
+            .x5 => .w5, .x6 => .w6, .x7 => .w7, .x8 => .w8, .x9 => .w9,
+            .x10 => .w10, .x11 => .w11, .x12 => .w12, .x13 => .w13, .x14 => .w14,
+            .x15 => .w15, .x16 => .w16, .x17 => .w17, .x18 => .w18, .x19 => .w19,
+            .x20 => .w20, .x21 => .w21, .x22 => .w22, .x23 => .w23, .x24 => .w24,
+            .x25 => .w25, .x26 => .w26, .x27 => .w27, .x28 => .w28, .x29 => .w29,
+            .x30 => .w30, .sp => .wsp, .xzr => .wzr,
+            // zig fmt: on
+        };
+    }
+
+    pub fn getWidth(self: Self) Width {
+        return switch (self) {
+            // zig fmt: off
+            .w0,  .w1,  .w2,  .w3,  .w4,  .w5,  .w6,  .w7,  .w8,  .w9,  .w10, .w11, .w12, .w13, .w14, .w15,
+            .w16, .w17, .w18, .w19, .w20, .w21, .w22, .w23, .w24, .w25, .w26, .w27, .w28, .w29, .w30, .wzr,
+            .wsp => Width.w,
+            .x0,  .x1,  .x2,  .x3,  .x4,  .x5,  .x6,  .x7,  .x8,  .x9,  .x10, .x11, .x12, .x13, .x14, .x15,
+            .x16, .x17, .x18, .x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28, .x29, .x30, .xzr,
+            .sp => Width.x,
+            // zig fmt: on
+        };
     }
 };
 

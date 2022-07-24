@@ -2615,7 +2615,6 @@ test "arm64 canonical form" {
 }
 
 test "arm64 crc32" {
-    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         0xe5, 0x40, 0xd4, 0x1a,
         0xfc, 0x47, 0xde, 0x1a,
@@ -2626,10 +2625,10 @@ test "arm64 crc32" {
         0x7f, 0x58, 0xc5, 0x1a,
         0x12, 0x5e, 0xdf, 0x9a,
     },
-        \\crc32b  w5, w7, w20
-        \\crc32h  w28, wzr, w30
-        \\crc32w  w0, w1, w2
-        \\crc32x  w7, w9, x20
+        \\crc32b w5, w7, w20
+        \\crc32h w28, wzr, w30
+        \\crc32w w0, w1, w2
+        \\crc32x w7, w9, x20
         \\crc32cb w9, w5, w4
         \\crc32ch w13, w17, w25
         \\crc32cw wzr, w3, w5
