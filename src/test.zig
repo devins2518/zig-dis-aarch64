@@ -2634,7 +2634,7 @@ test "arm64 crc32" {
         \\crc32cw wzr, w3, w5
         \\crc32cx w18, w16, xzr
         \\
-    );
+    });
 }
 
 test "arm64 crypto" {
@@ -7652,4 +7652,5 @@ fn doTheTest(bytes: []const u8, expected: []const []const u8) !void {
         else |_|
             continue;
     }
+    return error.TestFailed;
 }

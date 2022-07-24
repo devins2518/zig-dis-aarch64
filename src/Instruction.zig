@@ -163,7 +163,7 @@ pub const Instruction = union(enum) {
             .adr, .adrp => |log| try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), log }),
             .add, .adc, .sub, .sbc => |addsub| try std.fmt.format(writer, "{}", .{addsub}),
             .bfm => |bfm| try std.fmt.format(writer, "{}", .{bfm}),
-            .extr => |extr| try std.fmt.format(writer, "extr {s}, {s}, {s}, #{}", .{ @tagName(extr.rd), @tagName(extr.rn), @tagName(extr.rm), extr.imms }),
+            .extr => |extr| try std.fmt.format(writer, "extr {}, {}, {}, #{}", .{ extr.rd, extr.rn, extr.rm, extr.imms }),
             .crc32x,
             .crc32cx,
             .crc32b,
@@ -175,11 +175,11 @@ pub const Instruction = union(enum) {
             => |instr| {
                 const rd = if (instr.rd.getWidth() == .x) instr.rd.toOther() else instr.rd;
                 const rn = if (instr.rn.getWidth() == .x) instr.rn.toOther() else instr.rn;
-                try std.fmt.format(writer, "{s} {s}, {s}, {s}", .{
+                try std.fmt.format(writer, "{s} {}, {}, {}", .{
                     @tagName(self.*),
-                    @tagName(rd),
-                    @tagName(rn),
-                    @tagName(instr.rm.?),
+                    rd,
+                    rn,
+                    instr.rm.?,
                 });
             },
             .udiv,
@@ -204,11 +204,11 @@ pub const Instruction = union(enum) {
                     "ror"
                 else
                     @tagName(self.*);
-                try std.fmt.format(writer, "{s} {s}, {s}, {s}", .{
+                try std.fmt.format(writer, "{s} {}, {}, {}", .{
                     name,
-                    @tagName(instr.rd),
-                    @tagName(instr.rn),
-                    @tagName(instr.rm.?),
+                    instr.rd,
+                    instr.rn,
+                    instr.rm.?,
                 });
             },
             .rbit,
@@ -217,10 +217,10 @@ pub const Instruction = union(enum) {
             .rev,
             .rev16,
             .rev32,
-            => |instr| try std.fmt.format(writer, "{s} {s}, {s}", .{
+            => |instr| try std.fmt.format(writer, "{s} {}, {}", .{
                 @tagName(self.*),
-                @tagName(instr.rd),
-                @tagName(instr.rn),
+                instr.rd,
+                instr.rn,
             }),
             .madd,
             .smaddl,
@@ -232,19 +232,19 @@ pub const Instruction = union(enum) {
             .umulh,
             => |instr| {
                 if (self.* == .smulh or self.* == .umulh)
-                    try std.fmt.format(writer, "{s} {s}, {s}, {s}", .{
+                    try std.fmt.format(writer, "{s} {}, {}, {}", .{
                         @tagName(self.*),
-                        @tagName(instr.rd),
-                        @tagName(instr.rn),
-                        @tagName(instr.rm.?),
+                        instr.rd,
+                        instr.rn,
+                        instr.rm.?,
                     })
                 else
-                    try std.fmt.format(writer, "{s} {s}, {s}, {s}, {s}", .{
+                    try std.fmt.format(writer, "{s} {}, {}, {}, {}", .{
                         @tagName(self.*),
-                        @tagName(instr.rd),
-                        @tagName(instr.rn),
-                        @tagName(instr.rm.?),
-                        @tagName(instr.ra.?),
+                        instr.rd,
+                        instr.rn,
+                        instr.rm.?,
+                        instr.ra.?,
                     });
             },
             .ccmn, .ccmp => |instr| try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), instr }),
@@ -252,18 +252,18 @@ pub const Instruction = union(enum) {
             .csinc,
             .csinv,
             .csneg,
-            => |instr| try std.fmt.format(writer, "{s} {s}, {s}, {s}, {s}", .{
+            => |instr| try std.fmt.format(writer, "{s} {}, {}, {}, {s}", .{
                 @tagName(self.*),
-                @tagName(instr.rd),
-                @tagName(instr.rn),
-                @tagName(instr.rm),
+                instr.rd,
+                instr.rn,
+                instr.rm,
                 @tagName(instr.cond),
             }),
             .ret, .br, .blr => |instr| {
                 try std.fmt.format(writer, "{s}", .{@tagName(self.*)});
                 const reg_int = instr.reg.toInt();
                 if (self.* != .ret or reg_int != 30)
-                    try std.fmt.format(writer, " {s}", .{@tagName(instr.reg)});
+                    try std.fmt.format(writer, " {}", .{instr.reg});
             },
             .tbz, .tbnz => |instr| {
                 try std.fmt.format(writer, "{s}", .{@tagName(self.*)});
@@ -285,7 +285,7 @@ pub const Instruction = union(enum) {
             .b, .bl => |instr| {
                 switch (instr) {
                     .imm => |imm| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), @bitCast(i28, @as(u28, imm) << 2) }),
-                    .reg => |reg| try std.fmt.format(writer, "{s} {s}", .{ @tagName(self.*), @tagName(reg) }),
+                    .reg => |reg| try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), reg }),
                 }
             },
             .bcond, .bccond => |instr| {
@@ -295,7 +295,7 @@ pub const Instruction = union(enum) {
                     try std.fmt.format(writer, "bc", .{});
                 try std.fmt.format(writer, ".{s} #{}", .{ @tagName(instr.cond), @bitCast(i21, @as(u21, instr.imm19) << 2) });
             },
-            .cbz, .cbnz => |instr| try std.fmt.format(writer, "{s} {s}, #{}", .{ @tagName(self.*), @tagName(instr.rt), @bitCast(i21, @as(u21, instr.imm19) << 2) }),
+            .cbz, .cbnz => |instr| try std.fmt.format(writer, "{s} {}, #{}", .{ @tagName(self.*), instr.rt, @bitCast(i21, @as(u21, instr.imm19) << 2) }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -332,16 +332,16 @@ pub const AddSubInstr = struct {
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         const s = if (self.s) "s" else "";
-        if (self.op == .add and self.s and (self.rd == .xzr or self.rd == .wzr))
-            try std.fmt.format(writer, "{s} {s}, ", .{ "cmn", @tagName(self.rn) })
-        else if (self.op == .sub and self.s and (self.rd == .xzr or self.rd == .wzr))
-            try std.fmt.format(writer, "{s} {s}, ", .{ "cmp", @tagName(self.rn) })
+        if (self.op == .add and self.s and self.rd.reg == 31)
+            try std.fmt.format(writer, "cmn {}, ", .{self.rn})
+        else if (self.op == .sub and self.s and self.rd.reg == 31)
+            try std.fmt.format(writer, "cmp {}, ", .{self.rn})
         else
-            try std.fmt.format(writer, "{s}{s} {s}, {s}, ", .{
+            try std.fmt.format(writer, "{s}{s} {}, {}, ", .{
                 @tagName(self.op),
                 s,
-                @tagName(self.rd),
-                @tagName(self.rn),
+                self.rd,
+                self.rn,
             });
 
         switch (self.payload) {
@@ -351,7 +351,7 @@ pub const AddSubInstr = struct {
                     try std.fmt.format(writer, ", lsl #12", .{});
             },
             .imm_tag => std.debug.todo("imm tag"),
-            .carry => |rm| try std.fmt.format(writer, "{s}", .{@tagName(rm)}),
+            .carry => |rm| try std.fmt.format(writer, "{}", .{rm}),
             .shift_reg => |shift| {
                 try std.fmt.format(writer, "{s}", .{shift.rm});
                 if (shift.imm6 != 0) switch (shift.shift) {
@@ -366,12 +366,14 @@ pub const AddSubInstr = struct {
                     0b000 => "uxtb",
                     0b001 => "uxth",
                     0b010 => if (self.width == .w and
-                        (self.rn == .wsp or self.rd == .wsp))
+                        ((self.rn.reg == 31 and self.rn.sp) or
+                        (self.rd.reg == 31 and self.rd.sp)))
                         if (ext.imm3 == 0x0) "" else "lsl"
                     else
                         "uxtw",
                     0b011 => if (self.width == .x and
-                        (self.rn == .sp or self.rd == .sp))
+                        ((self.rn.reg == 31 and self.rn.sp) or
+                        (self.rd.reg == 31 and self.rd.sp)))
                         if (ext.imm3 == 0x0) "" else "lsl"
                     else
                         "uxtx",
@@ -430,16 +432,14 @@ pub const LogInstr = struct {
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         if (self.op == .@"and" and self.s and self.rd.toInt() == 0b11111) {
-            try std.fmt.format(writer, "tst {s}, ", .{
-                @tagName(self.rn),
-            });
+            try std.fmt.format(writer, "tst {}, ", .{self.rn});
         } else {
             const s = if (self.s) "s" else "";
-            try std.fmt.format(writer, "{s}{s} {s}, {s}, ", .{
+            try std.fmt.format(writer, "{s}{s} {}, {}, ", .{
                 @tagName(self.op),
                 s,
-                @tagName(self.rd),
-                @tagName(self.rn),
+                self.rd,
+                self.rn,
             });
         }
         switch (self.payload) {
@@ -489,10 +489,10 @@ pub const ConCompInstr = struct {
     },
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        try std.fmt.format(writer, "{s}, ", .{@tagName(self.rn)});
+        try std.fmt.format(writer, "{}, ", .{self.rn});
         switch (self.payload) {
             .imm5 => |imm| try std.fmt.format(writer, "#{}", .{imm}),
-            .rm => |rm| try std.fmt.format(writer, "{s}", .{@tagName(rm)}),
+            .rm => |rm| try std.fmt.format(writer, "{}", .{rm}),
         }
         try std.fmt.format(writer, ", #{}, {s}", .{ self.nzcv, @tagName(self.cond) });
     }
@@ -522,8 +522,8 @@ pub const PCRelAddrInstr = struct {
         var imm = @as(u64, self.immhi) << 2 | self.immlo;
         if (imm & (@as(u64, 1) << (21 - 1)) != 0)
             imm |= ~((@as(u64, 1) << 32) - 1);
-        try std.fmt.format(writer, "{s}, #{}", .{
-            @tagName(self.rd),
+        try std.fmt.format(writer, "{}, #{}", .{
+            self.rd,
             imm,
         });
     }
@@ -594,23 +594,23 @@ pub const BitfieldInstr = struct {
             else
                 unreachable,
             .none => if (self.imms < self.immr)
-                if (self.rn == .wzr or self.rn == .xzr) "bfc" else "bfi"
+                if (self.rn.reg == 31 or self.rn.reg == 31) "bfc" else "bfi"
             else
                 "bfxil",
         };
         if (self.imms < self.immr)
-            try std.fmt.format(writer, "{s} {s}, {s}, #{}, #{}", .{
+            try std.fmt.format(writer, "{s} {}, {}, #{}, #{}", .{
                 name,
-                @tagName(self.rd),
-                @tagName(self.rn),
+                self.rd,
+                self.rn,
                 width - self.immr,
                 self.imms + 1,
             })
         else
-            try std.fmt.format(writer, "{s} {s}, {s}, #{}, #{}", .{
+            try std.fmt.format(writer, "{s} {}, {}, #{}, #{}", .{
                 name,
-                @tagName(self.rd),
-                @tagName(self.rn),
+                self.rd,
+                self.rn,
                 self.immr,
                 self.imms,
             });
