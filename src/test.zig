@@ -2751,7 +2751,7 @@ test "arm64 logical" {
         \\and x0, x0, #0x1
         \\and w1, w2, #0xf
         \\and x1, x2, #0xf
-        \\and sp, x5, #0xf
+        \\and sp, x5, #0xfffffffffffffff0
         \\ands w0, w0, #0x1
         \\ands x0, x0, #0x1
         \\ands w1, w2, #0xf

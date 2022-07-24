@@ -159,7 +159,7 @@ pub const Instruction = union(enum) {
     pub fn fmtPrint(self: *const Self, writer: anytype) !void {
         switch (self.*) {
             .mov => |mov| try std.fmt.format(writer, "{}", .{mov}),
-            .@"and", .bic, .orr, .orn, .eor, .eon => |log| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), log }),
+            .@"and", .bic, .orr, .orn, .eor, .eon => |log| try std.fmt.format(writer, "{}", .{log}),
             .adr, .adrp => |log| try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), log }),
             .add, .adc, .sub, .sbc => |addsub| try std.fmt.format(writer, "{}", .{addsub}),
             .bfm => |bfm| try std.fmt.format(writer, "{}", .{bfm}),
@@ -307,6 +307,7 @@ pub const AddSubInstr = struct {
             imm4: u4,
         },
         carry: Register,
+        // TODO: modularize this
         shift_reg: struct {
             rm: Register,
             imm6: u6,
@@ -401,6 +402,7 @@ pub const AddSubInstr = struct {
 pub const LogInstr = struct {
     s: bool,
     n: u1,
+    op: enum { @"and", bic, orr, orn, eor, eon },
     width: Width,
     rn: Register,
     rd: Register,
@@ -412,19 +414,35 @@ pub const LogInstr = struct {
         shift_reg: struct {
             rm: Register,
             imm6: u6,
+            shift: u2,
         },
     },
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        const s = if (self.s) "s" else "";
-        try std.fmt.format(writer, "{s} {s}, {s}, ", .{
-            s,
-            @tagName(self.rd),
-            @tagName(self.rn),
-        });
+        if (self.op == .@"and" and self.s and self.rd.toInt() == 0b11111) {
+            try std.fmt.format(writer, "tst {s}, ", .{
+                @tagName(self.rn),
+            });
+        } else {
+            const s = if (self.s) "s" else "";
+            try std.fmt.format(writer, "{s}{s} {s}, {s}, ", .{
+                @tagName(self.op),
+                s,
+                @tagName(self.rd),
+                @tagName(self.rn),
+            });
+        }
         switch (self.payload) {
             .imm => |imm| try std.fmt.format(writer, "#0x{x}", .{self.decodeBitMasks(imm.imms, imm.immr)}),
-            .shift_reg => |_| {},
+            .shift_reg => |shift| {
+                try std.fmt.format(writer, "{s}", .{shift.rm});
+                if (shift.imm6 != 0) switch (shift.shift) {
+                    0b00 => try std.fmt.format(writer, ", lsl #{}", .{shift.imm6}),
+                    0b01 => try std.fmt.format(writer, ", lsr #{}", .{shift.imm6}),
+                    0b10 => try std.fmt.format(writer, ", asr #{}", .{shift.imm6}),
+                    0b11 => try std.fmt.format(writer, ", ror #{}", .{shift.imm6}),
+                };
+            },
         }
     }
 

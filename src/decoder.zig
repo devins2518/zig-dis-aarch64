@@ -135,9 +135,17 @@ pub const Disassembler = struct {
                 const width = Width.from(op >> 31);
                 const n = @truncate(u1, op >> 22);
                 const opc = @truncate(u2, op >> 29);
+                // TODO: stage1 moment
+                const LogTy = Field(LogInstr, .op);
+                const log_op = switch (opc) {
+                    0b00, 0b11 => LogTy.@"and",
+                    0b01 => LogTy.orr,
+                    0b10 => LogTy.eor,
+                };
                 const payload = LogInstr{
                     .s = opc == 0b11,
                     .n = @truncate(u1, op >> 22),
+                    .op = log_op,
                     .width = width,
                     .rn = Register.from(op >> 5, width, true),
                     .rd = Register.from(op, width, true),
@@ -395,9 +403,20 @@ pub const Disassembler = struct {
                 const opc = @truncate(u2, op >> 29);
                 const width = Width.from(op >> 31);
                 const n = @truncate(u1, op >> 21);
+                // TODO: stage1 moment
+                const LogTy = Field(LogInstr, .op);
+                const log_op = switch (@as(u3, opc) << 1 | n) {
+                    0b000, 0b110 => LogTy.@"and",
+                    0b001, 0b111 => LogTy.bic,
+                    0b010 => LogTy.orr,
+                    0b011 => LogTy.orn,
+                    0b100 => LogTy.eor,
+                    0b101 => LogTy.eon,
+                };
                 const payload = LogInstr{
                     .s = opc == 0b11,
                     .n = @truncate(u1, op >> 21),
+                    .op = log_op,
                     .width = width,
                     // TODO: check sp
                     .rn = Register.from(op >> 5, width, false),
@@ -405,17 +424,18 @@ pub const Disassembler = struct {
                     .payload = .{ .shift_reg = .{
                         .rm = Register.from(op >> 16, width, false),
                         .imm6 = imm6,
+                        .shift = @truncate(u2, op >> 22),
                     } },
                 };
                 break :blk if (width == .w and imm6 >= 0b100000)
                     error.Unallocated
-                else switch (@as(u3, opc) << 2 | n) {
-                    0b000, 0b110 => Instruction{ .@"and" = payload },
-                    0b001, 0b111 => Instruction{ .bic = payload },
-                    0b010 => Instruction{ .orr = payload },
-                    0b011 => Instruction{ .orn = payload },
-                    0b100 => Instruction{ .eor = payload },
-                    0b101 => Instruction{ .eon = payload },
+                else switch (log_op) {
+                    .@"and" => Instruction{ .@"and" = payload },
+                    .bic => Instruction{ .bic = payload },
+                    .orr => Instruction{ .orr = payload },
+                    .orn => Instruction{ .orn = payload },
+                    .eor => Instruction{ .eor = payload },
+                    .eon => Instruction{ .eon = payload },
                 };
             },
 
