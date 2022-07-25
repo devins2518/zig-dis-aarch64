@@ -4,6 +4,7 @@ const Width = @import("utils.zig").Width;
 const Field = @import("utils.zig").Field;
 
 const AddSubInstr = @import("instruction.zig").AddSubInstr;
+const AesInstr = @import("instruction.zig").AesInstr;
 const BitfieldInstr = @import("instruction.zig").BitfieldInstr;
 const BranchCondInstr = @import("instruction.zig").BranchCondInstr;
 const BranchInstr = @import("instruction.zig").BranchInstr;
@@ -17,6 +18,7 @@ const Instruction = @import("instruction.zig").Instruction;
 const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
+const ShaInstr = @import("instruction.zig").ShaInstr;
 const SysWithRegInstr = @import("instruction.zig").SysWithRegInstr;
 const TestInstr = @import("instruction.zig").TestInstr;
 
@@ -718,16 +720,102 @@ pub const Disassembler = struct {
         const op1 = @truncate(u2, op >> 23);
         const op2 = @truncate(u4, op >> 19);
         const op3 = @truncate(u9, op >> 10);
-        return if (op0 == 0b0100 and (op1 == 0b00 or op1 == 0b01) and @truncate(u3, op2) == 0b101 and
-            @truncate(u2, op3) == 0b10 and @truncate(u2, op3 >> 8) == 0b00)
-            @panic("crypto aes")
-        else if (op0 == 0b0101 and (op1 == 0b00 or op1 == 0b01) and @truncate(u1, op2 >> 2) == 0b0 and
-            @truncate(u2, op3) == 0b00 and @truncate(u1, op3 >> 5) == 0b0)
-            @panic("crypto 3reg sha")
-        else if (op0 == 0b0101 and (op1 == 0b00 or op1 == 0b01) and @truncate(u3, op2) == 0b101 and
-            @truncate(u2, op3) == 0b10 and @truncate(u2, op3 >> 8) == 0b00)
-            @panic("crypto 2reg sha")
-        else
-            error.Unimplemented;
+        // TODO: should be a top return
+        if (op0 == 0b0100 and
+            (op1 == 0b00 or op1 == 0b01) and
+            @truncate(u3, op2) == 0b101 and
+            @truncate(u2, op3) == 0b10 and
+            @truncate(u2, op3 >> 8) == 0b00)
+        {
+            // TODO: stage1 moment
+            const AesOpTy = Field(AesInstr, .op);
+            const aes_op = switch (@truncate(u5, op >> 12)) {
+                0b00100 => AesOpTy.e,
+                0b00101 => AesOpTy.d,
+                0b00110 => AesOpTy.mc,
+                0b00111 => AesOpTy.imc,
+                else => return error.Unallocated,
+            };
+            const payload = AesInstr{
+                .rn = Register.from(op >> 5, .v, false),
+                .rd = Register.from(op, .v, false),
+                .op = aes_op,
+            };
+            return if (@truncate(u2, op >> 22) != 0b00)
+                error.Unimplemented
+            else
+                Instruction{ .aes = payload };
+        } else if (op0 == 0b0101 and
+            (op1 == 0b00 or op1 == 0b01) and
+            @truncate(u1, op2 >> 2) == 0b0 and
+            @truncate(u2, op3) == 0b00 and
+            @truncate(u1, op3 >> 5) == 0b0)
+        {
+            // TODO: stage 1 moment
+            const ShaOpTy = Field(ShaInstr, .op);
+            const sha_op = switch (@as(u5, @truncate(u2, op >> 22)) << 3 | @truncate(u3, op >> 12)) {
+                0b00000 => ShaOpTy.c,
+                0b00001 => ShaOpTy.p,
+                0b00010 => ShaOpTy.m,
+                0b00011 => ShaOpTy.su0,
+                0b00100 => ShaOpTy.h,
+                0b00101 => ShaOpTy.h2,
+                0b00110 => ShaOpTy.su1,
+                else => return error.Unallocated,
+            };
+            const rn_width = switch (sha_op) {
+                .c, .p, .m => Width.s,
+                .su0, .su1 => Width.v,
+                .h, .h2 => Width.q,
+            };
+            const rd_width = switch (sha_op) {
+                .c, .p, .m, .h, .h2 => Width.q,
+                .su0, .su1 => Width.v,
+            };
+            const payload = ShaInstr{
+                .rn = Register.from(op >> 5, rn_width, false),
+                .rd = Register.from(op, rd_width, false),
+                .rm = Register.from(op >> 16, .v, false),
+                .op = sha_op,
+            };
+            return switch (sha_op) {
+                .c, .p, .m, .su0 => Instruction{ .sha1 = payload },
+                .h, .h2, .su1 => Instruction{ .sha256 = payload },
+            };
+        } else if (op0 == 0b0101 and
+            (op1 == 0b00 or op1 == 0b01) and
+            @truncate(u3, op2) == 0b101 and
+            @truncate(u2, op3) == 0b10 and
+            @truncate(u2, op3 >> 8) == 0b00)
+        {
+            // TODO: stage 1 moment
+            const ShaOpTy = Field(ShaInstr, .op);
+            const sha_op = switch (@as(u7, @truncate(u2, op >> 22)) << 3 | @truncate(u5, op >> 12)) {
+                0b0000000 => ShaOpTy.h,
+                0b0000001 => ShaOpTy.su1,
+                0b0000010 => ShaOpTy.su0,
+                else => return error.Unallocated,
+            };
+            const rn_width = switch (sha_op) {
+                .h => Width.s,
+                .su0, .su1 => Width.v,
+                else => unreachable,
+            };
+            const rd_width = switch (sha_op) {
+                .h => Width.s,
+                .su0, .su1 => Width.v,
+                else => unreachable,
+            };
+            const payload = ShaInstr{
+                .rn = Register.from(op >> 5, rn_width, false),
+                .rd = Register.from(op, rd_width, false),
+                .rm = null,
+                .op = sha_op,
+            };
+            return switch (sha_op) {
+                .h, .su1 => Instruction{ .sha1 = payload },
+                else => Instruction{ .sha256 = payload },
+            };
+        } else return error.Unimplemented;
     }
 };

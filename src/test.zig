@@ -2638,7 +2638,54 @@ test "arm64 crc32" {
 }
 
 test "arm64 crypto" {
-    if (true) return error.SkipZigTest;
+    try doTheTest(&.{
+        0x20, 0x48, 0x28, 0x4e,
+        0x20, 0x58, 0x28, 0x4e,
+        0x20, 0x68, 0x28, 0x4e,
+        0x20, 0x78, 0x28, 0x4e,
+        0x20, 0x00, 0x02, 0x5e,
+        0x20, 0x10, 0x02, 0x5e,
+        0x20, 0x20, 0x02, 0x5e,
+        0x20, 0x30, 0x02, 0x5e,
+        0x20, 0x40, 0x02, 0x5e,
+        0x20, 0x50, 0x02, 0x5e,
+        0x20, 0x60, 0x02, 0x5e,
+        0x20, 0x08, 0x28, 0x5e,
+        0x20, 0x18, 0x28, 0x5e,
+        0x20, 0x28, 0x28, 0x5e,
+    },
+        \\aese v0.16b, v1.16b
+        \\aesd v0.16b, v1.16b
+        \\aesmc v0.16b, v1.16b
+        \\aesimc v0.16b, v1.16b
+        \\sha1c q0, s1, v2.4s
+        \\sha1p q0, s1, v2.4s
+        \\sha1m q0, s1, v2.4s
+        \\sha1su0 v0.4s, v1.4s, v2
+        \\sha256h q0, q1, v2.4s
+        \\sha256h2 q0, q1, v2.4s
+        \\sha256su1 v0.4s, v1.4s, v2.4s
+        \\sha1h s0, s1
+        \\sha1su1 v0.4s, v1.4s
+        \\sha256su0 v0.4s, v1.4s
+        \\
+        // TODO: apple output
+        // \\aese.16b v0, v1
+        // \\aesd.16b v0, v1
+        // \\aesmc.16b v0, v1
+        // \\aesimc.16b v0, v1
+        // \\sha1c.4s q0, s1, v2
+        // \\sha1p.4s q0, s1, v2
+        // \\sha1m.4s q0, s1, v2
+        // \\sha1su0.4s v0, v1, v2
+        // \\sha256h.4s q0, q1, v2
+        // \\sha256h2.4s q0, q1, v2
+        // \\sha256su1.4s v0, v1, v2
+        // \\sha1h s0, s1
+        // \\sha1su1.4s v0, v1
+        // \\sha256su0.4s v0, v1
+        // \\
+    );
 }
 
 test "arm64 invalid logical" {

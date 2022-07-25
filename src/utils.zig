@@ -37,6 +37,12 @@ pub const Width = enum {
     const Self = @This();
     w,
     x,
+    b,
+    h,
+    s,
+    d,
+    q,
+    v,
 
     pub fn from(x: anytype) Self {
         if (@typeInfo(@TypeOf(x)) != .Int) @compileError("Incorrect type passed into Width.from");

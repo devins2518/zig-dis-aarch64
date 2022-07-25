@@ -156,6 +156,48 @@ pub const Instruction = union(enum) {
     tbz: TestInstr,
     tbnz: TestInstr,
 
+    // Data Processing (Scalar FP and SIMD)
+    // Crypto AES
+    aes: AesInstr,
+    // Crypto SHA (2 and 3 register)
+    sha1: ShaInstr,
+    sha256: ShaInstr,
+    // Advanced SIMD scalar copy
+    dup,
+    // Advanced SIMD scalar three same FP16
+    fmulx,
+    fcmeq,
+    frecps,
+    frsqrts,
+    fcmge,
+    facge,
+    fabd,
+    fcmgt,
+    facgt,
+    // Advanced SIMD two register misc FP16
+    // Advanced SIMD three register extension
+    // Advanced SIMD two register misc
+    // Advanced SIMD across lanes
+    // Advanced SIMD three different
+    // Advanced SIMD three same
+    // Advanced SIMD modified immediate
+    // Advanced SIMD shift by immediate
+    // Advanced SIMD vector x indexed element
+    // Crypto three register, imm2
+    // Crypto three register, SHA512
+    // Crypto four register
+    // XAR
+    // Crypto two register SHA512
+    // Conversion between floating point and fixed point
+    // Conversion between floating point and integer
+    // Floating point data processing (1 source)
+    // Floating point compare
+    // Floating point immediate
+    // Floating point conditional compare
+    // Floating point data processing (2 source)
+    // Floating point conditional select
+    // Floating point data processing (2 source)
+
     pub fn fmtPrint(self: *const Self, writer: anytype) !void {
         switch (self.*) {
             .mov => |mov| try std.fmt.format(writer, "{}", .{mov}),
@@ -298,6 +340,20 @@ pub const Instruction = union(enum) {
                 try std.fmt.format(writer, ".{s} #{}", .{ @tagName(instr.cond), @bitCast(i21, @as(u21, instr.imm19) << 2) });
             },
             .cbz, .cbnz => |instr| try std.fmt.format(writer, "{s} {}, #{}", .{ @tagName(self.*), instr.rt, @bitCast(i21, @as(u21, instr.imm19) << 2) }),
+            // TODO: multiple output styles
+            // try std.fmt.format(writer, "{s}{s}.16b, {}, {}", .{ @tagName(self.*), @tagName(aes.op), aes.rd, aes.rn }),
+            .aes => |aes| try std.fmt.format(writer, "{s}{s} {}.16b, {}.16b", .{ @tagName(self.*), @tagName(aes.op), aes.rd, aes.rn }),
+            .sha1, .sha256 => |sha| if (sha.rm) |rm|
+                switch (sha.op) {
+                    .c, .p, .m, .h, .h2 => try std.fmt.format(writer, "{s}{s} {}, {}, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
+                    .su0 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s, {}", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
+                    .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
+                }
+            else switch (sha.op) {
+                .h => try std.fmt.format(writer, "{s}{s} {}, {}", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
+                .su0, .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
+                else => unreachable,
+            },
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -665,4 +721,17 @@ pub const TestInstr = struct {
 pub const CompBranchInstr = struct {
     imm19: u19,
     rt: Register,
+};
+
+pub const AesInstr = struct {
+    rn: Register,
+    rd: Register,
+    op: enum { e, d, mc, imc },
+};
+
+pub const ShaInstr = struct {
+    rn: Register,
+    rd: Register,
+    rm: ?Register,
+    op: enum { c, p, m, su0, h, h2, su1 },
 };
