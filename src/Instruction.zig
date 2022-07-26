@@ -343,13 +343,11 @@ pub const Instruction = union(enum) {
             // TODO: multiple output styles
             // try std.fmt.format(writer, "{s}{s}.16b, {}, {}", .{ @tagName(self.*), @tagName(aes.op), aes.rd, aes.rn }),
             .aes => |aes| try std.fmt.format(writer, "{s}{s} {}.16b, {}.16b", .{ @tagName(self.*), @tagName(aes.op), aes.rd, aes.rn }),
-            .sha1, .sha256 => |sha| if (sha.rm) |rm|
-                switch (sha.op) {
-                    .c, .p, .m, .h, .h2 => try std.fmt.format(writer, "{s}{s} {}, {}, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
-                    .su0 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s, {}", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
-                    .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
-                }
-            else switch (sha.op) {
+            .sha1, .sha256 => |sha| if (sha.rm) |rm| switch (sha.op) {
+                .c, .p, .m, .h, .h2 => try std.fmt.format(writer, "{s}{s} {}, {}, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
+                .su0 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s, {}", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
+                .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn, rm }),
+            } else switch (sha.op) {
                 .h => try std.fmt.format(writer, "{s}{s} {}, {}", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
                 .su0, .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
                 else => unreachable,
