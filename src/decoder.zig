@@ -1215,6 +1215,9 @@ pub const Disassembler = struct {
         const op1 = @truncate(u2, op >> 23);
         const op2 = @truncate(u4, op >> 19);
         const op3 = @truncate(u9, op >> 10);
+        // TODO: stage 1 moment
+        const ShaOpTy = Field(ShaInstr, .op);
+        const AesOpTy = Field(AesInstr, .op);
         // TODO: should be a top return
         if (op0 == 0b0100 and
             (op1 == 0b00 or op1 == 0b01) and
@@ -1222,8 +1225,6 @@ pub const Disassembler = struct {
             @truncate(u2, op3) == 0b10 and
             @truncate(u2, op3 >> 8) == 0b00)
         {
-            // TODO: stage1 moment
-            const AesOpTy = Field(AesInstr, .op);
             const aes_op = switch (@truncate(u5, op >> 12)) {
                 0b00100 => AesOpTy.e,
                 0b00101 => AesOpTy.d,
@@ -1246,8 +1247,6 @@ pub const Disassembler = struct {
             @truncate(u2, op3) == 0b00 and
             @truncate(u1, op3 >> 5) == 0b0)
         {
-            // TODO: stage 1 moment
-            const ShaOpTy = Field(ShaInstr, .op);
             const sha_op = switch (@as(u5, @truncate(u2, op >> 22)) << 3 | @truncate(u3, op >> 12)) {
                 0b00000 => ShaOpTy.c,
                 0b00001 => ShaOpTy.p,
@@ -1283,8 +1282,6 @@ pub const Disassembler = struct {
             @truncate(u2, op3) == 0b10 and
             @truncate(u2, op3 >> 8) == 0b00)
         {
-            // TODO: stage 1 moment
-            const ShaOpTy = Field(ShaInstr, .op);
             const sha_op = switch (@as(u7, @truncate(u2, op >> 22)) << 3 | @truncate(u5, op >> 12)) {
                 0b0000000 => ShaOpTy.h,
                 0b0000001 => ShaOpTy.su1,
