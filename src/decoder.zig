@@ -15,6 +15,7 @@ const DataProcInstr = @import("instruction.zig").DataProcInstr;
 const ExceptionInstr = @import("instruction.zig").ExceptionInstr;
 const ExtractInstr = @import("instruction.zig").ExtractInstr;
 const Instruction = @import("instruction.zig").Instruction;
+const LoadStoreInstr = @import("instruction.zig").LoadStoreInstr;
 const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
@@ -52,7 +53,7 @@ pub const Disassembler = struct {
             0b0011 => return error.Unallocated,
             0b1000, 0b1001 => return try decodeDataProcImm(op), // Data processing - Imm
             0b1010, 0b1011 => return try decodeBranchExcpSysInstr(op), // Branches, exceptions, system instructions
-            0b0100, 0b0110, 0b1100, 0b1110 => return error.Unimplemented, // Load/Store
+            0b0100, 0b0110, 0b1100, 0b1110 => return try decodeLoadStore(op), // Load/Store
             0b0101, 0b1101 => return try decodeDataProcReg(op), // Data processing - Reg
             0b0111, 0b1111 => return try decodeDataProcScalarFPSIMD(op), // Data processing - Scalar FP and SIMD
         }
@@ -387,6 +388,500 @@ pub const Disassembler = struct {
                 Instruction{ .tbz = payload }
             else
                 Instruction{ .tbnz = payload };
+        } else return error.Unallocated;
+    }
+
+    fn decodeLoadStore(op: u32) Error!Instruction {
+        const op0 = @truncate(u4, op >> 28);
+        const op1 = @truncate(u1, op >> 26);
+        const op2 = @truncate(u2, op >> 23);
+        const op3 = @truncate(u6, op >> 16);
+        const op4 = @truncate(u2, op >> 10);
+        const ExtTy = Field(LoadStoreInstr, .ext);
+        const OpTy = Field(LoadStoreInstr, .op);
+        const SizeTy = Field(LoadStoreInstr, .size);
+        const LdStPayloadTy = Field(LoadStoreInstr, .payload);
+        const IndexTy = @typeInfo(Field(LoadStoreInstr, .index)).Optional.child;
+        if (op0 == 0b0000 and op1 == 1 and op2 <= 0b01 and op3 >= 0b100000 or
+            // TODO reduce
+            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 5) == 1) or
+            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 4) == 1) or
+            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 3) == 1) or
+            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 2) == 1) or
+            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 1) == 1) or
+            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3) == 1) or
+            ((op0 == 0b1000 or op0 == 0b1100) and op1 == 1))
+            return error.Unallocated
+        else if (op0 == 0b0000 and op1 == 1 and op2 == 0b10 and @truncate(u5, op3) == 0b11111)
+            return error.Unimplemented // Advanced SIMD load/store single structure
+        else if (op0 == 0b0000 and op1 == 1 and op2 == 0b11)
+            return error.Unimplemented // Advanced SIMD load/store single structure (post-indexed)
+        else if (op0 == 0b1101 and op1 == 0 and op2 >= 0b10 and op3 >= 0b100000)
+            return error.Unimplemented // Load/store memory tags
+        else if ((op0 == 0b1000 or op0 == 0b1100) and op1 == 0 and op2 == 0b00 and op3 >= 0b100000) { // Load/store exclusive pair
+            const width = Width.from(op >> 30);
+            const load = @truncate(u1, op >> 22) == 1;
+            const o0 = @truncate(u1, op >> 15) == 1;
+            const ext = if (load and o0)
+                ExtTy.a
+            else if (!load and o0)
+                ExtTy.l
+            else
+                ExtTy.@"";
+            const rs = Register.from(op >> 16, .w, false);
+            const rs_or_zero = if (rs.toInt() == 0b11111)
+                LdStPayloadTy{ .imm7 = 0 }
+            else
+                LdStPayloadTy{ .rs = rs };
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .rt2 = Register.from(op >> 10, width, false),
+                .ext = ext,
+                .op = OpTy.xp,
+                .size = .@"",
+                .payload = rs_or_zero,
+            };
+            if (load)
+                return Instruction{ .ld = payload }
+            else
+                return Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b00 and op3 <= 0b011111) { // Load/store exclusive register
+            const reg_size = @truncate(u2, op >> 30);
+            const load = @truncate(u1, op >> 22) == 1;
+            const o0 = @truncate(u1, op >> 15) == 1;
+            const width = if (reg_size == 0b11) Width.x else Width.w;
+            const ext = if (load)
+                if (o0) ExtTy.a else ExtTy.@""
+            else if (o0) ExtTy.l else ExtTy.@"";
+            const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.@"";
+            const rt2 = Register.from(op >> 10, width, false);
+            const rt2_or_null = if (rt2.toInt() == 0b11111) null else rt2;
+            const rs = Register.from(op >> 16, .w, false);
+            const rs_or_zero = if (rs.toInt() == 0b11111)
+                LdStPayloadTy{ .imm7 = 0 }
+            else
+                LdStPayloadTy{ .rs = rs };
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .rt2 = rt2_or_null,
+                .ext = ext,
+                .op = .xr,
+                .size = size,
+                .payload = rs_or_zero,
+            };
+            return if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b01 and op3 <= 0b011111) { // Load/store ordered
+            const reg_size = @truncate(u2, op >> 30);
+            const load = @truncate(u1, op >> 22) == 1;
+            const o0 = @truncate(u1, op >> 15) == 1;
+            const width = if (reg_size == 0b11) Width.x else Width.w;
+            const ext = if (load)
+                if (o0) ExtTy.a else ExtTy.la
+            else if (o0) ExtTy.l else ExtTy.ll;
+            const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.@"";
+            const rt2 = Register.from(op >> 10, width, false);
+            const rt2_or_null = if (rt2.toInt() == 0b11111) null else rt2;
+            const rs = Register.from(op >> 16, width, false);
+            const rs_or_zero = if (rs.toInt() == 0b11111)
+                LdStPayloadTy{ .imm7 = 0 }
+            else
+                LdStPayloadTy{ .rs = rs };
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .rt2 = rt2_or_null,
+                .ext = ext,
+                .op = .r,
+                .size = size,
+                .payload = rs_or_zero,
+            };
+            return if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b01 and op3 >= 0b100000)
+            return error.Unimplemented // Compare and swap
+        else if (@truncate(u2, op0) == 0b01 and op1 == 0 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b00)
+            return error.Unimplemented // LDAPR/STLR (unscaled immediate)
+        else if (@truncate(u2, op0) == 0b01 and op2 <= 0b01)
+            return error.Unimplemented // Load register (literal)
+        else if (@truncate(u2, op0) == 0b01 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b01)
+            return error.Unimplemented // Memory Copy and Memory Set
+        else if (@truncate(u2, op0) == 0b10 and op2 == 0b00) { // Load/store no-allocate pair (offset)
+            const opc = @truncate(u2, op >> 30);
+            const v = @truncate(u1, op >> 26);
+            const load = @truncate(u1, op >> 22) == 1;
+            const width = if (opc == 0b00 and v == 0)
+                Width.w
+            else if (opc == 0b10 and v == 0)
+                Width.x
+            else if (opc == 0b00 and v == 1)
+                Width.s
+            else if (opc == 0b01 and v == 1)
+                Width.d
+            else if (opc == 0b10 and v == 1)
+                Width.q
+            else
+                return error.Unallocated;
+            var simm7 = @intCast(i64, @bitCast(i7, @truncate(u7, op >> 15)));
+            simm7 *%= switch (width) {
+                .w, .s => 4,
+                .x, .d => 8,
+                .q => @as(i64, 16),
+                else => unreachable,
+            };
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .rt2 = Register.from(op >> 10, width, false),
+                .ext = .@"",
+                .op = .np,
+                .size = .@"",
+                .payload = .{ .simm7 = simm7 },
+            };
+            return if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b10 and op2 != 0b00) { // Load/store register pair
+            const opc = @truncate(u2, op >> 30);
+            const v = @truncate(u1, op >> 26);
+            const load = @truncate(u1, op >> 22) == 1;
+            const ext = if (opc == 0b01 and v == 0 and !load)
+                ExtTy.g
+            else
+                ExtTy.@"";
+            const index = if (op2 == 0b01)
+                IndexTy.post
+            else if (op2 == 0b11)
+                IndexTy.pre
+            else
+                null;
+            const size = if (opc == 0b01 and v == 0 and load)
+                SizeTy.sw
+            else
+                SizeTy.@"";
+            const width = if (opc == 0b00 and v == 0)
+                Width.w
+            else if ((opc == 0b01 and v == 0) or
+                (opc == 0b10 and v == 0))
+                Width.x
+            else if (opc == 0b00 and v == 1)
+                Width.s
+            else if (opc == 0b01 and v == 1)
+                Width.d
+            else if (opc == 0b10 and v == 1)
+                Width.q
+            else
+                unreachable;
+            var simm7 = @intCast(i64, @bitCast(i7, @truncate(u7, op >> 15)));
+            simm7 *%= if (size == .sw)
+                4
+            else switch (width) {
+                .w, .s => 4,
+                .x, .d => 8,
+                .q => 16,
+                else => @as(i7, 1),
+            };
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .rt2 = Register.from(op >> 10, width, false),
+                .ext = ext,
+                .op = .p,
+                .size = size,
+                .payload = .{ .simm7 = simm7 },
+                .index = index,
+            };
+            return if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 <= 0b011111) { // Load/store register
+            const size = @truncate(u2, op >> 30);
+            const v = @truncate(u1, op >> 26);
+            const opc = @truncate(u2, op >> 22);
+            const load = switch (@truncate(u3, op >> 26) << 2 | @truncate(u2, op >> 22)) {
+                0b000,
+                0b100,
+                0b110,
+                => false,
+                0b001,
+                0b010,
+                0b011,
+                0b101,
+                0b111,
+                => true,
+            };
+            const ext = if (op4 == 0b00)
+                ExtTy.u
+            else if (op4 == 0b10)
+                ExtTy.t
+            else
+                ExtTy.@"";
+            const index = if (op4 == 0b01)
+                IndexTy.post
+            else if (op4 == 0b11)
+                IndexTy.pre
+            else
+                null;
+            const width = if ((size == 0b00 and v == 0 and opc != 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b11) or
+                (size == 0b01 and v == 0 and opc != 0b10) or
+                (size == 0b10 and v == 0 and opc <= 0b01) or
+                (size == 0b11 and v == 0 and opc == 0b10))
+                Width.w
+            else if ((size == 0b00 and v == 0 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b10) or
+                (size == 0b10 and v == 0 and opc == 0b10) or
+                (size == 0b11 and v == 0 and opc <= 0b01))
+                Width.x
+            else if ((size == 0b00 and v == 1 and opc <= 0b01))
+                Width.b
+            else if ((size == 0b01 and v == 1 and opc <= 0b01))
+                Width.h
+            else if ((size == 0b10 and v == 1 and opc <= 0b01))
+                Width.s
+            else if ((size == 0b11 and v == 1 and opc <= 0b01))
+                Width.d
+            else if ((size == 0b00 and v == 1 and opc >= 0b10))
+                Width.q
+            else
+                unreachable;
+            const size_ext = if (size == 0b00 and v == 0 and opc <= 0b01)
+                SizeTy.b
+            else if (size == 0b00 and v == 0 and opc >= 0b10)
+                SizeTy.sb
+            else if (size == 0b01 and v == 0 and opc <= 0b01)
+                SizeTy.h
+            else if (size == 0b01 and v == 0 and opc >= 0b10)
+                SizeTy.sh
+            else if (size == 0b10 and v == 0 and opc == 0b10)
+                SizeTy.sw
+            else
+                SizeTy.@"";
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .ext = ext,
+                .op = .r,
+                .size = size_ext,
+                .payload = .{ .simm9 = @truncate(u9, op >> 12) },
+                .index = index,
+            };
+            return if ((@truncate(u1, size) == 1 and v == 1 and opc >= 0b10) or
+                (size >= 0b10 and v == 0 and opc == 0b11) or
+                (size >= 0b10 and v == 1 and opc >= 0b10))
+                error.Unallocated
+            else if (size == 0b11 and v == 0 and opc == 0b10)
+                Instruction{ .prfm = payload }
+            else if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and op4 == 0b00) { // Atomic memory operations
+            return error.Unimplemented;
+        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and op4 == 0b10) { // Load/store register (register offset)
+            const size = @truncate(u2, op >> 30);
+            const v = @truncate(u1, op >> 26);
+            const opc = @truncate(u2, op >> 22);
+            const option = @truncate(u3, op >> 13);
+            const rn = Register.from(op >> 5, .x, true);
+            const rt_width = if ((size == 0b00 and v == 0 and opc != 0b10) or
+                (size == 0b01 and v == 0 and opc != 0b10) or
+                (size == 0b10 and v == 0 and opc <= 0b01) or
+                (size == 0b11 and v == 0 and opc == 0b10))
+                Width.w
+            else if ((size == 0b00 and v == 0 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b10) or
+                (size == 0b10 and v == 0 and opc == 0b10) or
+                (size == 0b11 and v == 0 and opc <= 0b01))
+                Width.x
+            else if (size == 0b00 and v == 1 and opc <= 0b01)
+                Width.b
+            else if (size == 0b01 and v == 1 and opc <= 0b01)
+                Width.h
+            else if (size == 0b10 and v == 1 and opc <= 0b01)
+                Width.s
+            else if (size == 0b11 and v == 1 and opc <= 0b01)
+                Width.d
+            else if (size == 0b00 and v == 1 and opc >= 0b10)
+                Width.q
+            else
+                return error.Unallocated;
+            const rt = Register.from(op, rt_width, false);
+            const size_ext = if ((size == 0b00 and v == 0 and opc == 0b00) or
+                (size == 0b00 and v == 0 and opc == 0b01))
+                SizeTy.b
+            else if ((size == 0b00 and v == 0 and opc == 0b10) or
+                (size == 0b00 and v == 0 and opc == 0b11))
+                SizeTy.sb
+            else if ((size == 0b01 and v == 0 and opc == 0b00) or
+                (size == 0b01 and v == 0 and opc == 0b01))
+                SizeTy.h
+            else if ((size == 0b01 and v == 0 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b11))
+                SizeTy.sh
+            else if (size == 0b10 and v == 0 and opc == 0b10)
+                SizeTy.sw
+            else
+                SizeTy.@"";
+            const rm_width = if (@truncate(u1, option) == 0)
+                Width.w
+            else
+                Width.x;
+            const shift_not_zero = @truncate(u1, op >> 12) == 1;
+            const amount = if (shift_not_zero and (rt_width == .b or size_ext == .b or size_ext == .sb))
+                0
+            else if (shift_not_zero and (rt_width == .h or size_ext == .h or size_ext == .sh))
+                1
+            else if ((shift_not_zero and (rt_width == .w or rt_width == .s)) or
+                (size == 0b10 and v == 0 and opc == 0b10))
+                2
+            else if (shift_not_zero and (rt_width == .x or rt_width == .d))
+                3
+            else if (shift_not_zero and rt_width == .q)
+                @as(u8, 4)
+            else
+                0;
+            const shift = LdStPayloadTy{ .shifted_reg = .{
+                .rm = Register.from(op >> 16, rm_width, false),
+                .shift = shift_not_zero,
+                .amount = amount,
+                .shift_type = @intToEnum(
+                    Field(Field(LdStPayloadTy, .shifted_reg), .shift_type),
+                    option,
+                ),
+            } };
+            const payload = LoadStoreInstr{
+                .rn = rn,
+                .rt = rt,
+                .ext = .@"",
+                .op = .r,
+                .size = size_ext,
+                .payload = shift,
+            };
+            if ((size == 0b00 and v == 0 and opc == 0b01) or
+                (size == 0b00 and v == 0 and opc == 0b10) or
+                (size == 0b00 and v == 0 and opc == 0b11) or
+                (size == 0b00 and v == 1 and opc == 0b01) or
+                (size == 0b00 and v == 1 and opc == 0b11) or
+                (size == 0b01 and v == 0 and opc == 0b01) or
+                (size == 0b01 and v == 0 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b11) or
+                (size == 0b01 and v == 1 and opc == 0b01) or
+                (size == 0b10 and v == 0 and opc == 0b01) or
+                (size == 0b10 and v == 0 and opc == 0b10) or
+                (size == 0b10 and v == 1 and opc == 0b01) or
+                (size == 0b11 and v == 0 and opc == 0b01) or
+                (size == 0b11 and v == 1 and opc == 0b01))
+            {
+                return Instruction{ .ld = payload };
+            } else if ((size == 0b00 and v == 0 and opc == 0b00) or
+                (size == 0b00 and v == 1 and opc == 0b00) or
+                (size == 0b00 and v == 1 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b00) or
+                (size == 0b01 and v == 1 and opc == 0b00) or
+                (size == 0b10 and v == 0 and opc == 0b00) or
+                (size == 0b10 and v == 1 and opc == 0b00) or
+                (size == 0b11 and v == 0 and opc == 0b00) or
+                (size == 0b11 and v == 1 and opc == 0b00))
+            {
+                return Instruction{ .st = payload };
+            } else if (size == 0b11 and v == 0 and opc == 0b10) {
+                return Instruction{ .prfm = payload };
+            } else return error.Unallocated;
+        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and @truncate(u1, op4) == 0b1) { // Load/store register (pac)
+            // TODO
+            const load = true;
+            const payload = undefined;
+            return if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b11 and op2 >= 0b10) { // Load/store register (unsigned immediate)
+            const v = @truncate(u1, op >> 26);
+            const opc = @truncate(u2, op >> 22);
+            const size = @truncate(u2, op >> 30);
+            const SizeExt = Field(LoadStoreInstr, .size);
+            const size_ext = if (size == 0b00 and v == 0 and opc <= 0b01)
+                SizeExt.b
+            else if (size == 0b01 and v == 0 and opc <= 0b01)
+                SizeExt.h
+            else if (size == 0b00 and v == 0 and opc >= 0b10)
+                SizeExt.sb
+            else if (size == 0b01 and v == 0 and opc >= 0b10)
+                SizeExt.sh
+            else if (size == 0b10 and v == 0 and opc == 0b10)
+                SizeExt.sw
+            else
+                SizeExt.@"";
+            const width = if ((size == 0b11 and v == 0) or
+                (size == 0b00 and v == 0 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b10) or
+                (size == 0b10 and v == 0 and opc == 0b10))
+                Width.x
+            else if (v == 0 or
+                (size == 0b00 and v == 0 and opc == 0b11) or
+                (size == 0b01 and v == 0 and opc == 0b11))
+                Width.w
+            else if (size == 0b00 and opc <= 0b01)
+                Width.b
+            else if (size == 0b01 and opc <= 0b01)
+                Width.h
+            else if (size == 0b10 and opc <= 0b01)
+                Width.s
+            else if (size == 0b11 and opc <= 0b01)
+                Width.d
+            else if (size == 0b00 and opc >= 0b10)
+                Width.q
+            else
+                unreachable;
+            const load = !((size == 0b00 and v == 0 and opc == 0b00) or
+                (size == 0b00 and v == 1 and opc == 0b00) or
+                (size == 0b00 and v == 1 and opc == 0b10) or
+                (size == 0b01 and v == 0 and opc == 0b00) or
+                (size == 0b01 and v == 1 and opc == 0b00) or
+                (size == 0b10 and v == 0 and opc == 0b00) or
+                (size == 0b10 and v == 1 and opc == 0b00) or
+                (size == 0b11 and v == 0 and opc == 0b00) or
+                (size == 0b11 and v == 1 and opc == 0b00));
+            var imm12 = @truncate(u12, op >> 10);
+            imm12 *%= if ((size == 0b01 and v == 0) or
+                (size == 0b01 and v == 0 and opc >= 0b10))
+                2
+            else if (size == 0b10 and v == 0 and opc == 0b10)
+                4
+            else if (!(size == 0b00 and v == 0)) switch (width) {
+                .h => 2,
+                .w, .s => 4,
+                .x, .d => 8,
+                .q => 16,
+                else => @as(u12, 1),
+            } else 1;
+            const payload = LoadStoreInstr{
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                .ext = .@"",
+                .op = .r,
+                .size = size_ext,
+                .payload = .{ .imm12 = imm12 },
+            };
+            return if ((@truncate(u1, size) == 0b1 and v == 1 and opc >= 0b10) or
+                (size >= 0b10 and v == 0 and opc == 0b11) or
+                (size >= 0b10 and v == 1 and opc >= 0b10))
+                error.Unallocated
+            else if (size == 0b11 and v == 0 and opc == 0b10)
+                Instruction{ .prfm = payload }
+            else if (load)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
         } else return error.Unallocated;
     }
 

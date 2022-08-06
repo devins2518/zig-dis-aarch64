@@ -2894,7 +2894,6 @@ test "arm64 logical" {
 }
 
 test "arm64 memory" {
-    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         // Indexed loads
         0x85, 0x14, 0x40, 0xb9,

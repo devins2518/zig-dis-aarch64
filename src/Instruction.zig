@@ -197,6 +197,35 @@ pub const Instruction = union(enum) {
     // Floating point data processing (2 source)
     // Floating point conditional select
     // Floating point data processing (2 source)
+    // Loads and Stores
+    // Compare and swap pair
+    // Advanced SIMD load/store multiple structures
+    // Advanced SIMD load/store multiple structures (post indexed)
+    // Advanced SIMD load/store single structures
+    // Advanced SIMD load/store single structures (post indexed)
+    // Load/store memory tags
+    // Load/store exclusive pair
+    st: LoadStoreInstr,
+    ld: LoadStoreInstr,
+    prfm: LoadStoreInstr,
+    // Load/store exclusive register
+    // Load/store ordered
+    // Compare and swap
+    // LDAPR/STLTR (unscaled immediate)
+    // Load register (literal)
+    // Memory copy and memory set
+    // Load/store no-allocate pair (offset)
+    // Load/store register pair (post-indexed)
+    // Load/store register pair (offset)
+    // Load/store register pair (pre-indexed)
+    // Load/store register (unscaled immediate)
+    // Load/store register (immediate post-indexed)
+    // Load/store register (unprivileged)
+    // Load/store register (immediate pre-indexed)
+    // Atomic memory operations
+    // Load/store register (register offset)
+    // Load/store register (pac)
+    // Load/store register (unsigned immediate)
 
     pub fn fmtPrint(self: *const Self, writer: anytype) !void {
         switch (self.*) {
@@ -351,6 +380,33 @@ pub const Instruction = union(enum) {
                 .h => try std.fmt.format(writer, "{s}{s} {}, {}", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
                 .su0, .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
                 else => unreachable,
+            },
+            .ld, .st => |ldst| try std.fmt.format(writer, "{s}{s}{s}{s}{}", .{ @tagName(self.*), @tagName(ldst.ext), @tagName(ldst.op), @tagName(ldst.size), ldst }),
+            .prfm => |prfm| {
+                const rt = prfm.rt.toInt();
+                const ty = switch (@truncate(u2, rt >> 3)) {
+                    0b00 => "pld",
+                    0b01 => "pli",
+                    0b10 => "pst",
+                    else => unreachable,
+                };
+                const target = switch (@truncate(u2, rt >> 1)) {
+                    0b00 => "l1",
+                    0b01 => "l2",
+                    0b10 => "l3",
+                    else => unreachable,
+                };
+                const policy = switch (@truncate(u1, rt)) {
+                    0 => "keep",
+                    1 => "strm",
+                };
+                try std.fmt.format(writer, "prf{s}m {s}{s}{s}, [{}", .{ @tagName(prfm.ext), ty, target, policy, prfm.rn });
+                switch (prfm.payload) {
+                    .imm12 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                    .simm9 => |simm| if (simm > 0) try std.fmt.format(writer, ", #{}", .{@bitCast(i9, simm)}),
+                    else => {},
+                }
+                try std.fmt.format(writer, "]", .{});
             },
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
@@ -732,4 +788,94 @@ pub const ShaInstr = struct {
     rd: Register,
     rm: ?Register,
     op: enum { c, p, m, su0, h, h2, su1 },
+};
+
+pub const LoadStoreInstr = struct {
+    rn: Register,
+    rt: Register,
+    rt2: ?Register = null,
+    ext: enum {
+        l, // Release
+        a, // Acquire
+        ll, // LORelease
+        la, // LOAcquire
+        u, // Unscaled
+        t, // Unprivileged
+        g, // Tagged
+        @"", // None
+    },
+    op: enum {
+        xp, // Exclusive pair
+        r, // Register
+        xr, // Exclusive Register
+        np, // No-allocate pair
+        p, // Pair
+    },
+    size: enum {
+        b, // Byte
+        h, // Halfword
+        sb, // Signed byte
+        sh, // Signed halfword
+        sw, // Signed halfword
+        @"", // Word or double word
+    },
+    payload: union(enum) {
+        rs: Register,
+        imm7: u7,
+        simm7: i64,
+        imm9: u9,
+        simm9: u9,
+        imm12: u12,
+        shifted_reg: struct {
+            rm: Register,
+            shift: bool,
+            amount: u8,
+            shift_type: enum(u3) {
+                uxtw = 0b010,
+                lsl = 0b011,
+                sxtw = 0b110,
+                sxtx = 0b111,
+            },
+        },
+    },
+    index: ?enum { pre, post } = null,
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        switch (self.op) {
+            .xp, .xr => {
+                if (self.payload == .rs) try std.fmt.format(writer, " {},", .{self.payload.rs});
+                try std.fmt.format(writer, " {}, ", .{self.rt});
+                if (self.rt2) |rt2| try std.fmt.format(writer, "{}, ", .{rt2});
+                try std.fmt.format(writer, "[{}]", .{self.rn});
+            },
+            .r, .p, .np => {
+                try std.fmt.format(writer, " {},", .{self.rt});
+                if (self.rt2) |rt2| try std.fmt.format(writer, " {},", .{rt2});
+                try std.fmt.format(writer, " [{}", .{self.rn});
+                if (self.index != null and self.index.? == .post)
+                    try std.fmt.format(writer, "]", .{});
+                switch (self.payload) {
+                    .rs => |reg| try std.fmt.format(writer, ", {}", .{reg}),
+                    .imm7 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                    .simm7 => |imm| if (imm != 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                    .imm9 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                    .simm9 => |simm| if (simm > 0) try std.fmt.format(writer, ", #{}", .{@bitCast(i9, simm)}),
+                    .imm12 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                    .shifted_reg => |sr| {
+                        try std.fmt.format(writer, ", {}", .{sr.rm});
+                        if (sr.shift or sr.shift_type != .lsl)
+                            try std.fmt.format(writer, ", {s}", .{@tagName(sr.shift_type)});
+                        if (sr.shift) {
+                            try std.fmt.format(writer, " #{}", .{sr.amount});
+                        }
+                    },
+                }
+                if (self.index != null and self.index.? == .pre)
+                    try std.fmt.format(writer, "]!", .{})
+                else if (self.index == null)
+                    try std.fmt.format(writer, "]", .{});
+            },
+            // else => {},
+        }
+    }
 };
