@@ -20,6 +20,8 @@ const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
 const ShaInstr = @import("instruction.zig").ShaInstr;
+const SysInstr = @import("instruction.zig").SysInstr;
+const SysRegMoveInstr = @import("instruction.zig").SysRegMoveInstr;
 const SysWithRegInstr = @import("instruction.zig").SysWithRegInstr;
 const TestInstr = @import("instruction.zig").TestInstr;
 
@@ -328,15 +330,75 @@ pub const Disassembler = struct {
             else
                 @as(Instruction, Instruction.hint);
         } else if (op0 == 0b110 and op1 == 0b01000000110011) {
-            @panic("barriers");
+            const crm = @truncate(u4, op >> 8);
+            const opc2 = @truncate(u3, op >> 5);
+            const rt = @truncate(u5, op);
+            return if (opc2 == 0b010 and rt == 0b11111)
+                Instruction{ .clrex = @truncate(u4, op >> 8) }
+            else if (opc2 == 0b100 and rt == 0b11111)
+                Instruction{ .dsb = @truncate(u4, op >> 8) }
+            else if (opc2 == 0b101 and rt == 0b11111)
+                Instruction{ .dmb = @truncate(u4, op >> 8) }
+            else if (opc2 == 0b110 and rt == 0b11111)
+                Instruction{ .isb = @truncate(u4, op >> 8) }
+            else if (opc2 == 0b111 and rt == 0b11111)
+                @as(Instruction, Instruction.sb)
+            else if (@truncate(u2, crm) == 0b10 and opc2 == 0b001 and rt == 0b11111)
+                Instruction{ .dsb = @truncate(u4, op >> 8) }
+            else if (crm == 0b0000 and opc2 == 0b011 and rt == 0b11111)
+                @as(Instruction, Instruction.tcommit)
+            else
+                error.Unallocated;
         } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100000 and @truncate(u4, op1) == 0b0100) {
-            @panic("pstate");
+            const instr1 = @truncate(u3, op >> 16);
+            const instr2 = @truncate(u3, op >> 5);
+            const rt = @truncate(u5, op);
+            return if (instr1 == 0b000 and instr2 == 0b000 and rt == 0b11111)
+                @as(Instruction, Instruction.cfinv)
+            else if (instr1 == 0b000 and instr2 == 0b001 and rt == 0b11111)
+                @as(Instruction, Instruction.xaflag)
+            else if (instr1 == 0b000 and instr2 == 0b010 and rt == 0b11111)
+                @as(Instruction, Instruction.axflag)
+            else if (rt == 0b11111) blk: {
+                const payload = SysRegMoveInstr{
+                    .rt = Register.from(op, .x, false),
+                    .op2 = @truncate(u3, op >> 5),
+                    .crm = @truncate(u4, op >> 8),
+                    .crn = @truncate(u4, op >> 12),
+                    .op1 = @truncate(u3, op >> 16),
+                    .o0 = @truncate(u1, op >> 19),
+                    .o20 = @truncate(u1, op >> 20),
+                };
+                break :blk Instruction{ .msr = payload };
+            } else error.Unallocated;
         } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100100) {
             @panic("system with results");
         } else if (op0 == 0b110 and (@truncate(u7, op1 >> 7) == 0b0100001 or @truncate(u7, op1 >> 7) == 0b0100101)) {
-            @panic("system instructions");
+            const l = @truncate(u1, op >> 21) == 1;
+            const payload = SysInstr{
+                .l = l,
+                .rt = Register.from(op, .x, false),
+                .op2 = @truncate(u3, op >> 5),
+                .crm = @truncate(u4, op >> 8),
+                .crn = @truncate(u4, op >> 12),
+                .op1 = @truncate(u3, op >> 16),
+            };
+            return Instruction{ .sys = payload };
         } else if (op0 == 0b110 and (@truncate(u6, op1 >> 8) == 0b010001 or @truncate(u6, op1 >> 8) == 0b010011)) {
-            @panic("system register");
+            const l = @truncate(u1, op >> 21) == 1;
+            const payload = SysRegMoveInstr{
+                .rt = Register.from(op, .x, false),
+                .op2 = @truncate(u3, op >> 5),
+                .crm = @truncate(u4, op >> 8),
+                .crn = @truncate(u4, op >> 12),
+                .op1 = @truncate(u3, op >> 16),
+                .o0 = @truncate(u1, op >> 19),
+                .o20 = @truncate(u1, op >> 20),
+            };
+            return if (l)
+                Instruction{ .mrs = payload }
+            else
+                Instruction{ .msr = payload };
         } else if (op0 == 0b110 and op1 >= 0b10000000000000) {
             const opc = @truncate(u4, op >> 21);
             const o2 = @truncate(u5, op >> 16);

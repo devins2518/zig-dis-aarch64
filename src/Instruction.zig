@@ -136,10 +136,22 @@ pub const Instruction = union(enum) {
     autibsp,
     bti,
     // Barriers
+    clrex: u4,
+    dsb: u4,
+    dmb: u4,
+    isb: u4,
+    sb,
+    tcommit,
     // PSTATE
+    cfinv,
+    xaflag,
+    axflag,
     // System with result
     // System instructions
+    sys: SysInstr,
     // System register move
+    msr: SysRegMoveInstr,
+    mrs: SysRegMoveInstr,
     // Unconditional branch (register)
     br: BranchInstr,
     blr: BranchInstr,
@@ -407,6 +419,73 @@ pub const Instruction = union(enum) {
                     else => {},
                 }
                 try std.fmt.format(writer, "]", .{});
+            },
+            .clrex, .isb => |instr| {
+                try std.fmt.format(writer, "{s}", .{@tagName(self.*)});
+                if (instr != 0b1111)
+                    try std.fmt.format(writer, " #{}", .{instr});
+            },
+            .dsb, .dmb => |instr| {
+                const option = switch (instr) {
+                    0b0000 => "#0",
+                    0b0001 => "oshld",
+                    0b0010 => "oshst",
+                    0b0011 => "osh",
+                    0b0100 => "#4",
+                    0b0101 => "nshld",
+                    0b0110 => "nshst",
+                    0b0111 => "nsh",
+                    0b1000 => "#8",
+                    0b1001 => "ishld",
+                    0b1010 => "ishst",
+                    0b1011 => "ish",
+                    0b1100 => "#12",
+                    0b1101 => "ld",
+                    0b1110 => "st",
+                    0b1111 => "sy",
+                };
+                try std.fmt.format(writer, "{s} {s}", .{ @tagName(self.*), option });
+            },
+            .sys => |sys| try std.fmt.format(writer, "{}", .{sys}),
+            .msr => |msr| {
+                try std.fmt.format(writer, "{s} ", .{@tagName(self.*)});
+                if (@truncate(u1, msr.o20) == 0) {
+                    const pstate_field = if (msr.op1 == 0b000 and msr.op2 == 0b101)
+                        "SPSel"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b110)
+                        "DAIFSet"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b111)
+                        "DAIFClr"
+                    else if (msr.op1 == 0b000 and msr.op2 == 0b011)
+                        "UAO"
+                    else if (msr.op1 == 0b000 and msr.op2 == 0b100)
+                        "PAN"
+                    else if (msr.op1 == 0b001 and msr.op2 == 0b000 and msr.crm <= 0b0001)
+                        "ALLINT"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b001)
+                        "SSBS"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b010)
+                        "DIT"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b011 and @truncate(u3, msr.crm >> 1) == 0b001)
+                        "SVCRSM"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b011 and @truncate(u3, msr.crm >> 1) == 0b010)
+                        "SVCRZA"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b011 and @truncate(u3, msr.crm >> 1) == 0b011)
+                        "SVCRSMZA"
+                    else if (msr.op1 == 0b011 and msr.op2 == 0b100)
+                        "TCO"
+                    else
+                        unreachable;
+                    try std.fmt.format(writer, "{s}, #{}", .{ pstate_field, msr.crm });
+                } else {
+                    try msr.formatSysReg(writer);
+                    try std.fmt.format(writer, ", {}", .{msr.rt});
+                }
+            },
+            .mrs => |mrs| {
+                try std.fmt.format(writer, "{s} ", .{@tagName(self.*)});
+                try std.fmt.format(writer, "{}, ", .{mrs.rt});
+                try mrs.formatSysReg(writer);
             },
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
@@ -875,7 +954,508 @@ pub const LoadStoreInstr = struct {
                 else if (self.index == null)
                     try std.fmt.format(writer, "]", .{});
             },
-            // else => {},
         }
+    }
+};
+
+pub const SysInstr = struct {
+    l: bool,
+    rt: Register,
+    op2: u3,
+    crm: u4,
+    crn: u4,
+    op1: u3,
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        const sys_op = @as(u14, self.op1) << 11 |
+            @as(u14, self.crn) << 7 |
+            @as(u14, self.crm) << 3 |
+            @as(u14, self.op2);
+        if (!self.l and self.crn == 0b0111 and @truncate(u3, self.crm >> 1) == 0b100 and
+            (sys_op == 0b00001111000000 or
+            sys_op == 0b10001111000000 or
+            sys_op == 0b11001111000000 or
+            sys_op == 0b00001111000001 or
+            sys_op == 0b10001111000001 or
+            sys_op == 0b11001111000001 or
+            sys_op == 0b00001111000010 or
+            sys_op == 0b00001111000011 or
+            sys_op == 0b10001111000100 or
+            sys_op == 0b10001111000101 or
+            sys_op == 0b10001111000110 or
+            sys_op == 0b10001111000111))
+        {
+            const op = if (self.op1 == 0b000 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b000)
+                "s1e1r"
+            else if (self.op1 == 0b000 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b001)
+                "s1e1w"
+            else if (self.op1 == 0b000 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b010)
+                "s1e0r"
+            else if (self.op1 == 0b000 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b011)
+                "s1e0w"
+            else if (self.op1 == 0b100 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b000)
+                "s1e2r"
+            else if (self.op1 == 0b100 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b001)
+                "s1e2w"
+            else if (self.op1 == 0b100 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b100)
+                "s12e1r"
+            else if (self.op1 == 0b100 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b101)
+                "s12e1w"
+            else if (self.op1 == 0b100 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b110)
+                "s12e0r"
+            else if (self.op1 == 0b100 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b111)
+                "s12e0w"
+            else if (self.op1 == 0b110 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b000)
+                "s1e3r"
+            else if (self.op1 == 0b110 and @truncate(u1, self.crm) == 0b0 and self.op2 == 0b001)
+                "s1e3w"
+            else if (self.op1 == 0b000 and @truncate(u1, self.crm) == 0b1 and self.op2 == 0b000)
+                "s1e1rp"
+            else if (self.op1 == 0b000 and @truncate(u1, self.crm) == 0b1 and self.op2 == 0b001)
+                "s1e1wp"
+            else
+                unreachable;
+            try std.fmt.format(writer, "at {s}, {}", .{ op, self.rt });
+        } else if (!self.l and self.op1 == 0b011 and self.crn == 0b0111 and self.crm == 0b0011 and self.op2 == 0b100)
+            try std.fmt.format(writer, "cfp rctx, {}", .{self.rt})
+        else if (!self.l and self.op1 == 0b011 and self.crn == 0b0111 and self.crm == 0b0011 and self.op2 == 0b111)
+            try std.fmt.format(writer, "cpp rctx, {}", .{self.rt})
+        else if (!self.l and self.crn == 0b0111 and
+            (sys_op == 0b01101110100001 or
+            sys_op == 0b00001110110001 or
+            sys_op == 0b00001110110010 or
+            sys_op == 0b01101111010001 or
+            sys_op == 0b00001111010010 or
+            sys_op == 0b01101111011001 or
+            sys_op == 0b01101111110001 or
+            sys_op == 0b00001111110010 or
+            sys_op == 0b01101111101001))
+        {
+            const op = if (self.op1 == 0b000 and self.crm == 0b0110 and self.op2 == 0b001)
+                "ivac"
+            else if (self.op1 == 0b000 and self.crm == 0b0110 and self.op2 == 0b010)
+                "isw"
+            else if (self.op1 == 0b000 and self.crm == 0b1010 and self.op2 == 0b010)
+                "csw"
+            else if (self.op1 == 0b000 and self.crm == 0b1110 and self.op2 == 0b010)
+                "cisw"
+            else if (self.op1 == 0b011 and self.crm == 0b0100 and self.op2 == 0b001)
+                "zva"
+            else if (self.op1 == 0b011 and self.crm == 0b1010 and self.op2 == 0b001)
+                "cvac"
+            else if (self.op1 == 0b011 and self.crm == 0b1011 and self.op2 == 0b001)
+                "cvau"
+            else if (self.op1 == 0b011 and self.crm == 0b1110 and self.op2 == 0b001)
+                "civac"
+            else if (self.op1 == 0b000 and self.crm == 0b0110 and self.op2 == 0b011)
+                "igvac"
+            else if (self.op1 == 0b000 and self.crm == 0b0110 and self.op2 == 0b100)
+                "igsw"
+            else if (self.op1 == 0b000 and self.crm == 0b0110 and self.op2 == 0b101)
+                "igdvac"
+            else if (self.op1 == 0b000 and self.crm == 0b0110 and self.op2 == 0b110)
+                "igdsw"
+            else if (self.op1 == 0b000 and self.crm == 0b1010 and self.op2 == 0b100)
+                "cgsw"
+            else if (self.op1 == 0b000 and self.crm == 0b1010 and self.op2 == 0b110)
+                "cgdsw"
+            else if (self.op1 == 0b000 and self.crm == 0b1110 and self.op2 == 0b100)
+                "cigsw"
+            else if (self.op1 == 0b000 and self.crm == 0b1110 and self.op2 == 0b110)
+                "cigdsw"
+            else if (self.op1 == 0b011 and self.crm == 0b0100 and self.op2 == 0b011)
+                "gva"
+            else if (self.op1 == 0b011 and self.crm == 0b0100 and self.op2 == 0b100)
+                "gzva"
+            else if (self.op1 == 0b011 and self.crm == 0b1010 and self.op2 == 0b011)
+                "cgvac"
+            else if (self.op1 == 0b011 and self.crm == 0b1010 and self.op2 == 0b101)
+                "cgdvac"
+            else if (self.op1 == 0b011 and self.crm == 0b1100 and self.op2 == 0b011)
+                "cgvap"
+            else if (self.op1 == 0b011 and self.crm == 0b1100 and self.op2 == 0b101)
+                "cgdvap"
+            else if (self.op1 == 0b011 and self.crm == 0b1101 and self.op2 == 0b011)
+                "cgvadp"
+            else if (self.op1 == 0b011 and self.crm == 0b1101 and self.op2 == 0b101)
+                "cgdvadp"
+            else if (self.op1 == 0b011 and self.crm == 0b1110 and self.op2 == 0b011)
+                "cigvac"
+            else if (self.op1 == 0b011 and self.crm == 0b1110 and self.op2 == 0b101)
+                "cigdvac"
+            else if (self.op1 == 0b011 and self.crm == 0b1100 and self.op2 == 0b001)
+                "cvap"
+            else if (self.op1 == 0b011 and self.crm == 0b1101 and self.op2 == 0b001)
+                "cvadp"
+            else
+                unreachable;
+            try std.fmt.format(writer, "dc {s}", .{op});
+            if (self.rt.toInt() != 0b11111)
+                try std.fmt.format(writer, ", {}", .{self.rt});
+        } else if (!self.l and self.op1 == 0b011 and self.crn == 0b01111 and self.crm == 0b0011 and self.op2 == 0b101)
+            try std.fmt.format(writer, "dvp rctx, {}", .{self.rt})
+        else if (self.crn == 0b0111 and
+            (sys_op == 0b00001110001000 or
+            sys_op == 0b00001110101000 or
+            sys_op == 0b01101110101001))
+        {
+            const op = if (self.op1 == 0b000 and self.crm == 0b0001 and self.op2 == 0b000)
+                "ialluis"
+            else if (self.op1 == 0b000 and self.crm == 0b0101 and self.op2 == 0b000)
+                "iallu"
+            else if (self.op1 == 0b011 and self.crm == 0b0101 and self.op2 == 0b001)
+                "ivau"
+            else
+                unreachable;
+            try std.fmt.format(writer, "ic {s}", .{op});
+            if (self.rt.toInt() != 0b11111)
+                try std.fmt.format(writer, ", {}", .{self.rt});
+        } else if (self.crn == 0b1000 and
+            (sys_op == 0b10010000000001 or
+            sys_op == 0b10010000000101 or
+            sys_op == 0b00010000011000 or
+            sys_op == 0b10010000011000 or
+            sys_op == 0b11010000011000 or
+            sys_op == 0b00010000011001 or
+            sys_op == 0b10010000011001 or
+            sys_op == 0b11010000011001 or
+            sys_op == 0b00010000011010 or
+            sys_op == 0b00010000011011 or
+            sys_op == 0b10010000011100 or
+            sys_op == 0b00010000011101 or
+            sys_op == 0b10010000011101 or
+            sys_op == 0b11010000011101 or
+            sys_op == 0b10010000011110 or
+            sys_op == 0b00010000011111 or
+            sys_op == 0b10010000100001 or
+            sys_op == 0b10010000100101 or
+            sys_op == 0b00010000111000 or
+            sys_op == 0b10010000111000 or
+            sys_op == 0b11010000111000 or
+            sys_op == 0b00010000111001 or
+            sys_op == 0b10010000111001 or
+            sys_op == 0b11010000111001 or
+            sys_op == 0b00010000111010 or
+            sys_op == 0b00010000111011 or
+            sys_op == 0b10010000111100 or
+            sys_op == 0b00010000111101 or
+            sys_op == 0b10010000111101 or
+            sys_op == 0b11010000111101 or
+            sys_op == 0b10010000111110 or
+            sys_op == 0b00010000111111))
+        {
+            const op = switch (@as(u10, self.op1) << 7 | @as(u10, self.crm) << 3 | @as(u10, self.op2)) {
+                0b0000001000 => "vmalle1os",
+                0b0000001001 => "vae1os",
+                0b0000001010 => "aside1os",
+                0b0000001011 => "vaae1os",
+                0b0000001101 => "vale1os",
+                0b0000001111 => "vaale1os",
+                0b0000010001 => "rvae1is",
+                0b0000010011 => "rvaae1is",
+                0b0000010101 => "rvale1is",
+                0b0000010111 => "rvaale1is",
+                0b0000011000 => "vmalle1is",
+                0b0000011001 => "vae1is",
+                0b0000011010 => "aside1is",
+                0b0000011011 => "vaae1is",
+                0b0000011101 => "vale1is",
+                0b0000011111 => "vaale1is",
+                0b0000101001 => "rvae1os",
+                0b0000101011 => "rvaae1os",
+                0b0000101101 => "rvale1os",
+                0b0000101111 => "rvaale1os",
+                0b0000110001 => "rvae1",
+                0b0000110011 => "rvaae1",
+                0b0000110101 => "rvale1",
+                0b0000110111 => "rvaale1",
+                0b0000111000 => "vmalle1",
+                0b0000111001 => "vae1",
+                0b0000111010 => "aside1",
+                0b0000111011 => "vaae1",
+                0b0000111101 => "vale1",
+                0b0000111111 => "vaale1",
+                0b1000000001 => "ipas2e1is",
+                0b1000000010 => "ripas2e1is",
+                0b1000000101 => "ipas2le1is",
+                0b1000000110 => "ripas2le1is",
+                0b1000001000 => "alle2os",
+                0b1000001001 => "vae2os",
+                0b1000001100 => "alle1os",
+                0b1000001101 => "vale2os",
+                0b1000001110 => "vmalls12e1os",
+                0b1000010001 => "rvae2is",
+                0b1000010101 => "rvale2is",
+                0b1000011000 => "alle2is",
+                0b1000011001 => "vae2is",
+                0b1000011100 => "alle1is",
+                0b1000011101 => "vale2is",
+                0b1000011110 => "vmalls12e1is",
+                0b1000100000 => "ipas2e1os",
+                0b1000100001 => "ipas2e1",
+                0b1000100010 => "ripas2e1",
+                0b1000100011 => "ripas2e1os",
+                0b1000100100 => "ipas2le1os",
+                0b1000100101 => "ipas2le1",
+                0b1000100110 => "ripas2le1",
+                0b1000100111 => "ripas2le1os",
+                0b1000101001 => "rvae2os",
+                0b1000101101 => "rvale2os",
+                0b1000110001 => "rvae2",
+                0b1000110101 => "rvale2",
+                0b1000111000 => "alle2",
+                0b1000111001 => "vae2",
+                0b1000111100 => "alle1",
+                0b1000111101 => "vale2",
+                0b1000111110 => "vmalls12e1",
+                0b1100001000 => "alle3os",
+                0b1100001001 => "vae3os",
+                0b1100001101 => "vale3os",
+                0b1100010001 => "rvae3is",
+                0b1100010101 => "rvale3is",
+                0b1100011000 => "alle3is",
+                0b1100011001 => "vae3is",
+                0b1100011101 => "vale3is",
+                0b1100101001 => "rvae3os",
+                0b1100101101 => "rvale3os",
+                0b1100110001 => "rvae3",
+                0b1100110101 => "rvale3",
+                0b1100111000 => "alle3",
+                0b1100111001 => "vae3",
+                0b1100111101 => "vale3",
+                else => unreachable,
+            };
+            try std.fmt.format(writer, "tlbi {s}", .{op});
+            if (self.rt.toInt() != 0b11111)
+                try std.fmt.format(writer, ", {}", .{self.rt});
+        } else {
+            try std.fmt.format(writer, "sys", .{});
+            if (self.l) {
+                try std.fmt.format(writer, "l", .{});
+                if (self.rt.toInt() != 0b11111)
+                    try std.fmt.format(writer, " {},", .{self.rt});
+            }
+            try std.fmt.format(writer, " #{}, c{}, c{}, #{}", .{ self.op1, self.crn, self.crm, self.op2 });
+            if (!self.l and self.rt.toInt() != 0b11111)
+                try std.fmt.format(writer, ", {}", .{self.rt});
+        }
+    }
+};
+
+pub const SysRegMoveInstr = struct {
+    rt: Register,
+    op2: u3,
+    crm: u4,
+    crn: u4,
+    op1: u3,
+    o0: u1,
+    o20: u1,
+
+    fn formatSysReg(self: *const @This(), writer: anytype) !void {
+        // TODO
+        if (false)
+            try std.fmt.format(writer, "ACTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ACTLR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "ACTLR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "AFSR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "AFSR0_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "AFSR0_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "AFSR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "AFSR1_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "AFSR1_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "AIDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "AMAIR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "AMAIR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "AMAIR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "CCSIDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CLIDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPACR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPTR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPTR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUACTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUACTLR2_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUCFR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUECTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUPCR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUPMR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUPOR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUPSELR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "CPUPWRCTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CSSELR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "CTR_EL0", .{})
+        else if (false)
+            try std.fmt.format(writer, "DCZID_EL0", .{})
+        else if (false)
+            try std.fmt.format(writer, "DISR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERRIDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERRSELR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXADDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXCTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXFR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXMISC0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXMISC1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXPFGCDNR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXPFGCTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXPFGFR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ERXSTATUS_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ESR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ESR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "ESR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "HACR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "HCR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64AFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64AFR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64DFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64DFR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64ISAR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64ISAR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64MMFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64MMFR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64MMFR2_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AA64PFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_AFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_DFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR2_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR3_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR4_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR5_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_ISAR6_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_MMFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_MMFR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_MMFR2_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_MMFR3_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_MMFR4_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_PFR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "ID_PFR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "IFSR32_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "LORC_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "LORID_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "LORN_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "MDCR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "MIDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "MPIDR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "PAR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "REVIDR_EL1", .{})
+        else if (self.op1 == 0b000 and self.crn == 0b1100 and self.crm == 0b0000 and self.op2 == 0b010)
+            try std.fmt.format(writer, "RMR_EL1", .{})
+        else if (self.op1 == 0b100 and self.crn == 0b1100 and self.crm == 0b0000 and self.op2 == 0b010)
+            try std.fmt.format(writer, "RMR_EL2", .{})
+        else if (self.op1 == 0b110 and self.crn == 0b1100 and self.crm == 0b0000 and self.op2 == 0b010)
+            try std.fmt.format(writer, "RMR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "RVBAR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "SCTLR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "SCTLR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "SCTLR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "TCR_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "TCR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "TCR_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "TTBR0_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "TTBR0_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "TTBR0_EL3", .{})
+        else if (false)
+            try std.fmt.format(writer, "TTBR1_EL1", .{})
+        else if (false)
+            try std.fmt.format(writer, "TTBR1_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "VDISR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "VSESR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "VTCR_EL2", .{})
+        else if (false)
+            try std.fmt.format(writer, "VTTBR_EL2", .{})
+        else
+            try std.fmt.format(writer, "S{}_{}_C{}_C{}_{}", .{ @as(u8, self.o0) + 2, self.op1, self.crn, self.crm, self.op2 });
     }
 };
