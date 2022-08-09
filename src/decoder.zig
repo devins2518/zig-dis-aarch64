@@ -14,6 +14,9 @@ const Condition = @import("instruction.zig").Condition;
 const DataProcInstr = @import("instruction.zig").DataProcInstr;
 const ExceptionInstr = @import("instruction.zig").ExceptionInstr;
 const ExtractInstr = @import("instruction.zig").ExtractInstr;
+const FPCompInstr = @import("instruction.zig").FPCompInstr;
+const FPCondCompInstr = @import("instruction.zig").FPCondCompInstr;
+const FPCondSelInstr = @import("instruction.zig").FPCondSelInstr;
 const Instruction = @import("instruction.zig").Instruction;
 const LoadStoreInstr = @import("instruction.zig").LoadStoreInstr;
 const LogInstr = @import("instruction.zig").LogInstr;
@@ -23,6 +26,7 @@ const ShaInstr = @import("instruction.zig").ShaInstr;
 const SysInstr = @import("instruction.zig").SysInstr;
 const SysRegMoveInstr = @import("instruction.zig").SysRegMoveInstr;
 const SysWithRegInstr = @import("instruction.zig").SysWithRegInstr;
+const SysWithResInstr = @import("instruction.zig").SysWithResInstr;
 const TestInstr = @import("instruction.zig").TestInstr;
 
 const Error = error{ EndOfStream, Unallocated, Unimplemented };
@@ -182,18 +186,27 @@ pub const Disassembler = struct {
             0b110 => blk: {
                 const opc = @truncate(u2, op >> 29);
                 const n = @truncate(u1, op >> 22);
-                const width = Width.from(op >> 31);
-                break :blk if (opc == 0b11 or (width == .w and n == 0b1))
+                const ext = @intToEnum(Field(BitfieldInstr, .ext), opc);
+                const immr = @truncate(u6, op >> 16);
+                const imms = @truncate(u6, op >> 10);
+                const rd_width = Width.from(op >> 31);
+                const rn_width = if (ext == .signed and ((immr == 0b000000 and imms == 0b000111) or
+                    (immr == 0b000000 and imms == 0b001111) or (immr == 0b000000 and imms == 0b011111)))
+                    .w
+                else
+                    rd_width;
+                break :blk if (opc == 0b11 or (rd_width == .w and n == 0b1) or (rd_width == .x and n == 0b0))
                     error.Unallocated
                 else
                     Instruction{ .bfm = BitfieldInstr{
+                        .opc = opc,
                         .n = n,
-                        .width = width,
-                        .ext = @intToEnum(Field(BitfieldInstr, .ext), opc),
+                        .width = rn_width,
+                        .ext = ext,
                         .immr = @truncate(u6, op >> 16),
                         .imms = @truncate(u6, op >> 10),
-                        .rn = Register.from(op >> 5, width, false),
-                        .rd = Register.from(op, width, false),
+                        .rn = Register.from(op >> 5, rn_width, false),
+                        .rd = Register.from(op, rd_width, false),
                     } };
             },
             0b111 => blk: {
@@ -372,7 +385,18 @@ pub const Disassembler = struct {
                 break :blk Instruction{ .msr = payload };
             } else error.Unallocated;
         } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100100) {
-            @panic("system with results");
+            const o1 = @truncate(u3, op >> 16);
+            const crn = @truncate(u4, op >> 12);
+            const crm = @truncate(u4, op >> 8);
+            const o2 = @truncate(u3, op >> 5);
+            const payload = SysWithResInstr{ .rt = Register.from(op, .x, false) };
+            return if (o1 == 0b011 and crn == 0b0011 and crm == 0b0000 and o2 == 0b011)
+                Instruction{ .tstart = payload }
+            else if (o1 == 0b011 and crn == 0b0011 and crm == 0b0000 and o2 == 0b011)
+                Instruction{ .ttest = payload }
+            else
+                // TODO
+                Instruction{ .adc = undefined };
         } else if (op0 == 0b110 and (@truncate(u7, op1 >> 7) == 0b0100001 or @truncate(u7, op1 >> 7) == 0b0100101)) {
             const l = @truncate(u1, op >> 21) == 1;
             const payload = SysInstr{
@@ -570,9 +594,31 @@ pub const Disassembler = struct {
             return error.Unimplemented // Compare and swap
         else if (@truncate(u2, op0) == 0b01 and op1 == 0 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b00)
             return error.Unimplemented // LDAPR/STLR (unscaled immediate)
-        else if (@truncate(u2, op0) == 0b01 and op2 <= 0b01)
-            return error.Unimplemented // Load register (literal)
-        else if (@truncate(u2, op0) == 0b01 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b01)
+        else if (@truncate(u2, op0) == 0b01 and op2 <= 0b01) {
+            const opc = @truncate(u2, op >> 30);
+            const v = @truncate(u1, op >> 26);
+            const width = switch (@as(u3, opc) << 1 | v) {
+                0b000, 0b110 => Width.w,
+                0b001 => Width.s,
+                0b010, 0b100 => Width.x,
+                0b011 => Width.d,
+                0b101 => Width.q,
+                else => return error.Unallocated,
+            };
+            const size_ext = if (opc == 0b10 and v == 0) SizeTy.sw else SizeTy.@"";
+            const payload = LoadStoreInstr{
+                .rn = undefined,
+                .rt = Register.from(op, width, false),
+                .ext = .@"",
+                .op = .r,
+                .size = size_ext,
+                .payload = .{ .imm19 = @truncate(u19, op >> 5) },
+            };
+            return if (opc == 0b11 and v == 0)
+                Instruction{ .prfm = payload }
+            else
+                Instruction{ .ld = payload };
+        } else if (@truncate(u2, op0) == 0b01 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b01)
             return error.Unimplemented // Memory Copy and Memory Set
         else if (@truncate(u2, op0) == 0b10 and op2 == 0b00) { // Load/store no-allocate pair (offset)
             const opc = @truncate(u2, op >> 30);
@@ -1370,6 +1416,548 @@ pub const Disassembler = struct {
                 .h, .su1 => Instruction{ .sha1 = payload },
                 else => Instruction{ .sha256 = payload },
             };
-        } else return error.Unimplemented;
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 == 0b00 and
+            @truncate(u2, op2 >> 2) == 0b00 and
+            @truncate(u1, op3 >> 5) == 0 and
+            @truncate(u1, op3) == 1)
+        {
+            return error.Unimplemented; // SIMD scalar copy
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            @truncate(u2, op2 >> 2) == 0b10 and
+            @truncate(u2, op3 >> 4) == 0b00 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD three same fp16
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            op2 == 0b1111 and
+            @truncate(u2, op3 >> 7) == 0b00 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD scalar two reg misc fp16
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            @truncate(u3, op2 >> 2) == 0b0 and
+            @truncate(u1, op3 >> 5) == 0b1 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD scalar three same extra
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            @truncate(u3, op2) == 0b100 and
+            @truncate(u2, op3 >> 7) == 0b00 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD scalar two reg misc
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            @truncate(u3, op2) == 0b110 and
+            @truncate(u2, op3 >> 7) == 0b00 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD scalar pairwise
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u2, op3) == 0b00)
+        {
+            return error.Unimplemented; // SIMD scalar three different
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD scalar three same
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 == 0b10 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD scalar shift by immediate
+        } else if (@truncate(u2, op0 >> 2) == 0b01 and
+            @truncate(u1, op0) == 1 and
+            op1 >= 0b10 and
+            @truncate(u1, op3) == 0b0)
+        {
+            return error.Unimplemented; // SIMD scalar x indexed element
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u2, op0) == 0b00 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b0 and
+            @truncate(u1, op3 >> 5) == 0b0 and
+            @truncate(u2, op3) == 0b00)
+        {
+            return error.Unimplemented; // SIMD table lookup
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u2, op0) == 0b00 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b0 and
+            @truncate(u1, op3 >> 5) == 0b0 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD permute
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u2, op0) == 0b10 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b0 and
+            @truncate(u1, op3 >> 5) == 0b0 and
+            @truncate(u1, op3) == 0b0)
+        {
+            return error.Unimplemented; // SIMD extract
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 == 0b00 and
+            @truncate(u2, op2 >> 2) == 0b00 and
+            @truncate(u1, op3 >> 5) == 0b0 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD copy
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            @truncate(u2, op2 >> 2) == 0b10 and
+            @truncate(u2, op3 >> 4) == 0b00 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD three same (fp16)
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            op2 == 0b1111 and
+            @truncate(u2, op3 >> 7) == 0b00 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD two reg misc (fp16)
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b0 and
+            @truncate(u1, op3 >> 5) == 0b1 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD three reg extension
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            @truncate(u3, op2) == 0b100 and
+            @truncate(u7, op3 >> 7) == 0b00 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD two reg misc
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            @truncate(u3, op2) == 0b110 and
+            @truncate(u7, op3 >> 7) == 0b00 and
+            @truncate(u2, op3) == 0b10)
+        {
+            return error.Unimplemented; // SIMD across lanes
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 1) == 0b1 and
+            @truncate(u2, op3) == 0b00)
+        {
+            return error.Unimplemented; // SIMD three different
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 1) == 0b1 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD three same
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 == 0b10 and
+            op2 == 0b0000 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD modified immediate
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 == 0b10 and
+            op2 != 0b0000 and
+            @truncate(u1, op3) == 0b1)
+        {
+            return error.Unimplemented; // SIMD shift by immediate
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and
+            @truncate(u1, op0) == 0b0 and
+            op1 >= 0b10 and
+            @truncate(u1, op3) == 0b0)
+        {
+            return error.Unimplemented; // SIMD vector x indexed element
+        } else if (op0 == 0b1100 and
+            op1 == 0b00 and
+            @truncate(u2, op2 >> 2) == 0b10 and
+            @truncate(u2, op3 >> 4) == 0b10)
+        {
+            return error.Unimplemented; // Crypto three reg, imm2
+        } else if (op0 == 0b1100 and
+            op1 == 0b00 and
+            @truncate(u2, op2 >> 2) == 0b11 and
+            @truncate(u1, op3 >> 5) == 0b1 and
+            @truncate(u2, op3 >> 2) == 0b00)
+        {
+            return error.Unimplemented; // Crypto three reg, sha512
+        } else if (op0 == 0b1100 and
+            op1 == 0b00 and
+            @truncate(u1, op3 >> 5) == 0b1)
+        {
+            return error.Unimplemented; // Crypto four reg
+        } else if (op0 == 0b1100 and
+            op1 == 0b01 and
+            @truncate(u2, op2 >> 2) == 0b00)
+        {
+            return error.Unimplemented; // Xar
+        } else if (op0 == 0b1100 and
+            op1 == 0b01 and
+            op2 == 0b1000 and
+            @truncate(u7, op3 >> 2) == 0b0001000)
+        {
+            return error.Unimplemented; // Crypto two reg, sha512
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b0)
+        {
+            const sf = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const rmode = @truncate(u2, op >> 19);
+            const opcode = @truncate(u3, op >> 16);
+            const scale = @truncate(u6, op >> 10);
+            return if ((sf == 0b0 and scale <= 0b011111) or
+                s == 0b1 or ptype == 0b10 or opcode >= 0b100 or
+                (@truncate(u1, rmode) == 0b0 and @truncate(u2, opcode >> 1) == 0b00) or
+                (@truncate(u1, rmode) == 0b1 and @truncate(u2, opcode >> 1) == 0b01) or
+                (@truncate(u1, rmode >> 1) == 0b0 and @truncate(u2, opcode >> 1) == 0b00) or
+                (@truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b01))
+                error.Unallocated
+            else if (rmode == 0b11 and opcode == 0b001)
+                @as(Instruction, Instruction.fcvtzu)
+            else if (rmode == 0b11 and opcode == 0b000)
+                @as(Instruction, Instruction.fcvtzs)
+            else if (rmode == 0b00 and opcode == 0b011)
+                @as(Instruction, Instruction.ucvtf)
+            else if (rmode == 0b00 and opcode == 0b010)
+                @as(Instruction, Instruction.scvtf)
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u6, op3) == 0b000000)
+        {
+            const sf = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const rmode = @truncate(u2, op >> 19);
+            const opcode = @truncate(u3, op >> 16);
+            return if ((@truncate(u1, rmode) == 0b1 and @truncate(u2, opcode >> 1) == 0b01) or
+                (@truncate(u1, rmode) == 0b1 and @truncate(u2, opcode >> 1) == 0b10) or
+                (@truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b01) or
+                (@truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b10) or
+                (s == 0b0 and ptype == 0b10 and @truncate(u1, opcode >> 2) == 0b0) or
+                (s == 0b0 and ptype == 0b10 and @truncate(u2, opcode >> 1) == 0b10) or
+                (s == 0b1) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b00 and @truncate(u1, rmode) == 0b1 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b00 and @truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and @truncate(u1, rmode >> 1) == 0b0 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b111) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b10 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and @truncate(u1, rmode) == 0b1 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and @truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b10 and @truncate(u1, rmode) == 0b0 and @truncate(u2, opcode >> 1) == 0b11) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b10 and @truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b11))
+                error.Unallocated
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b101) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b101) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b101) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b101) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b101) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b101))
+                @as(Instruction, Instruction.fcvtau)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b100) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b100) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b100) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b100) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b100) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b100))
+                @as(Instruction, Instruction.fcvtas)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b001))
+                @as(Instruction, Instruction.fcvtzu)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b000))
+                @as(Instruction, Instruction.fcvtzs)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b001))
+                @as(Instruction, Instruction.fcvtmu)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b000))
+                @as(Instruction, Instruction.fcvtms)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b001))
+                @as(Instruction, Instruction.fcvtpu)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b000))
+                @as(Instruction, Instruction.fcvtps)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b001) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b001) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b001))
+                @as(Instruction, Instruction.fcvtnu)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b000) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b000) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b000))
+                @as(Instruction, Instruction.fcvtns)
+            else if (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b110)
+                @as(Instruction, Instruction.fjcvtzs)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b111) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b111) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b10 and rmode == 0b01 and opcode == 0b110) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b10 and rmode == 0b01 and opcode == 0b111) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111))
+                @as(Instruction, Instruction.fmov)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b011) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b011) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b011) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b011) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b011) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b011))
+                @as(Instruction, Instruction.ucvtf)
+            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b010) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b010) or
+                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b010) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b010) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b010) or
+                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b010))
+                @as(Instruction, Instruction.scvtf)
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u5, op3) == 0b10000)
+        {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const opcode = @truncate(u6, op >> 15);
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10 or opcode >= 0b100000)
+                error.Unallocated
+            else if (opcode == 0b000000)
+                @as(Instruction, Instruction.fmov)
+            else if (opcode == 0b000001)
+                @as(Instruction, Instruction.fabs)
+            else if (opcode == 0b000010)
+                @as(Instruction, Instruction.fneg)
+            else if (opcode == 0b000011)
+                @as(Instruction, Instruction.fsqrt)
+            else if ((ptype == 0b00 and opcode == 0b000101) or
+                (ptype == 0b00 and opcode == 0b000111) or
+                (ptype == 0b01 and opcode == 0b000100) or
+                (ptype == 0b01 and opcode == 0b000111) or
+                (ptype == 0b11 and opcode == 0b000100) or
+                (ptype == 0b11 and opcode == 0b000101))
+                @as(Instruction, Instruction.fcvt)
+            else if (opcode == 0b001000)
+                @as(Instruction, Instruction.frintn)
+            else if (opcode == 0b001001)
+                @as(Instruction, Instruction.frintp)
+            else if (opcode == 0b001010)
+                @as(Instruction, Instruction.frintm)
+            else if (opcode == 0b001011)
+                @as(Instruction, Instruction.frintz)
+            else if (opcode == 0b001100)
+                @as(Instruction, Instruction.frinta)
+            else if (opcode == 0b001110)
+                @as(Instruction, Instruction.frintx)
+            else if (opcode == 0b001111)
+                @as(Instruction, Instruction.frinti)
+            else if (ptype <= 0b01 and opcode == 0b010000)
+                @as(Instruction, Instruction.frint32z)
+            else if (ptype <= 0b01 and opcode == 0b010001)
+                @as(Instruction, Instruction.frint32x)
+            else if (ptype <= 0b01 and opcode == 0b010010)
+                @as(Instruction, Instruction.frint64z)
+            else if (ptype <= 0b01 and opcode == 0b010011)
+                @as(Instruction, Instruction.frint64x)
+            else if (ptype == 0b01 and opcode == 0b000110)
+                @as(Instruction, Instruction.bfcvt)
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u4, op3) == 0b1000)
+        {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const o1 = @truncate(u2, op >> 14);
+            const opcode2 = @truncate(u5, op);
+            const e = opcode2 == 0b10000 or opcode2 == 0b11000;
+            const payload = FPCompInstr{
+                .e = e,
+                .rn = Register.from(op >> 5, .h, false),
+                .rm = Register.from(op >> 16, .h, false),
+            };
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10 or o1 != 0b00 or @truncate(u3, opcode2) != 0b00)
+                error.Unallocated
+            else
+                Instruction{ .fcmp = payload };
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u3, op3) == 0b100)
+        {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const imm5 = @truncate(u5, op >> 5);
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10 or imm5 != 0b00000)
+                error.Unallocated
+            else if (ptype != 0b10)
+                @as(Instruction, Instruction.fmov)
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u2, op3) == 0b01)
+        {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const o1 = @truncate(u1, op >> 4);
+            const payload = FPCondCompInstr{
+                .e = o1 == 0b1,
+                .rn = Register.from(op >> 5, .h, false),
+                .rm = Register.from(op >> 16, .h, false),
+                .nzcv = @truncate(u4, op),
+                .cond = @intToEnum(Condition, @truncate(u4, op >> 12)),
+            };
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10)
+                error.Unallocated
+            else
+                Instruction{ .fccmp = payload };
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u2, op3) == 0b10)
+        {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const opcode = @truncate(u4, op >> 12);
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10)
+                error.Unallocated
+            else if (opcode == 0b0000)
+                @as(Instruction, Instruction.fmul)
+            else if (opcode == 0b0001)
+                @as(Instruction, Instruction.fdiv)
+            else if (opcode == 0b0010)
+                @as(Instruction, Instruction.fadd)
+            else if (opcode == 0b0011)
+                @as(Instruction, Instruction.fsub)
+            else if (opcode == 0b0100)
+                @as(Instruction, Instruction.fmax)
+            else if (opcode == 0b0101)
+                @as(Instruction, Instruction.fmin)
+            else if (opcode == 0b0110)
+                @as(Instruction, Instruction.fmaxnm)
+            else if (opcode == 0b0111)
+                @as(Instruction, Instruction.fminnm)
+            else if (opcode == 0b1000)
+                @as(Instruction, Instruction.fnmul)
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and
+            @truncate(u1, op0) == 0b1 and
+            op1 <= 0b01 and
+            @truncate(u1, op2 >> 2) == 0b1 and
+            @truncate(u2, op3) == 0b11)
+        {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const payload = FPCondSelInstr{ .rn = Register.from(op >> 5, .h, false), .rd = Register.from(op, .h, false), .rm = Register.from(op >> 16, .h, false), .cond = @intToEnum(Condition, @truncate(u4, op >> 12)) };
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10)
+                error.Unallocated
+            else
+                Instruction{ .fcsel = payload };
+        } else if (@truncate(u1, op0 >> 2) == 0b0 and @truncate(u1, op0) == 0b1 and op1 >= 0b10) {
+            const m = @truncate(u1, op >> 31);
+            const s = @truncate(u1, op >> 29);
+            const ptype = @truncate(u2, op >> 22);
+            const o1 = @truncate(u1, op >> 21);
+            const o0 = @truncate(u1, op >> 15);
+            return if (m == 0b1 or s == 0b1 or ptype == 0b10)
+                error.Unallocated
+            else if (o1 == 0b0 and o0 == 0b0)
+                @as(Instruction, Instruction.fmadd)
+            else if (o1 == 0b0 and o0 == 0b1)
+                @as(Instruction, Instruction.fmsub)
+            else if (o1 == 0b1 and o0 == 0b0)
+                @as(Instruction, Instruction.fnmadd)
+            else if (o1 == 0b1 and o0 == 0b1)
+                @as(Instruction, Instruction.fnmsub)
+            else
+                error.Unallocated;
+        } else return error.Unallocated;
     }
 };

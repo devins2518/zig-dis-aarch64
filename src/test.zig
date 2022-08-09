@@ -2577,7 +2577,7 @@ test "arm64 branch" {
         \\hlt #0x5
         \\hvc #0x6
         \\smc #0x7
-        \\svc #0x8
+        \\svc #8
         \\b #28
         \\bl #24
         \\b.ne #20
@@ -3618,7 +3618,6 @@ test "armv9a rme" {
 }
 
 test "basic a64 instructions" {
-    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         // Add/sub (immediate)
         0xa4, 0x00, 0x00, 0x11,
@@ -5720,368 +5719,366 @@ test "basic a64 instructions" {
         0xe0, 0x03, 0x9f, 0xd6,
         0xe0, 0x03, 0xbf, 0xd6,
     },
-        \\add      w4, w5, #0
-        \\add      w2, w3, #4095
-        \\add      w30, w29, #1, lsl #12
-        \\add      w13, w5, #4095, lsl #12
-        \\add      x5, x7, #1638
-        \\add      w20, wsp, #801
-        \\add      wsp, wsp, #1104
-        \\add      wsp, w30, #4084
-        \\add      x0, x24, #291
-        \\add      x3, x24, #4095, lsl #12
-        \\add      x8, sp, #1074
-        \\add      sp, x29, #3816
-        \\sub      w0, wsp, #4077
-        \\sub      w4, w20, #546, lsl #12
-        \\sub      sp, sp, #288
-        \\sub      wsp, w19, #16
-        \\adds     w13, w23, #291, lsl #12
-        \\cmn      w2, #4095
-        \\adds     w20, wsp, #0
-        \\cmn      x3, #1, lsl #12
-        \\cmp      sp, #20, lsl #12
-        \\cmp      x30, #4095
-        \\subs     x4, sp, #3822
-        \\cmn      w3, #291, lsl #12
-        \\cmn      wsp, #1365
-        \\cmn      sp, #1092, lsl #12
-        \\mov      sp, x30
-        \\mov      wsp, w20
-        \\mov      x11, sp
-        \\mov      w24, wsp
-        \\add      w3, w5, w7
-        \\add      wzr, w3, w5
-        \\add      w20, wzr, w4
-        \\add      w4, w6, wzr
-        \\add      w11, w13, w15
-        \\add      w9, w3, wzr, lsl #10
-        \\add      w17, w29, w20, lsl #31
-        \\add      w21, w22, w23, lsr #0
-        \\add      w24, w25, w26, lsr #18
-        \\add      w27, w28, w29, lsr #31
-        \\add      w2, w3, w4, asr #0
-        \\add      w5, w6, w7, asr #21
-        \\add      w8, w9, w10, asr #31
-        \\add      x3, x5, x7
-        \\add      xzr, x3, x5
-        \\add      x20, xzr, x4
-        \\add      x4, x6, xzr
-        \\add      x11, x13, x15
-        \\add      x9, x3, xzr, lsl #10
-        \\add      x17, x29, x20, lsl #63
-        \\add      x21, x22, x23, lsr #0
-        \\add      x24, x25, x26, lsr #18
-        \\add      x27, x28, x29, lsr #63
-        \\add      x2, x3, x4, asr #0
-        \\add      x5, x6, x7, asr #21
-        \\add      x8, x9, x10, asr #63
-        \\adds     w3, w5, w7
-        \\cmn      w3, w5
-        \\adds     w20, wzr, w4
-        \\adds     w4, w6, wzr
-        \\adds     w11, w13, w15
-        \\adds     w9, w3, wzr, lsl #10
-        \\adds     w17, w29, w20, lsl #31
-        \\adds     w21, w22, w23, lsr #0
-        \\adds     w24, w25, w26, lsr #18
-        \\adds     w27, w28, w29, lsr #31
-        \\adds     w2, w3, w4, asr #0
-        \\adds     w5, w6, w7, asr #21
-        \\adds     w8, w9, w10, asr #31
-        \\adds     x3, x5, x7
-        \\cmn      x3, x5
-        \\adds     x20, xzr, x4
-        \\adds     x4, x6, xzr
-        \\adds     x11, x13, x15
-        \\adds     x9, x3, xzr, lsl #10
-        \\adds     x17, x29, x20, lsl #63
-        \\adds     x21, x22, x23, lsr #0
-        \\adds     x24, x25, x26, lsr #18
-        \\adds     x27, x28, x29, lsr #63
-        \\adds     x2, x3, x4, asr #0
-        \\adds     x5, x6, x7, asr #21
-        \\adds     x8, x9, x10, asr #63
-        \\sub      w3, w5, w7
-        \\sub      wzr, w3, w5
-        \\{{sub      w20, wzr, w4|neg w20, w4}}
-        \\sub      w4, w6, wzr
-        \\sub      w11, w13, w15
-        \\sub      w9, w3, wzr, lsl #10
-        \\sub      w17, w29, w20, lsl #31
-        \\sub      w21, w22, w23, lsr #0
-        \\sub      w24, w25, w26, lsr #18
-        \\sub      w27, w28, w29, lsr #31
-        \\sub      w2, w3, w4, asr #0
-        \\sub      w5, w6, w7, asr #21
-        \\sub      w8, w9, w10, asr #31
-        \\sub      x3, x5, x7
-        \\sub      xzr, x3, x5
-        \\{{sub      x20, xzr, x4|neg x20, x4}}
-        \\sub      x4, x6, xzr
-        \\sub      x11, x13, x15
-        \\sub      x9, x3, xzr, lsl #10
-        \\sub      x17, x29, x20, lsl #63
-        \\sub      x21, x22, x23, lsr #0
-        \\sub      x24, x25, x26, lsr #18
-        \\sub      x27, x28, x29, lsr #63
-        \\sub      x2, x3, x4, asr #0
-        \\sub      x5, x6, x7, asr #21
-        \\sub      x8, x9, x10, asr #63
-        \\subs     w3, w5, w7
-        \\cmp      w3, w5
-        \\{{subs     w20, wzr, w4|negs w20, w4}}
-        \\subs     w4, w6, wzr
-        \\subs     w11, w13, w15
-        \\subs     w9, w3, wzr, lsl #10
-        \\subs     w17, w29, w20, lsl #31
-        \\subs     w21, w22, w23, lsr #0
-        \\subs     w24, w25, w26, lsr #18
-        \\subs     w27, w28, w29, lsr #31
-        \\subs     w2, w3, w4, asr #0
-        \\subs     w5, w6, w7, asr #21
-        \\subs     w8, w9, w10, asr #31
-        \\subs     x3, x5, x7
-        \\cmp      x3, x5
-        \\{{subs     x20, xzr, x4|negs x20, x4}}
-        \\subs     x4, x6, xzr
-        \\subs     x11, x13, x15
-        \\subs     x9, x3, xzr, lsl #10
-        \\subs     x17, x29, x20, lsl #63
-        \\subs     x21, x22, x23, lsr #0
-        \\subs     x24, x25, x26, lsr #18
-        \\subs     x27, x28, x29, lsr #63
-        \\subs     x2, x3, x4, asr #0
-        \\subs     x5, x6, x7, asr #21
-        \\subs     x8, x9, x10, asr #63
-        \\cmn      w0, w3
-        \\cmn      wzr, w4
-        \\cmn      w5, wzr
-        \\cmn      w6, w7
-        \\cmn      w8, w9, lsl #15
-        \\cmn      w10, w11, lsl #31
-        \\cmn      w12, w13, lsr #0
-        \\cmn      w14, w15, lsr #21
-        \\cmn      w16, w17, lsr #31
-        \\cmn      w18, w19, asr #0
-        \\cmn      w20, w21, asr #22
-        \\cmn      w22, w23, asr #31
-        \\cmn      x0, x3
-        \\cmn      xzr, x4
-        \\cmn      x5, xzr
-        \\cmn      x6, x7
-        \\cmn      x8, x9, lsl #15
-        \\cmn      x10, x11, lsl #63
-        \\cmn      x12, x13, lsr #0
-        \\cmn      x14, x15, lsr #41
-        \\cmn      x16, x17, lsr #63
-        \\cmn      x18, x19, asr #0
-        \\cmn      x20, x21, asr #55
-        \\cmn      x22, x23, asr #63
-        \\cmp      w0, w3
-        \\cmp      wzr, w4
-        \\cmp      w5, wzr
-        \\cmp      w6, w7
-        \\cmp      w8, w9, lsl #15
-        \\cmp      w10, w11, lsl #31
-        \\cmp      w12, w13, lsr #0
-        \\cmp      w14, w15, lsr #21
-        \\cmp      w16, w17, lsr #31
-        \\cmp      w18, w19, asr #0
-        \\cmp      w20, w21, asr #22
-        \\cmp      w22, w23, asr #31
-        \\cmp      x0, x3
-        \\cmp      xzr, x4
-        \\cmp      x5, xzr
-        \\cmp      x6, x7
-        \\cmp      x8, x9, lsl #15
-        \\cmp      x10, x11, lsl #63
-        \\cmp      x12, x13, lsr #0
-        \\cmp      x14, x15, lsr #41
-        \\cmp      x16, x17, lsr #63
-        \\cmp      x18, x19, asr #0
-        \\cmp      x20, x21, asr #55
-        \\cmp      x22, x23, asr #63
-        \\{{sub      w29, wzr|neg w29}}, w30
-        \\{{sub      w30, wzr|neg w30}}, wzr
-        \\{{sub      wzr, wzr|neg wzr}}, w0
-        \\{{sub      w28, wzr|neg w28}}, w27
-        \\{{sub      w26, wzr|neg w26}}, w25, lsl #29
-        \\{{sub      w24, wzr|neg w24}}, w23, lsl #31
-        \\{{sub      w22, wzr|neg w22}}, w21, lsr #0
-        \\{{sub      w20, wzr|neg w20}}, w19, lsr #1
-        \\{{sub      w18, wzr|neg w18}}, w17, lsr #31
-        \\{{sub      w16, wzr|neg w16}}, w15, asr #0
-        \\{{sub      w14, wzr|neg w14}}, w13, asr #12
-        \\{{sub      w12, wzr|neg w12}}, w11, asr #31
-        \\{{sub      x29, xzr|neg x29}}, x30
-        \\{{sub      x30, xzr|neg x30}}, xzr
-        \\{{sub      xzr, xzr|neg xzr}}, x0
-        \\{{sub      x28, xzr|neg x28}}, x27
-        \\{{sub      x26, xzr|neg x26}}, x25, lsl #29
-        \\{{sub      x24, xzr|neg x24}}, x23, lsl #31
-        \\{{sub      x22, xzr|neg x22}}, x21, lsr #0
-        \\{{sub      x20, xzr|neg x20}}, x19, lsr #1
-        \\{{sub      x18, xzr|neg x18}}, x17, lsr #31
-        \\{{sub      x16, xzr|neg x16}}, x15, asr #0
-        \\{{sub      x14, xzr|neg x14}}, x13, asr #12
-        \\{{sub      x12, xzr|neg x12}}, x11, asr #31
-        \\{{subs     w29, wzr|negs w29}}, w30
-        \\{{subs     w30, wzr|negs w30}}, wzr
-        \\cmp      wzr, w0
-        \\{{subs     w28, wzr|negs w28}}, w27
-        \\{{subs     w26, wzr|negs w26}}, w25, lsl #29
-        \\{{subs     w24, wzr|negs w24}}, w23, lsl #31
-        \\{{subs     w22, wzr|negs w22}}, w21, lsr #0
-        \\{{subs     w20, wzr|negs w20}}, w19, lsr #1
-        \\{{subs     w18, wzr|negs w18}}, w17, lsr #31
-        \\{{subs     w16, wzr|negs w16}}, w15, asr #0
-        \\{{subs     w14, wzr|negs w14}}, w13, asr #12
-        \\{{subs     w12, wzr|negs w12}}, w11, asr #31
-        \\{{subs     x29, xzr|negs x29}}, x30
-        \\{{subs     x30, xzr|negs x30}}, xzr
-        \\cmp      xzr, x0
-        \\{{subs     x28, xzr|negs x28}}, x27
-        \\{{subs     x26, xzr|negs x26}}, x25, lsl #29
-        \\{{subs     x24, xzr|negs x24}}, x23, lsl #31
-        \\{{subs     x22, xzr|negs x22}}, x21, lsr #0
-        \\{{subs     x20, xzr|negs x20}}, x19, lsr #1
-        \\{{subs     x18, xzr|negs x18}}, x17, lsr #31
-        \\{{subs     x16, xzr|negs x16}}, x15, asr #0
-        \\{{subs     x14, xzr|negs x14}}, x13, asr #12
-        \\{{subs     x12, xzr|negs x12}}, x11, asr #31
-        \\adc      w29, w27, w25
-        \\adc      wzr, w3, w4
-        \\adc      w9, wzr, w10
-        \\adc      w20, w0, wzr
-        \\adc      x29, x27, x25
-        \\adc      xzr, x3, x4
-        \\adc      x9, xzr, x10
-        \\adc      x20, x0, xzr
-        \\adcs     w29, w27, w25
-        \\adcs     wzr, w3, w4
-        \\adcs     w9, wzr, w10
-        \\adcs     w20, w0, wzr
-        \\adcs     x29, x27, x25
-        \\adcs     xzr, x3, x4
-        \\adcs     x9, xzr, x10
-        \\adcs     x20, x0, xzr
-        \\sbc      w29, w27, w25
-        \\sbc      wzr, w3, w4
-        \\ngc      w9, w10
-        \\sbc      w20, w0, wzr
-        \\sbc      x29, x27, x25
-        \\sbc      xzr, x3, x4
-        \\ngc      x9, x10
-        \\sbc      x20, x0, xzr
-        \\sbcs     w29, w27, w25
-        \\sbcs     wzr, w3, w4
-        \\ngcs     w9, w10
-        \\sbcs     w20, w0, wzr
-        \\sbcs     x29, x27, x25
-        \\sbcs     xzr, x3, x4
-        \\ngcs     x9, x10
-        \\sbcs     x20, x0, xzr
-        \\ngc      w3, w12
-        \\ngc      wzr, w9
-        \\ngc      w23, wzr
-        \\ngc      x29, x30
-        \\ngc      xzr, x0
-        \\ngc      x0, xzr
-        \\ngcs     w3, w12
-        \\ngcs     wzr, w9
-        \\ngcs     w23, wzr
-        \\ngcs     x29, x30
-        \\ngcs     xzr, x0
-        \\ngcs     x0, xzr
-        \\sbfx     x1, x2, #3, #2
-        \\asr      x3, x4, #63
-        \\asr      wzr, wzr, #31
-        \\sbfx     w12, w9, #0, #1
-        \\ubfiz    x4, x5, #52, #11
-        \\ubfx     xzr, x4, #0, #1
-        \\ubfiz    x4, xzr, #1, #6
-        \\lsr      x5, x6, #12
-        \\bfi      x4, x5, #52, #11
-        \\bfxil    xzr, x4, #0, #1
-        \\bfi      x4, xzr, #1, #6
-        \\bfc      x4, #1, #6
-        \\bfxil    x5, x6, #12, #52
-        \\sxtb     w1, w2
-        \\sxtb     xzr, w3
-        \\sxth     w9, w10
-        \\sxth     x0, w1
-        \\sxtw     x3, w30
-        \\uxtb     w1, w2
-        \\uxth     w9, w10
-        \\ubfx     x3, x30, #0, #32
-        \\asr      w3, w2, #0
-        \\asr      w9, w10, #31
-        \\asr      x20, x21, #63
-        \\asr      w1, wzr, #3
-        \\lsr      w3, w2, #0
-        \\lsr      w9, w10, #31
-        \\lsr      x20, x21, #63
-        \\lsr      wzr, wzr, #3
-        \\lsr      w3, w2, #0
-        \\lsl      w9, w10, #31
-        \\lsl      x20, x21, #63
-        \\lsl      w1, wzr, #3
-        \\sbfx     w9, w10, #0, #1
-        \\sbfiz    x2, x3, #63, #1
-        \\asr      x19, x20, #0
-        \\sbfiz    x9, x10, #5, #59
-        \\asr      w9, w10, #0
-        \\sbfiz    w11, w12, #31, #1
-        \\sbfiz    w13, w14, #29, #3
-        \\sbfiz    xzr, xzr, #10, #11
-        \\sbfx     w9, w10, #0, #1
-        \\asr      x2, x3, #63
-        \\asr      x19, x20, #0
-        \\asr      x9, x10, #5
-        \\asr      w9, w10, #0
-        \\asr      w11, w12, #31
-        \\asr      w13, w14, #29
-        \\sbfx     xzr, xzr, #10, #11
-        \\bfxil    w9, w10, #0, #1
-        \\bfi      x2, x3, #63, #1
-        \\bfxil    x19, x20, #0, #64
-        \\bfi      x9, x10, #5, #59
-        \\bfxil    w9, w10, #0, #32
-        \\bfi      w11, w12, #31, #1
-        \\bfi      w13, w14, #29, #3
-        \\bfc      xzr, #10, #11
-        \\bfi      xzr, xzr, #10, #11
-        \\bfxil    w9, w10, #0, #1
-        \\bfxil    x2, x3, #63, #1
-        \\bfxil    x19, x20, #0, #64
-        \\bfxil    x9, x10, #5, #59
-        \\bfxil    w9, w10, #0, #32
-        \\bfxil    w11, w12, #31, #1
-        \\bfxil    w13, w14, #29, #3
-        \\bfxil    xzr, xzr, #10, #11
-        \\ubfx     w9, w10, #0, #1
-        \\lsl      x2, x3, #63
-        \\lsr      x19, x20, #0
-        \\lsl      x9, x10, #5
-        \\lsr      w9, w10, #0
-        \\lsl      w11, w12, #31
-        \\lsl      w13, w14, #29
-        \\ubfiz    xzr, xzr, #10, #11
-        \\ubfx     w9, w10, #0, #1
-        \\lsr      x2, x3, #63
-        \\lsr      x19, x20, #0
-        \\lsr      x9, x10, #5
-        \\lsr      w9, w10, #0
-        \\lsr      w11, w12, #31
-        \\lsr      w13, w14, #29
-        \\ubfx     xzr, xzr, #10, #11
-        \\cbz      w5, #4
-        \\cbz      x5, #0
-        \\cbnz     x2, #-4
-        \\cbnz     x26, #1048572
-        \\cbz      wzr, #0
-        \\cbnz     xzr, #0
+        \\add w4, w5, #0
+        \\add w2, w3, #4095
+        \\add w30, w29, #1, lsl #12
+        \\add w13, w5, #4095, lsl #12
+        \\add x5, x7, #1638
+        \\add w20, wsp, #801
+        \\add wsp, wsp, #1104
+        \\add wsp, w30, #4084
+        \\add x0, x24, #291
+        \\add x3, x24, #4095, lsl #12
+        \\add x8, sp, #1074
+        \\add sp, x29, #3816
+        \\sub w0, wsp, #4077
+        \\sub w4, w20, #546, lsl #12
+        \\sub sp, sp, #288
+        \\sub wsp, w19, #16
+        \\adds w13, w23, #291, lsl #12
+        \\cmn w2, #4095
+        \\adds w20, wsp, #0
+        \\cmn x3, #1, lsl #12
+        \\cmp sp, #20, lsl #12
+        \\cmp x30, #4095
+        \\subs x4, sp, #3822
+        \\cmn w3, #291, lsl #12
+        \\cmn wsp, #1365
+        \\cmn sp, #1092, lsl #12
+        \\mov sp, x30
+        \\mov wsp, w20
+        \\mov x11, sp
+        \\mov w24, wsp
+        \\add w3, w5, w7
+        \\add wzr, w3, w5
+        \\add w20, wzr, w4
+        \\add w4, w6, wzr
+        \\add w11, w13, w15
+        \\add w9, w3, wzr, lsl #10
+        \\add w17, w29, w20, lsl #31
+        \\add w21, w22, w23, lsr #0
+        \\add w24, w25, w26, lsr #18
+        \\add w27, w28, w29, lsr #31
+        \\add w2, w3, w4, asr #0
+        \\add w5, w6, w7, asr #21
+        \\add w8, w9, w10, asr #31
+        \\add x3, x5, x7
+        \\add xzr, x3, x5
+        \\add x20, xzr, x4
+        \\add x4, x6, xzr
+        \\add x11, x13, x15
+        \\add x9, x3, xzr, lsl #10
+        \\add x17, x29, x20, lsl #63
+        \\add x21, x22, x23, lsr #0
+        \\add x24, x25, x26, lsr #18
+        \\add x27, x28, x29, lsr #63
+        \\add x2, x3, x4, asr #0
+        \\add x5, x6, x7, asr #21
+        \\add x8, x9, x10, asr #63
+        \\adds w3, w5, w7
+        \\cmn w3, w5
+        \\adds w20, wzr, w4
+        \\adds w4, w6, wzr
+        \\adds w11, w13, w15
+        \\adds w9, w3, wzr, lsl #10
+        \\adds w17, w29, w20, lsl #31
+        \\adds w21, w22, w23, lsr #0
+        \\adds w24, w25, w26, lsr #18
+        \\adds w27, w28, w29, lsr #31
+        \\adds w2, w3, w4, asr #0
+        \\adds w5, w6, w7, asr #21
+        \\adds w8, w9, w10, asr #31
+        \\adds x3, x5, x7
+        \\cmn x3, x5
+        \\adds x20, xzr, x4
+        \\adds x4, x6, xzr
+        \\adds x11, x13, x15
+        \\adds x9, x3, xzr, lsl #10
+        \\adds x17, x29, x20, lsl #63
+        \\adds x21, x22, x23, lsr #0
+        \\adds x24, x25, x26, lsr #18
+        \\adds x27, x28, x29, lsr #63
+        \\adds x2, x3, x4, asr #0
+        \\adds x5, x6, x7, asr #21
+        \\adds x8, x9, x10, asr #63
+        \\sub w3, w5, w7
+        \\sub wzr, w3, w5
+        \\neg w20, w4
+        \\sub w4, w6, wzr
+        \\sub w11, w13, w15
+        \\sub w9, w3, wzr, lsl #10
+        \\sub w17, w29, w20, lsl #31
+        \\sub w21, w22, w23, lsr #0
+        \\sub w24, w25, w26, lsr #18
+        \\sub w27, w28, w29, lsr #31
+        \\sub w2, w3, w4, asr #0
+        \\sub w5, w6, w7, asr #21
+        \\sub w8, w9, w10, asr #31
+        \\sub x3, x5, x7
+        \\sub xzr, x3, x5
+        \\neg x20, x4
+        \\sub x4, x6, xzr
+        \\sub x11, x13, x15
+        \\sub x9, x3, xzr, lsl #10
+        \\sub x17, x29, x20, lsl #63
+        \\sub x21, x22, x23, lsr #0
+        \\sub x24, x25, x26, lsr #18
+        \\sub x27, x28, x29, lsr #63
+        \\sub x2, x3, x4, asr #0
+        \\sub x5, x6, x7, asr #21
+        \\sub x8, x9, x10, asr #63
+        \\subs w3, w5, w7
+        \\cmp w3, w5
+        \\negs w20, w4
+        \\subs w4, w6, wzr
+        \\subs w11, w13, w15
+        \\subs w9, w3, wzr, lsl #10
+        \\subs w17, w29, w20, lsl #31
+        \\subs w21, w22, w23, lsr #0
+        \\subs w24, w25, w26, lsr #18
+        \\subs w27, w28, w29, lsr #31
+        \\subs w2, w3, w4, asr #0
+        \\subs w5, w6, w7, asr #21
+        \\subs w8, w9, w10, asr #31
+        \\subs x3, x5, x7
+        \\cmp x3, x5
+        \\negs x20, x4
+        \\subs x4, x6, xzr
+        \\subs x11, x13, x15
+        \\subs x9, x3, xzr, lsl #10
+        \\subs x17, x29, x20, lsl #63
+        \\subs x21, x22, x23, lsr #0
+        \\subs x24, x25, x26, lsr #18
+        \\subs x27, x28, x29, lsr #63
+        \\subs x2, x3, x4, asr #0
+        \\subs x5, x6, x7, asr #21
+        \\subs x8, x9, x10, asr #63
+        \\cmn w0, w3
+        \\cmn wzr, w4
+        \\cmn w5, wzr
+        \\cmn w6, w7
+        \\cmn w8, w9, lsl #15
+        \\cmn w10, w11, lsl #31
+        \\cmn w12, w13, lsr #0
+        \\cmn w14, w15, lsr #21
+        \\cmn w16, w17, lsr #31
+        \\cmn w18, w19, asr #0
+        \\cmn w20, w21, asr #22
+        \\cmn w22, w23, asr #31
+        \\cmn x0, x3
+        \\cmn xzr, x4
+        \\cmn x5, xzr
+        \\cmn x6, x7
+        \\cmn x8, x9, lsl #15
+        \\cmn x10, x11, lsl #63
+        \\cmn x12, x13, lsr #0
+        \\cmn x14, x15, lsr #41
+        \\cmn x16, x17, lsr #63
+        \\cmn x18, x19, asr #0
+        \\cmn x20, x21, asr #55
+        \\cmn x22, x23, asr #63
+        \\cmp w0, w3
+        \\cmp wzr, w4
+        \\cmp w5, wzr
+        \\cmp w6, w7
+        \\cmp w8, w9, lsl #15
+        \\cmp w10, w11, lsl #31
+        \\cmp w12, w13, lsr #0
+        \\cmp w14, w15, lsr #21
+        \\cmp w16, w17, lsr #31
+        \\cmp w18, w19, asr #0
+        \\cmp w20, w21, asr #22
+        \\cmp w22, w23, asr #31
+        \\cmp x0, x3
+        \\cmp xzr, x4
+        \\cmp x5, xzr
+        \\cmp x6, x7
+        \\cmp x8, x9, lsl #15
+        \\cmp x10, x11, lsl #63
+        \\cmp x12, x13, lsr #0
+        \\cmp x14, x15, lsr #41
+        \\cmp x16, x17, lsr #63
+        \\cmp x18, x19, asr #0
+        \\cmp x20, x21, asr #55
+        \\cmp x22, x23, asr #63
+        \\neg w29, w30
+        \\neg w30, wzr
+        \\neg wzr, w0
+        \\neg w28, w27
+        \\neg w26, w25, lsl #29
+        \\neg w24, w23, lsl #31
+        \\neg w22, w21, lsr #0
+        \\neg w20, w19, lsr #1
+        \\neg w18, w17, lsr #31
+        \\neg w16, w15, asr #0
+        \\neg w14, w13, asr #12
+        \\neg w12, w11, asr #31
+        \\neg x29, x30
+        \\neg x30, xzr
+        \\neg xzr, x0
+        \\neg x28, x27
+        \\neg x26, x25, lsl #29
+        \\neg x24, x23, lsl #31
+        \\neg x22, x21, lsr #0
+        \\neg x20, x19, lsr #1
+        \\neg x18, x17, lsr #31
+        \\neg x16, x15, asr #0
+        \\neg x14, x13, asr #12
+        \\neg x12, x11, asr #31
+        \\negs w29, w30
+        \\negs w30, wzr
+        \\cmp wzr, w0
+        \\negs w28, w27
+        \\negs w26, w25, lsl #29
+        \\negs w24, w23, lsl #31
+        \\negs w22, w21, lsr #0
+        \\negs w20, w19, lsr #1
+        \\negs w18, w17, lsr #31
+        \\negs w16, w15, asr #0
+        \\negs w14, w13, asr #12
+        \\negs w12, w11, asr #31
+        \\negs x29, x30
+        \\negs x30, xzr
+        \\cmp xzr, x0
+        \\negs x28, x27
+        \\negs x26, x25, lsl #29
+        \\negs x24, x23, lsl #31
+        \\negs x22, x21, lsr #0
+        \\negs x20, x19, lsr #1
+        \\negs x18, x17, lsr #31
+        \\negs x16, x15, asr #0
+        \\negs x14, x13, asr #12
+        \\negs x12, x11, asr #31
+        \\adc w29, w27, w25
+        \\adc wzr, w3, w4
+        \\adc w9, wzr, w10
+        \\adc w20, w0, wzr
+        \\adc x29, x27, x25
+        \\adc xzr, x3, x4
+        \\adc x9, xzr, x10
+        \\adc x20, x0, xzr
+        \\adcs w29, w27, w25
+        \\adcs wzr, w3, w4
+        \\adcs w9, wzr, w10
+        \\adcs w20, w0, wzr
+        \\adcs x29, x27, x25
+        \\adcs xzr, x3, x4
+        \\adcs x9, xzr, x10
+        \\adcs x20, x0, xzr
+        \\sbc w29, w27, w25
+        \\sbc wzr, w3, w4
+        \\ngc w9, w10
+        \\sbc w20, w0, wzr
+        \\sbc x29, x27, x25
+        \\sbc xzr, x3, x4
+        \\ngc x9, x10
+        \\sbc x20, x0, xzr
+        \\sbcs w29, w27, w25
+        \\sbcs wzr, w3, w4
+        \\ngcs w9, w10
+        \\sbcs w20, w0, wzr
+        \\sbcs x29, x27, x25
+        \\sbcs xzr, x3, x4
+        \\ngcs x9, x10
+        \\sbcs x20, x0, xzr
+        \\ngc w3, w12
+        \\ngc wzr, w9
+        \\ngc w23, wzr
+        \\ngc x29, x30
+        \\ngc xzr, x0
+        \\ngc x0, xzr
+        \\ngcs w3, w12
+        \\ngcs wzr, w9
+        \\ngcs w23, wzr
+        \\ngcs x29, x30
+        \\ngcs xzr, x0
+        \\ngcs x0, xzr
+        \\sbfx x1, x2, #3, #2
+        \\asr x3, x4, #63
+        \\asr wzr, wzr, #31
+        \\sbfx w12, w9, #0, #1
+        \\ubfiz x4, x5, #52, #11
+        \\ubfx xzr, x4, #0, #1
+        \\ubfiz x4, xzr, #1, #6
+        \\lsr x5, x6, #12
+        \\bfi x4, x5, #52, #11
+        \\bfxil xzr, x4, #0, #1
+        \\bfc x4, #1, #6
+        \\bfxil x5, x6, #12, #52
+        \\sxtb w1, w2
+        \\sxtb xzr, w3
+        \\sxth w9, w10
+        \\sxth x0, w1
+        \\sxtw x3, w30
+        \\uxtb w1, w2
+        \\uxth w9, w10
+        \\ubfx x3, x30, #0, #32
+        \\asr w3, w2, #0
+        \\asr w9, w10, #31
+        \\asr x20, x21, #63
+        \\asr w1, wzr, #3
+        \\lsr w3, w2, #0
+        \\lsr w9, w10, #31
+        \\lsr x20, x21, #63
+        \\lsr wzr, wzr, #3
+        \\lsr w3, w2, #0
+        \\lsl w9, w10, #31
+        \\lsl x20, x21, #63
+        \\lsl w1, wzr, #3
+        \\sbfx w9, w10, #0, #1
+        \\sbfiz x2, x3, #63, #1
+        \\asr x19, x20, #0
+        \\sbfiz x9, x10, #5, #59
+        \\asr w9, w10, #0
+        \\sbfiz w11, w12, #31, #1
+        \\sbfiz w13, w14, #29, #3
+        \\sbfiz xzr, xzr, #10, #11
+        \\sbfx w9, w10, #0, #1
+        \\asr x2, x3, #63
+        \\asr x19, x20, #0
+        \\asr x9, x10, #5
+        \\asr w9, w10, #0
+        \\asr w11, w12, #31
+        \\asr w13, w14, #29
+        \\sbfx xzr, xzr, #10, #11
+        \\bfxil w9, w10, #0, #1
+        \\bfi x2, x3, #63, #1
+        \\bfxil x19, x20, #0, #64
+        \\bfi x9, x10, #5, #59
+        \\bfxil w9, w10, #0, #32
+        \\bfi w11, w12, #31, #1
+        \\bfi w13, w14, #29, #3
+        \\bfc xzr, #10, #11
+        \\bfxil w9, w10, #0, #1
+        \\bfxil x2, x3, #63, #1
+        \\bfxil x19, x20, #0, #64
+        \\bfxil x9, x10, #5, #59
+        \\bfxil w9, w10, #0, #32
+        \\bfxil w11, w12, #31, #1
+        \\bfxil w13, w14, #29, #3
+        \\bfxil xzr, xzr, #10, #11
+        \\ubfx w9, w10, #0, #1
+        \\lsl x2, x3, #63
+        \\lsr x19, x20, #0
+        \\lsl x9, x10, #5
+        \\lsr w9, w10, #0
+        \\lsl w11, w12, #31
+        \\lsl w13, w14, #29
+        \\ubfiz xzr, xzr, #10, #11
+        \\ubfx w9, w10, #0, #1
+        \\lsr x2, x3, #63
+        \\lsr x19, x20, #0
+        \\lsr x9, x10, #5
+        \\lsr w9, w10, #0
+        \\lsr w11, w12, #31
+        \\lsr w13, w14, #29
+        \\ubfx xzr, xzr, #10, #11
+        \\cbz w5, #4
+        \\cbz x5, #0
+        \\cbnz x2, #-4
+        \\cbnz x26, #1048572
+        \\cbz wzr, #0
+        \\cbnz xzr, #0
         \\b.ne #4
         \\b.ge #1048572
         \\b.ge #-4
@@ -6109,198 +6106,198 @@ test "basic a64 instructions" {
         \\ccmn x9, xzr, #0, le
         \\ccmn x3, x0, #15, gt
         \\ccmn xzr, x5, #7, ne
-        \\csel     w1, w0, w19, ne
-        \\csel     wzr, w5, w9, eq
-        \\csel     w9, wzr, w30, gt
-        \\csel     w1, w28, wzr, mi
-        \\csel     x19, x23, x29, lt
-        \\csel     xzr, x3, x4, ge
-        \\csel     x5, xzr, x6, hs
-        \\csel     x7, x8, xzr, lo
-        \\csinc    w1, w0, w19, ne
-        \\csinc    wzr, w5, w9, eq
-        \\csinc    w9, wzr, w30, gt
-        \\csinc    w1, w28, wzr, mi
-        \\csinc    x19, x23, x29, lt
-        \\csinc    xzr, x3, x4, ge
-        \\csinc    x5, xzr, x6, hs
-        \\csinc    x7, x8, xzr, lo
-        \\csinv    w1, w0, w19, ne
-        \\csinv    wzr, w5, w9, eq
-        \\csinv    w9, wzr, w30, gt
-        \\csinv    w1, w28, wzr, mi
-        \\csinv    x19, x23, x29, lt
-        \\csinv    xzr, x3, x4, ge
-        \\csinv    x5, xzr, x6, hs
-        \\csinv    x7, x8, xzr, lo
-        \\csneg    w1, w0, w19, ne
-        \\csneg    wzr, w5, w9, eq
-        \\csneg    w9, wzr, w30, gt
-        \\csneg    w1, w28, wzr, mi
-        \\csneg    x19, x23, x29, lt
-        \\csneg    xzr, x3, x4, ge
-        \\csneg    x5, xzr, x6, hs
-        \\csneg    x7, x8, xzr, lo
-        \\cset    w3, eq
-        \\cset    x9, pl
-        \\csetm    w20, ne
-        \\csetm    x30, ge
-        \\csinc    w2, wzr, wzr, al
-        \\csinv    x3, xzr, xzr, nv
-        \\cinc    w3, w5, gt
-        \\cinc    wzr, w4, le
-        \\cset    w9, lt
-        \\cinc    x3, x5, gt
-        \\cinc    xzr, x4, le
-        \\cset    x9, lt
-        \\csinc   w5, w6, w6, nv
-        \\csinc   x1, x2, x2, al
-        \\cinv    w3, w5, gt
-        \\cinv    wzr, w4, le
-        \\csetm   w9, lt
-        \\cinv    x3, x5, gt
-        \\cinv    xzr, x4, le
-        \\csetm   x9, lt
-        \\csinv   x1, x0, x0, al
-        \\csinv   w9, w8, w8, nv
-        \\cneg     w3, w5, gt
-        \\cneg     wzr, w4, le
-        \\cneg     w9, wzr, lt
-        \\cneg     x3, x5, gt
-        \\cneg     xzr, x4, le
-        \\cneg     x9, xzr, lt
-        \\csneg    x4, x8, x8, al
-        \\csinv    w9, w8, w8, nv
-        \\rbit	w0, w7
-        \\rbit   x18, x3
-        \\rev16	w17, w1
-        \\rev16	x5, x2
-        \\rev	w18, w0
-        \\rev32	x20, x1
-        \\rev	x22, x2
-        \\clz	w24, w3
-        \\clz	x26, x4
-        \\cls	w3, w5
-        \\cls	x20, x5
-        \\udiv	w0, w7, w10
-        \\udiv	x9, x22, x4
-        \\sdiv	w12, w21, w0
-        \\sdiv	x13, x2, x1
-        \\lsl	w11, w12, w13
-        \\lsl	x14, x15, x16
-        \\lsr	w17, w18, w19
-        \\lsr	x20, x21, x22
-        \\asr	w23, w24, w25
-        \\asr	x26, x27, x28
-        \\ror	w0, w1, w2
-        \\ror    x3, x4, x5
-        \\lsl	w6, w7, w8
-        \\lsl	x9, x10, x11
-        \\lsr	w12, w13, w14
-        \\lsr	x15, x16, x17
-        \\asr	w18, w19, w20
-        \\asr	x21, x22, x23
-        \\ror	w24, w25, w26
-        \\ror	x27, x28, x29
-        \\smulh    x30, x29, x28
-        \\smulh    xzr, x27, x26
-        \\umulh    x30, x29, x28
-        \\umulh    x23, x30, xzr
-        \\madd     w1, w3, w7, w4
-        \\madd     wzr, w0, w9, w11
-        \\madd     w13, wzr, w4, w4
-        \\madd     w19, w30, wzr, w29
-        \\mul      w4, w5, w6
-        \\madd     x1, x3, x7, x4
-        \\madd     xzr, x0, x9, x11
-        \\madd     x13, xzr, x4, x4
-        \\madd     x19, x30, xzr, x29
-        \\mul      x4, x5, x6
-        \\msub     w1, w3, w7, w4
-        \\msub     wzr, w0, w9, w11
-        \\msub     w13, wzr, w4, w4
-        \\msub     w19, w30, wzr, w29
-        \\mneg     w4, w5, w6
-        \\msub     x1, x3, x7, x4
-        \\msub     xzr, x0, x9, x11
-        \\msub     x13, xzr, x4, x4
-        \\msub     x19, x30, xzr, x29
-        \\mneg     x4, x5, x6
-        \\smaddl   x3, w5, w2, x9
-        \\smaddl   xzr, w10, w11, x12
-        \\smaddl   x13, wzr, w14, x15
-        \\smaddl   x16, w17, wzr, x18
-        \\smull    x19, w20, w21
-        \\smsubl   x3, w5, w2, x9
-        \\smsubl   xzr, w10, w11, x12
-        \\smsubl   x13, wzr, w14, x15
-        \\smsubl   x16, w17, wzr, x18
-        \\smnegl   x19, w20, w21
-        \\umaddl   x3, w5, w2, x9
-        \\umaddl   xzr, w10, w11, x12
-        \\umaddl   x13, wzr, w14, x15
-        \\umaddl   x16, w17, wzr, x18
-        \\umull    x19, w20, w21
-        \\umsubl   x3, w5, w2, x9
-        \\umsubl   xzr, w10, w11, x12
-        \\umsubl   x13, wzr, w14, x15
-        \\umsubl   x16, w17, wzr, x18
-        \\umnegl   x19, w20, w21
-        \\smulh    x30, x29, x28
-        \\smulh    xzr, x27, x26
-        \\smulh    x25, xzr, x24
-        \\smulh    x23, x22, xzr
-        \\umulh    x30, x29, x28
-        \\umulh    xzr, x27, x26
-        \\umulh    x25, xzr, x24
-        \\umulh    x23, x22, xzr
-        \\mul      w3, w4, w5
-        \\mul      wzr, w6, w7
-        \\mul      w8, wzr, w9
-        \\mul      w10, w11, wzr
-        \\mul      x12, x13, x14
-        \\mul      xzr, x15, x16
-        \\mul      x17, xzr, x18
-        \\mul      x19, x20, xzr
-        \\mneg     w21, w22, w23
-        \\mneg     wzr, w24, w25
-        \\mneg     w26, wzr, w27
-        \\mneg     w28, w29, wzr
-        \\smull    x11, w13, w17
-        \\umull    x11, w13, w17
-        \\smnegl   x11, w13, w17
-        \\umnegl   x11, w13, w17
-        \\svc      #0
-        \\svc      #{{65535|0xffff}}
-        \\hvc      #{{1|0x1}}
-        \\smc      #{{12000|0x2ee0}}
-        \\brk      #{{12|0xc}}
-        \\hlt      #{{123|0x7b}}
-        \\dcps1    #{{42|0x2a}}
-        \\dcps2    #{{9|0x9}}
-        \\dcps3    #{{1000|0x3e8}}
+        \\csel w1, w0, w19, ne
+        \\csel wzr, w5, w9, eq
+        \\csel w9, wzr, w30, gt
+        \\csel w1, w28, wzr, mi
+        \\csel x19, x23, x29, lt
+        \\csel xzr, x3, x4, ge
+        \\csel x5, xzr, x6, hs
+        \\csel x7, x8, xzr, lo
+        \\csinc w1, w0, w19, ne
+        \\csinc wzr, w5, w9, eq
+        \\csinc w9, wzr, w30, gt
+        \\csinc w1, w28, wzr, mi
+        \\csinc x19, x23, x29, lt
+        \\csinc xzr, x3, x4, ge
+        \\csinc x5, xzr, x6, hs
+        \\csinc x7, x8, xzr, lo
+        \\csinv w1, w0, w19, ne
+        \\csinv wzr, w5, w9, eq
+        \\csinv w9, wzr, w30, gt
+        \\csinv w1, w28, wzr, mi
+        \\csinv x19, x23, x29, lt
+        \\csinv xzr, x3, x4, ge
+        \\csinv x5, xzr, x6, hs
+        \\csinv x7, x8, xzr, lo
+        \\csneg w1, w0, w19, ne
+        \\csneg wzr, w5, w9, eq
+        \\csneg w9, wzr, w30, gt
+        \\csneg w1, w28, wzr, mi
+        \\csneg x19, x23, x29, lt
+        \\csneg xzr, x3, x4, ge
+        \\csneg x5, xzr, x6, hs
+        \\csneg x7, x8, xzr, lo
+        \\cset w3, eq
+        \\cset x9, pl
+        \\csetm w20, ne
+        \\csetm x30, ge
+        \\csinc w2, wzr, wzr, al
+        \\csinv x3, xzr, xzr, nv
+        \\cinc w3, w5, gt
+        \\cinc wzr, w4, le
+        \\cset w9, lt
+        \\cinc x3, x5, gt
+        \\cinc xzr, x4, le
+        \\cset x9, lt
+        \\csinc w5, w6, w6, nv
+        \\csinc x1, x2, x2, al
+        \\cinv w3, w5, gt
+        \\cinv wzr, w4, le
+        \\csetm w9, lt
+        \\cinv x3, x5, gt
+        \\cinv xzr, x4, le
+        \\csetm x9, lt
+        \\csinv x1, x0, x0, al
+        \\csinv w9, w8, w8, nv
+        \\cneg w3, w5, gt
+        \\cneg wzr, w4, le
+        \\cneg w9, wzr, lt
+        \\cneg x3, x5, gt
+        \\cneg xzr, x4, le
+        \\cneg x9, xzr, lt
+        \\csneg x4, x8, x8, al
+        \\csinv w9, w8, w8, nv
+        \\rbit w0, w7
+        \\rbit x18, x3
+        \\rev16 w17, w1
+        \\rev16 x5, x2
+        \\rev w18, w0
+        \\rev32 x20, x1
+        \\rev x22, x2
+        \\clz w24, w3
+        \\clz x26, x4
+        \\cls w3, w5
+        \\cls x20, x5
+        \\udiv w0, w7, w10
+        \\udiv x9, x22, x4
+        \\sdiv w12, w21, w0
+        \\sdiv x13, x2, x1
+        \\lsl w11, w12, w13
+        \\lsl x14, x15, x16
+        \\lsr w17, w18, w19
+        \\lsr x20, x21, x22
+        \\asr w23, w24, w25
+        \\asr x26, x27, x28
+        \\ror w0, w1, w2
+        \\ror x3, x4, x5
+        \\lsl w6, w7, w8
+        \\lsl x9, x10, x11
+        \\lsr w12, w13, w14
+        \\lsr x15, x16, x17
+        \\asr w18, w19, w20
+        \\asr x21, x22, x23
+        \\ror w24, w25, w26
+        \\ror x27, x28, x29
+        \\smulh x30, x29, x28
+        \\smulh xzr, x27, x26
+        \\umulh x30, x29, x28
+        \\umulh x23, x30, xzr
+        \\madd w1, w3, w7, w4
+        \\madd wzr, w0, w9, w11
+        \\madd w13, wzr, w4, w4
+        \\madd w19, w30, wzr, w29
+        \\mul w4, w5, w6
+        \\madd x1, x3, x7, x4
+        \\madd xzr, x0, x9, x11
+        \\madd x13, xzr, x4, x4
+        \\madd x19, x30, xzr, x29
+        \\mul x4, x5, x6
+        \\msub w1, w3, w7, w4
+        \\msub wzr, w0, w9, w11
+        \\msub w13, wzr, w4, w4
+        \\msub w19, w30, wzr, w29
+        \\mneg w4, w5, w6
+        \\msub x1, x3, x7, x4
+        \\msub xzr, x0, x9, x11
+        \\msub x13, xzr, x4, x4
+        \\msub x19, x30, xzr, x29
+        \\mneg x4, x5, x6
+        \\smaddl x3, w5, w2, x9
+        \\smaddl xzr, w10, w11, x12
+        \\smaddl x13, wzr, w14, x15
+        \\smaddl x16, w17, wzr, x18
+        \\smull x19, w20, w21
+        \\smsubl x3, w5, w2, x9
+        \\smsubl xzr, w10, w11, x12
+        \\smsubl x13, wzr, w14, x15
+        \\smsubl x16, w17, wzr, x18
+        \\smnegl x19, w20, w21
+        \\umaddl x3, w5, w2, x9
+        \\umaddl xzr, w10, w11, x12
+        \\umaddl x13, wzr, w14, x15
+        \\umaddl x16, w17, wzr, x18
+        \\umull x19, w20, w21
+        \\umsubl x3, w5, w2, x9
+        \\umsubl xzr, w10, w11, x12
+        \\umsubl x13, wzr, w14, x15
+        \\umsubl x16, w17, wzr, x18
+        \\umnegl x19, w20, w21
+        \\smulh x30, x29, x28
+        \\smulh xzr, x27, x26
+        \\smulh x25, xzr, x24
+        \\smulh x23, x22, xzr
+        \\umulh x30, x29, x28
+        \\umulh xzr, x27, x26
+        \\umulh x25, xzr, x24
+        \\umulh x23, x22, xzr
+        \\mul w3, w4, w5
+        \\mul wzr, w6, w7
+        \\mul w8, wzr, w9
+        \\mul w10, w11, wzr
+        \\mul x12, x13, x14
+        \\mul xzr, x15, x16
+        \\mul x17, xzr, x18
+        \\mul x19, x20, xzr
+        \\mneg w21, w22, w23
+        \\mneg wzr, w24, w25
+        \\mneg w26, wzr, w27
+        \\mneg w28, w29, wzr
+        \\smull x11, w13, w17
+        \\umull x11, w13, w17
+        \\smnegl x11, w13, w17
+        \\umnegl x11, w13, w17
+        \\svc #0
+        \\svc #65535
+        \\hvc #1
+        \\smc #12000
+        \\brk #12
+        \\hlt #123
+        \\dcps1 #42
+        \\dcps2 #9
+        \\dcps3 #1000
         \\dcps1
         \\dcps2
         \\dcps3
-        \\extr     w3, w5, w7, #0
-        \\extr     w11, w13, w17, #31
-        \\extr     x3, x5, x7, #15
-        \\extr     x11, x13, x17, #63
-        \\ror     x19, x23, #24
-        \\ror     x29, xzr, #63
-        \\ror     w9, w13, #31
-        \\fcmp    s3, s5
-        \\fcmp    s31, #0.0
-        \\fcmp    s31, #0.0
-        \\fcmpe   s29, s30
-        \\fcmpe   s15, #0.0
-        \\fcmpe   s15, #0.0
-        \\fcmp    d4, d12
-        \\fcmp    d23, #0.0
-        \\fcmp    d23, #0.0
-        \\fcmpe   d26, d22
-        \\fcmpe   d29, #0.0
-        \\fcmpe   d29, #0.0
+        \\extr w3, w5, w7, #0
+        \\extr w11, w13, w17, #31
+        \\extr x3, x5, x7, #15
+        \\extr x11, x13, x17, #63
+        \\ror x19, x23, #24
+        \\ror x29, xzr, #63
+        \\ror w9, w13, #31
+        \\fcmp s3, s5
+        \\fcmp s31, #0.0
+        \\fcmp s31, #0.0
+        \\fcmpe s29, s30
+        \\fcmpe s15, #0.0
+        \\fcmpe s15, #0.0
+        \\fcmp d4, d12
+        \\fcmp d23, #0.0
+        \\fcmp d23, #0.0
+        \\fcmpe d26, d22
+        \\fcmpe d29, #0.0
+        \\fcmpe d29, #0.0
         \\fccmp s1, s31, #0, eq
         \\fccmp s3, s0, #15, hs
         \\fccmp s31, s15, #13, hs
@@ -6315,52 +6312,52 @@ test "basic a64 instructions" {
         \\fccmpe d31, d5, #7, ne
         \\fcsel s3, s20, s9, pl
         \\fcsel d9, d10, d11, mi
-        \\fmov     s0, s1
-        \\fabs     s2, s3
-        \\fneg     s4, s5
-        \\fsqrt    s6, s7
-        \\fcvt     d8, s9
-        \\fcvt     h10, s11
-        \\frintn   s12, s13
-        \\frintp   s14, s15
-        \\frintm   s16, s17
-        \\frintz   s18, s19
-        \\frinta   s20, s21
-        \\frintx   s22, s23
-        \\frinti   s24, s25
-        \\fmov     d0, d1
-        \\fabs     d2, d3
-        \\fneg     d4, d5
-        \\fsqrt    d6, d7
-        \\fcvt     s8, d9
-        \\fcvt     h10, d11
-        \\frintn   d12, d13
-        \\frintp   d14, d15
-        \\frintm   d16, d17
-        \\frintz   d18, d19
-        \\frinta   d20, d21
-        \\frintx   d22, d23
-        \\frinti   d24, d25
-        \\fcvt     s26, h27
-        \\fcvt     d28, h29
-        \\fmul     s20, s19, s17
-        \\fdiv     s1, s2, s3
-        \\fadd     s4, s5, s6
-        \\fsub     s7, s8, s9
-        \\fmax     s10, s11, s12
-        \\fmin     s13, s14, s15
-        \\fmaxnm   s16, s17, s18
-        \\fminnm   s19, s20, s21
-        \\fnmul    s22, s23, s2
-        \\fmul     d20, d19, d17
-        \\fdiv     d1, d2, d3
-        \\fadd     d4, d5, d6
-        \\fsub     d7, d8, d9
-        \\fmax     d10, d11, d12
-        \\fmin     d13, d14, d15
-        \\fmaxnm   d16, d17, d18
-        \\fminnm   d19, d20, d21
-        \\fnmul    d22, d23, d24
+        \\fmov s0, s1
+        \\fabs s2, s3
+        \\fneg s4, s5
+        \\fsqrt s6, s7
+        \\fcvt d8, s9
+        \\fcvt h10, s11
+        \\frintn s12, s13
+        \\frintp s14, s15
+        \\frintm s16, s17
+        \\frintz s18, s19
+        \\frinta s20, s21
+        \\frintx s22, s23
+        \\frinti s24, s25
+        \\fmov d0, d1
+        \\fabs d2, d3
+        \\fneg d4, d5
+        \\fsqrt d6, d7
+        \\fcvt s8, d9
+        \\fcvt h10, d11
+        \\frintn d12, d13
+        \\frintp d14, d15
+        \\frintm d16, d17
+        \\frintz d18, d19
+        \\frinta d20, d21
+        \\frintx d22, d23
+        \\frinti d24, d25
+        \\fcvt s26, h27
+        \\fcvt d28, h29
+        \\fmul s20, s19, s17
+        \\fdiv s1, s2, s3
+        \\fadd s4, s5, s6
+        \\fsub s7, s8, s9
+        \\fmax s10, s11, s12
+        \\fmin s13, s14, s15
+        \\fmaxnm s16, s17, s18
+        \\fminnm s19, s20, s21
+        \\fnmul s22, s23, s2
+        \\fmul d20, d19, d17
+        \\fdiv d1, d2, d3
+        \\fadd d4, d5, d6
+        \\fsub d7, d8, d9
+        \\fmax d10, d11, d12
+        \\fmin d13, d14, d15
+        \\fmaxnm d16, d17, d18
+        \\fminnm d19, d20, d21
+        \\fnmul d22, d23, d24
         \\fmadd s3, s5, s6, s31
         \\fmadd d3, d13, d0, d23
         \\fmsub s3, s5, s6, s31
@@ -6369,650 +6366,650 @@ test "basic a64 instructions" {
         \\fnmadd d3, d13, d0, d23
         \\fnmsub s3, s5, s6, s31
         \\fnmsub d3, d13, d0, d23
-        \\fcvtzs  w3, h5, #1
-        \\fcvtzs  wzr, h20, #13
-        \\fcvtzs  w19, h0, #32
-        \\fcvtzs  x3, h5, #1
-        \\fcvtzs  x12, h30, #45
-        \\fcvtzs  x19, h0, #64
-        \\fcvtzs  w3, s5, #1
-        \\fcvtzs  wzr, s20, #13
-        \\fcvtzs  w19, s0, #32
-        \\fcvtzs  x3, s5, #1
-        \\fcvtzs  x12, s30, #45
-        \\fcvtzs  x19, s0, #64
-        \\fcvtzs  w3, d5, #1
-        \\fcvtzs  wzr, d20, #13
-        \\fcvtzs  w19, d0, #32
-        \\fcvtzs  x3, d5, #1
-        \\fcvtzs  x12, d30, #45
-        \\fcvtzs  x19, d0, #64
-        \\fcvtzu  w3, h5, #1
-        \\fcvtzu  wzr, h20, #13
-        \\fcvtzu  w19, h0, #32
-        \\fcvtzu  x3, h5, #1
-        \\fcvtzu  x12, h30, #45
-        \\fcvtzu  x19, h0, #64
-        \\fcvtzu  w3, s5, #1
-        \\fcvtzu  wzr, s20, #13
-        \\fcvtzu  w19, s0, #32
-        \\fcvtzu  x3, s5, #1
-        \\fcvtzu  x12, s30, #45
-        \\fcvtzu  x19, s0, #64
-        \\fcvtzu  w3, d5, #1
-        \\fcvtzu  wzr, d20, #13
-        \\fcvtzu  w19, d0, #32
-        \\fcvtzu  x3, d5, #1
-        \\fcvtzu  x12, d30, #45
-        \\fcvtzu  x19, d0, #64
-        \\scvtf   h23, w19, #1
-        \\scvtf   h31, wzr, #20
-        \\scvtf   h14, w0, #32
-        \\scvtf   h23, x19, #1
-        \\scvtf   h31, xzr, #20
-        \\scvtf   h14, x0, #64
-        \\scvtf   s23, w19, #1
-        \\scvtf   s31, wzr, #20
-        \\scvtf   s14, w0, #32
-        \\scvtf   s23, x19, #1
-        \\scvtf   s31, xzr, #20
-        \\scvtf   s14, x0, #64
-        \\scvtf   d23, w19, #1
-        \\scvtf   d31, wzr, #20
-        \\scvtf   d14, w0, #32
-        \\scvtf   d23, x19, #1
-        \\scvtf   d31, xzr, #20
-        \\scvtf   d14, x0, #64
-        \\ucvtf   h23, w19, #1
-        \\ucvtf   h31, wzr, #20
-        \\ucvtf   h14, w0, #32
-        \\ucvtf   h23, x19, #1
-        \\ucvtf   h31, xzr, #20
-        \\ucvtf   h14, x0, #64
-        \\ucvtf   s23, w19, #1
-        \\ucvtf   s31, wzr, #20
-        \\ucvtf   s14, w0, #32
-        \\ucvtf   s23, x19, #1
-        \\ucvtf   s31, xzr, #20
-        \\ucvtf   s14, x0, #64
-        \\ucvtf   d23, w19, #1
-        \\ucvtf   d31, wzr, #20
-        \\ucvtf   d14, w0, #32
-        \\ucvtf   d23, x19, #1
-        \\ucvtf   d31, xzr, #20
-        \\ucvtf   d14, x0, #64
-        \\fcvtns   w3, h31
-        \\fcvtns   xzr, h12
-        \\fcvtnu   wzr, h12
-        \\fcvtnu   x0, h0
-        \\fcvtps   wzr, h9
-        \\fcvtps   x12, h20
-        \\fcvtpu   w30, h23
-        \\fcvtpu   x29, h3
-        \\fcvtms   w2, h3
-        \\fcvtms   x4, h5
-        \\fcvtmu   w6, h7
-        \\fcvtmu   x8, h9
-        \\fcvtzs   w10, h11
-        \\fcvtzs   x12, h13
-        \\fcvtzu   w14, h15
-        \\fcvtzu   x15, h16
-        \\scvtf    h17, w18
-        \\scvtf    h19, x20
-        \\ucvtf    h21, w22
-        \\scvtf    h23, x24
-        \\fcvtas   w25, h26
-        \\fcvtas   x27, h28
-        \\fcvtau   w29, h30
-        \\fcvtau   xzr, h0
-        \\fcvtns   w3, s31
-        \\fcvtns   xzr, s12
-        \\fcvtnu   wzr, s12
-        \\fcvtnu   x0, s0
-        \\fcvtps   wzr, s9
-        \\fcvtps   x12, s20
-        \\fcvtpu   w30, s23
-        \\fcvtpu   x29, s3
-        \\fcvtms   w2, s3
-        \\fcvtms   x4, s5
-        \\fcvtmu   w6, s7
-        \\fcvtmu   x8, s9
-        \\fcvtzs   w10, s11
-        \\fcvtzs   x12, s13
-        \\fcvtzu   w14, s15
-        \\fcvtzu   x15, s16
-        \\scvtf    s17, w18
-        \\scvtf    s19, x20
-        \\ucvtf    s21, w22
-        \\scvtf    s23, x24
-        \\fcvtas   w25, s26
-        \\fcvtas   x27, s28
-        \\fcvtau   w29, s30
-        \\fcvtau   xzr, s0
-        \\fcvtns   w3, d31
-        \\fcvtns   xzr, d12
-        \\fcvtnu   wzr, d12
-        \\fcvtnu   x0, d0
-        \\fcvtps   wzr, d9
-        \\fcvtps   x12, d20
-        \\fcvtpu   w30, d23
-        \\fcvtpu   x29, d3
-        \\fcvtms   w2, d3
-        \\fcvtms   x4, d5
-        \\fcvtmu   w6, d7
-        \\fcvtmu   x8, d9
-        \\fcvtzs   w10, d11
-        \\fcvtzs   x12, d13
-        \\fcvtzu   w14, d15
-        \\fcvtzu   x15, d16
-        \\scvtf    d17, w18
-        \\scvtf    d19, x20
-        \\ucvtf    d21, w22
-        \\ucvtf    d23, x24
-        \\fcvtas   w25, d26
-        \\fcvtas   x27, d28
-        \\fcvtau   w29, d30
-        \\fcvtau   xzr, d0
-        \\fmov     w3, s9
-        \\fmov     s9, w3
-        \\fmov     x20, d31
-        \\fmov     d1, x15
-        \\fmov     x3, v12.d[1]
-        \\fmov     v1.d[1], x19
-        \\fmov     s2, #0.12500000
-        \\fmov     s3, #1.00000000
-        \\fmov     d30, #16.00000000
-        \\fmov     s4, #1.06250000
-        \\fmov     d10, #1.93750000
-        \\fmov     s12, #-1.00000000
-        \\fmov     d16, #8.50000000
-        \\ldr       w3, #0
-        \\ldr       x29, #4
-        \\ldrsw     xzr, #-4
-        \\ldr       s0, #8
-        \\ldr       d0, #1048572
-        \\ldr       q0, #-1048576
-        \\prfm      pldl1strm, #0
-        \\prfm      #22, #0
-        \\stxrb      w18, w8, [sp]
-        \\stxrh      w24, w15, [x16]
-        \\stxr       w5, w6, [x17]
-        \\stxr       w1, x10, [x21]
-        \\stxr       w1, x10, [x21]
-        \\ldxrb      w30, [x0]
-        \\ldxrh      w17, [x4]
-        \\ldxr       w22, [sp]
-        \\ldxr       x11, [x29]
-        \\ldxr       x11, [x29]
-        \\ldxr       x11, [x29]
-        \\stxp       w12, w11, w10, [sp]
-        \\stxp       wzr, x27, x9, [x12]
-        \\ldxp       w0, wzr, [sp]
-        \\ldxp       x17, x0, [x18]
-        \\ldxp       x17, x0, [x18]
-        \\stlxrb     w12, w22, [x0]
-        \\stlxrh     w10, w1, [x1]
-        \\stlxr      w9, w2, [x2]
-        \\stlxr      w9, x3, [sp]
-        \\ldaxrb     w8, [x4]
-        \\ldaxrh     w7, [x5]
-        \\ldaxr      w6, [sp]
-        \\ldaxr      x5, [x6]
-        \\ldaxr      x5, [x6]
-        \\ldaxr      x5, [x6]
-        \\stlxp      w4, w5, w6, [sp]
-        \\stlxp      wzr, x6, x7, [x1]
-        \\ldaxp      w5, w18, [sp]
-        \\ldaxp      x6, x19, [x22]
-        \\ldaxp      x6, x19, [x22]
-        \\stlrb      w24, [sp]
-        \\stlrh      w25, [x30]
-        \\stlr       w26, [x29]
-        \\stlr       x27, [x28]
-        \\stlr       x27, [x28]
-        \\stlr       x27, [x28]
-        \\ldarb      w23, [sp]
-        \\ldarh      w22, [x30]
-        \\ldar       wzr, [x29]
-        \\ldar       x21, [x28]
-        \\ldar       x21, [x28]
-        \\ldar       x21, [x28]
-        \\sturb    w9, [sp]
-        \\sturh    wzr, [x12, #255]
-        \\stur     w16, [x0, #-256]
-        \\stur     x28, [x14, #1]
-        \\ldurb    w1, [x20, #255]
-        \\ldurh    w20, [x1, #255]
-        \\ldur     w12, [sp, #255]
-        \\ldur     xzr, [x12, #255]
-        \\ldursb   x9, [x7, #-256]
-        \\ldursh   x17, [x19, #-256]
-        \\ldursw   x20, [x15, #-256]
-        \\prfum    pldl2keep, [sp, #-256]
-        \\ldursb   w19, [x1, #-256]
-        \\ldursh   w15, [x21, #-256]
-        \\stur     b0, [sp, #1]
-        \\stur     h12, [x12, #-1]
-        \\stur     s15, [x0, #255]
-        \\stur     d31, [x5, #25]
-        \\stur     q9, [x5]
-        \\ldur     b3, [sp]
-        \\ldur     h5, [x4, #-256]
-        \\ldur     s7, [x12, #-1]
-        \\ldur     d11, [x19, #4]
-        \\ldur     q13, [x1, #2]
+        \\fcvtzs w3, h5, #1
+        \\fcvtzs wzr, h20, #13
+        \\fcvtzs w19, h0, #32
+        \\fcvtzs x3, h5, #1
+        \\fcvtzs x12, h30, #45
+        \\fcvtzs x19, h0, #64
+        \\fcvtzs w3, s5, #1
+        \\fcvtzs wzr, s20, #13
+        \\fcvtzs w19, s0, #32
+        \\fcvtzs x3, s5, #1
+        \\fcvtzs x12, s30, #45
+        \\fcvtzs x19, s0, #64
+        \\fcvtzs w3, d5, #1
+        \\fcvtzs wzr, d20, #13
+        \\fcvtzs w19, d0, #32
+        \\fcvtzs x3, d5, #1
+        \\fcvtzs x12, d30, #45
+        \\fcvtzs x19, d0, #64
+        \\fcvtzu w3, h5, #1
+        \\fcvtzu wzr, h20, #13
+        \\fcvtzu w19, h0, #32
+        \\fcvtzu x3, h5, #1
+        \\fcvtzu x12, h30, #45
+        \\fcvtzu x19, h0, #64
+        \\fcvtzu w3, s5, #1
+        \\fcvtzu wzr, s20, #13
+        \\fcvtzu w19, s0, #32
+        \\fcvtzu x3, s5, #1
+        \\fcvtzu x12, s30, #45
+        \\fcvtzu x19, s0, #64
+        \\fcvtzu w3, d5, #1
+        \\fcvtzu wzr, d20, #13
+        \\fcvtzu w19, d0, #32
+        \\fcvtzu x3, d5, #1
+        \\fcvtzu x12, d30, #45
+        \\fcvtzu x19, d0, #64
+        \\scvtf h23, w19, #1
+        \\scvtf h31, wzr, #20
+        \\scvtf h14, w0, #32
+        \\scvtf h23, x19, #1
+        \\scvtf h31, xzr, #20
+        \\scvtf h14, x0, #64
+        \\scvtf s23, w19, #1
+        \\scvtf s31, wzr, #20
+        \\scvtf s14, w0, #32
+        \\scvtf s23, x19, #1
+        \\scvtf s31, xzr, #20
+        \\scvtf s14, x0, #64
+        \\scvtf d23, w19, #1
+        \\scvtf d31, wzr, #20
+        \\scvtf d14, w0, #32
+        \\scvtf d23, x19, #1
+        \\scvtf d31, xzr, #20
+        \\scvtf d14, x0, #64
+        \\ucvtf h23, w19, #1
+        \\ucvtf h31, wzr, #20
+        \\ucvtf h14, w0, #32
+        \\ucvtf h23, x19, #1
+        \\ucvtf h31, xzr, #20
+        \\ucvtf h14, x0, #64
+        \\ucvtf s23, w19, #1
+        \\ucvtf s31, wzr, #20
+        \\ucvtf s14, w0, #32
+        \\ucvtf s23, x19, #1
+        \\ucvtf s31, xzr, #20
+        \\ucvtf s14, x0, #64
+        \\ucvtf d23, w19, #1
+        \\ucvtf d31, wzr, #20
+        \\ucvtf d14, w0, #32
+        \\ucvtf d23, x19, #1
+        \\ucvtf d31, xzr, #20
+        \\ucvtf d14, x0, #64
+        \\fcvtns w3, h31
+        \\fcvtns xzr, h12
+        \\fcvtnu wzr, h12
+        \\fcvtnu x0, h0
+        \\fcvtps wzr, h9
+        \\fcvtps x12, h20
+        \\fcvtpu w30, h23
+        \\fcvtpu x29, h3
+        \\fcvtms w2, h3
+        \\fcvtms x4, h5
+        \\fcvtmu w6, h7
+        \\fcvtmu x8, h9
+        \\fcvtzs w10, h11
+        \\fcvtzs x12, h13
+        \\fcvtzu w14, h15
+        \\fcvtzu x15, h16
+        \\scvtf h17, w18
+        \\scvtf h19, x20
+        \\ucvtf h21, w22
+        \\scvtf h23, x24
+        \\fcvtas w25, h26
+        \\fcvtas x27, h28
+        \\fcvtau w29, h30
+        \\fcvtau xzr, h0
+        \\fcvtns w3, s31
+        \\fcvtns xzr, s12
+        \\fcvtnu wzr, s12
+        \\fcvtnu x0, s0
+        \\fcvtps wzr, s9
+        \\fcvtps x12, s20
+        \\fcvtpu w30, s23
+        \\fcvtpu x29, s3
+        \\fcvtms w2, s3
+        \\fcvtms x4, s5
+        \\fcvtmu w6, s7
+        \\fcvtmu x8, s9
+        \\fcvtzs w10, s11
+        \\fcvtzs x12, s13
+        \\fcvtzu w14, s15
+        \\fcvtzu x15, s16
+        \\scvtf s17, w18
+        \\scvtf s19, x20
+        \\ucvtf s21, w22
+        \\scvtf s23, x24
+        \\fcvtas w25, s26
+        \\fcvtas x27, s28
+        \\fcvtau w29, s30
+        \\fcvtau xzr, s0
+        \\fcvtns w3, d31
+        \\fcvtns xzr, d12
+        \\fcvtnu wzr, d12
+        \\fcvtnu x0, d0
+        \\fcvtps wzr, d9
+        \\fcvtps x12, d20
+        \\fcvtpu w30, d23
+        \\fcvtpu x29, d3
+        \\fcvtms w2, d3
+        \\fcvtms x4, d5
+        \\fcvtmu w6, d7
+        \\fcvtmu x8, d9
+        \\fcvtzs w10, d11
+        \\fcvtzs x12, d13
+        \\fcvtzu w14, d15
+        \\fcvtzu x15, d16
+        \\scvtf d17, w18
+        \\scvtf d19, x20
+        \\ucvtf d21, w22
+        \\ucvtf d23, x24
+        \\fcvtas w25, d26
+        \\fcvtas x27, d28
+        \\fcvtau w29, d30
+        \\fcvtau xzr, d0
+        \\fmov w3, s9
+        \\fmov s9, w3
+        \\fmov x20, d31
+        \\fmov d1, x15
+        \\fmov x3, v12.d[1]
+        \\fmov v1.d[1], x19
+        \\fmov s2, #0.12500000
+        \\fmov s3, #1.00000000
+        \\fmov d30, #16.00000000
+        \\fmov s4, #1.06250000
+        \\fmov d10, #1.93750000
+        \\fmov s12, #-1.00000000
+        \\fmov d16, #8.50000000
+        \\ldr w3, #0
+        \\ldr x29, #4
+        \\ldrsw xzr, #-4
+        \\ldr s0, #8
+        \\ldr d0, #1048572
+        \\ldr q0, #-1048576
+        \\prfm pldl1strm, #0
+        \\prfm #22, #0
+        \\stxrb w18, w8, [sp]
+        \\stxrh w24, w15, [x16]
+        \\stxr w5, w6, [x17]
+        \\stxr w1, x10, [x21]
+        \\stxr w1, x10, [x21]
+        \\ldxrb w30, [x0]
+        \\ldxrh w17, [x4]
+        \\ldxr w22, [sp]
+        \\ldxr x11, [x29]
+        \\ldxr x11, [x29]
+        \\ldxr x11, [x29]
+        \\stxp w12, w11, w10, [sp]
+        \\stxp wzr, x27, x9, [x12]
+        \\ldxp w0, wzr, [sp]
+        \\ldxp x17, x0, [x18]
+        \\ldxp x17, x0, [x18]
+        \\stlxrb w12, w22, [x0]
+        \\stlxrh w10, w1, [x1]
+        \\stlxr w9, w2, [x2]
+        \\stlxr w9, x3, [sp]
+        \\ldaxrb w8, [x4]
+        \\ldaxrh w7, [x5]
+        \\ldaxr w6, [sp]
+        \\ldaxr x5, [x6]
+        \\ldaxr x5, [x6]
+        \\ldaxr x5, [x6]
+        \\stlxp w4, w5, w6, [sp]
+        \\stlxp wzr, x6, x7, [x1]
+        \\ldaxp w5, w18, [sp]
+        \\ldaxp x6, x19, [x22]
+        \\ldaxp x6, x19, [x22]
+        \\stlrb w24, [sp]
+        \\stlrh w25, [x30]
+        \\stlr w26, [x29]
+        \\stlr x27, [x28]
+        \\stlr x27, [x28]
+        \\stlr x27, [x28]
+        \\ldarb w23, [sp]
+        \\ldarh w22, [x30]
+        \\ldar wzr, [x29]
+        \\ldar x21, [x28]
+        \\ldar x21, [x28]
+        \\ldar x21, [x28]
+        \\sturb w9, [sp]
+        \\sturh wzr, [x12, #255]
+        \\stur w16, [x0, #-256]
+        \\stur x28, [x14, #1]
+        \\ldurb w1, [x20, #255]
+        \\ldurh w20, [x1, #255]
+        \\ldur w12, [sp, #255]
+        \\ldur xzr, [x12, #255]
+        \\ldursb x9, [x7, #-256]
+        \\ldursh x17, [x19, #-256]
+        \\ldursw x20, [x15, #-256]
+        \\prfum pldl2keep, [sp, #-256]
+        \\ldursb w19, [x1, #-256]
+        \\ldursh w15, [x21, #-256]
+        \\stur b0, [sp, #1]
+        \\stur h12, [x12, #-1]
+        \\stur s15, [x0, #255]
+        \\stur d31, [x5, #25]
+        \\stur q9, [x5]
+        \\ldur b3, [sp]
+        \\ldur h5, [x4, #-256]
+        \\ldur s7, [x12, #-1]
+        \\ldur d11, [x19, #4]
+        \\ldur q13, [x1, #2]
         \\potentially undefined instruction encoding
-        \\strb     w9, [x2], #255
-        \\strb     w10, [x3], #1
-        \\strb     w10, [x3], #-256
-        \\strh     w9, [x2], #255
-        \\strh     w9, [x2], #1
-        \\strh     w10, [x3], #-256
-        \\str      w19, [sp], #255
-        \\str      w20, [x30], #1
-        \\str      w21, [x12], #-256
-        \\str      xzr, [x9], #255
-        \\str      x2, [x3], #1
-        \\str      x19, [x12], #-256
-        \\ldrb     w9, [x2], #255
-        \\ldrb     w10, [x3], #1
-        \\ldrb     w10, [x3], #-256
-        \\ldrh     w9, [x2], #255
-        \\ldrh     w9, [x2], #1
-        \\ldrh     w10, [x3], #-256
-        \\ldr      w19, [sp], #255
-        \\ldr      w20, [x30], #1
-        \\ldr      w21, [x12], #-256
-        \\ldr      xzr, [x9], #255
-        \\ldr      x2, [x3], #1
-        \\ldr      x19, [x12], #-256
-        \\ldrsb    xzr, [x9], #255
-        \\ldrsb    x2, [x3], #1
-        \\ldrsb    x19, [x12], #-256
-        \\ldrsh    xzr, [x9], #255
-        \\ldrsh    x2, [x3], #1
-        \\ldrsh    x19, [x12], #-256
-        \\ldrsw    xzr, [x9], #255
-        \\ldrsw    x2, [x3], #1
-        \\ldrsw    x19, [x12], #-256
-        \\ldrsb    wzr, [x9], #255
-        \\ldrsb    w2, [x3], #1
-        \\ldrsb    w19, [x12], #-256
-        \\ldrsh    wzr, [x9], #255
-        \\ldrsh    w2, [x3], #1
-        \\ldrsh    w19, [x12], #-256
-        \\str      b0, [x0], #255
-        \\str      b3, [x3], #1
-        \\str      b5, [sp], #-256
-        \\str      h10, [x10], #255
-        \\str      h13, [x23], #1
-        \\str      h15, [sp], #-256
-        \\str      s20, [x20], #255
-        \\str      s23, [x23], #1
-        \\str      s25, [x0], #-256
-        \\str      d20, [x20], #255
-        \\str      d23, [x23], #1
-        \\str      d25, [x0], #-256
-        \\ldr      b0, [x0], #255
-        \\ldr      b3, [x3], #1
-        \\ldr      b5, [sp], #-256
-        \\ldr      h10, [x10], #255
-        \\ldr      h13, [x23], #1
-        \\ldr      h15, [sp], #-256
-        \\ldr      s20, [x20], #255
-        \\ldr      s23, [x23], #1
-        \\ldr      s25, [x0], #-256
-        \\ldr      d20, [x20], #255
-        \\ldr      d23, [x23], #1
-        \\ldr      d25, [x0], #-256
-        \\ldr      q20, [x1], #255
-        \\ldr      q23, [x9], #1
-        \\ldr      q25, [x20], #-256
-        \\str      q10, [x1], #255
-        \\str      q22, [sp], #1
-        \\str      q21, [x20], #-256
+        \\strb w9, [x2], #255
+        \\strb w10, [x3], #1
+        \\strb w10, [x3], #-256
+        \\strh w9, [x2], #255
+        \\strh w9, [x2], #1
+        \\strh w10, [x3], #-256
+        \\str w19, [sp], #255
+        \\str w20, [x30], #1
+        \\str w21, [x12], #-256
+        \\str xzr, [x9], #255
+        \\str x2, [x3], #1
+        \\str x19, [x12], #-256
+        \\ldrb w9, [x2], #255
+        \\ldrb w10, [x3], #1
+        \\ldrb w10, [x3], #-256
+        \\ldrh w9, [x2], #255
+        \\ldrh w9, [x2], #1
+        \\ldrh w10, [x3], #-256
+        \\ldr w19, [sp], #255
+        \\ldr w20, [x30], #1
+        \\ldr w21, [x12], #-256
+        \\ldr xzr, [x9], #255
+        \\ldr x2, [x3], #1
+        \\ldr x19, [x12], #-256
+        \\ldrsb xzr, [x9], #255
+        \\ldrsb x2, [x3], #1
+        \\ldrsb x19, [x12], #-256
+        \\ldrsh xzr, [x9], #255
+        \\ldrsh x2, [x3], #1
+        \\ldrsh x19, [x12], #-256
+        \\ldrsw xzr, [x9], #255
+        \\ldrsw x2, [x3], #1
+        \\ldrsw x19, [x12], #-256
+        \\ldrsb wzr, [x9], #255
+        \\ldrsb w2, [x3], #1
+        \\ldrsb w19, [x12], #-256
+        \\ldrsh wzr, [x9], #255
+        \\ldrsh w2, [x3], #1
+        \\ldrsh w19, [x12], #-256
+        \\str b0, [x0], #255
+        \\str b3, [x3], #1
+        \\str b5, [sp], #-256
+        \\str h10, [x10], #255
+        \\str h13, [x23], #1
+        \\str h15, [sp], #-256
+        \\str s20, [x20], #255
+        \\str s23, [x23], #1
+        \\str s25, [x0], #-256
+        \\str d20, [x20], #255
+        \\str d23, [x23], #1
+        \\str d25, [x0], #-256
+        \\ldr b0, [x0], #255
+        \\ldr b3, [x3], #1
+        \\ldr b5, [sp], #-256
+        \\ldr h10, [x10], #255
+        \\ldr h13, [x23], #1
+        \\ldr h15, [sp], #-256
+        \\ldr s20, [x20], #255
+        \\ldr s23, [x23], #1
+        \\ldr s25, [x0], #-256
+        \\ldr d20, [x20], #255
+        \\ldr d23, [x23], #1
+        \\ldr d25, [x0], #-256
+        \\ldr q20, [x1], #255
+        \\ldr q23, [x9], #1
+        \\ldr q25, [x20], #-256
+        \\str q10, [x1], #255
+        \\str q22, [sp], #1
+        \\str q21, [x20], #-256
         \\potentially undefined instruction encoding
-        \\ldr      x3, [x4, #0]!
-        \\strb     w9, [x2, #255]!
-        \\strb     w10, [x3, #1]!
-        \\strb     w10, [x3, #-256]!
-        \\strh     w9, [x2, #255]!
-        \\strh     w9, [x2, #1]!
-        \\strh     w10, [x3, #-256]!
-        \\str      w19, [sp, #255]!
-        \\str      w20, [x30, #1]!
-        \\str      w21, [x12, #-256]!
-        \\str      xzr, [x9, #255]!
-        \\str      x2, [x3, #1]!
-        \\str      x19, [x12, #-256]!
-        \\ldrb     w9, [x2, #255]!
-        \\ldrb     w10, [x3, #1]!
-        \\ldrb     w10, [x3, #-256]!
-        \\ldrh     w9, [x2, #255]!
-        \\ldrh     w9, [x2, #1]!
-        \\ldrh     w10, [x3, #-256]!
-        \\ldr      w19, [sp, #255]!
-        \\ldr      w20, [x30, #1]!
-        \\ldr      w21, [x12, #-256]!
-        \\ldr      xzr, [x9, #255]!
-        \\ldr      x2, [x3, #1]!
-        \\ldr      x19, [x12, #-256]!
-        \\ldrsb    xzr, [x9, #255]!
-        \\ldrsb    x2, [x3, #1]!
-        \\ldrsb    x19, [x12, #-256]!
-        \\ldrsh    xzr, [x9, #255]!
-        \\ldrsh    x2, [x3, #1]!
-        \\ldrsh    x19, [x12, #-256]!
-        \\ldrsw    xzr, [x9, #255]!
-        \\ldrsw    x2, [x3, #1]!
-        \\ldrsw    x19, [x12, #-256]!
-        \\ldrsb    wzr, [x9, #255]!
-        \\ldrsb    w2, [x3, #1]!
-        \\ldrsb    w19, [x12, #-256]!
-        \\ldrsh    wzr, [x9, #255]!
-        \\ldrsh    w2, [x3, #1]!
-        \\ldrsh    w19, [x12, #-256]!
-        \\str      b0, [x0, #255]!
-        \\str      b3, [x3, #1]!
-        \\str      b5, [sp, #-256]!
-        \\str      h10, [x10, #255]!
-        \\str      h13, [x23, #1]!
-        \\str      h15, [sp, #-256]!
-        \\str      s20, [x20, #255]!
-        \\str      s23, [x23, #1]!
-        \\str      s25, [x0, #-256]!
-        \\str      d20, [x20, #255]!
-        \\str      d23, [x23, #1]!
-        \\str      d25, [x0, #-256]!
-        \\ldr      b0, [x0, #255]!
-        \\ldr      b3, [x3, #1]!
-        \\ldr      b5, [sp, #-256]!
-        \\ldr      h10, [x10, #255]!
-        \\ldr      h13, [x23, #1]!
-        \\ldr      h15, [sp, #-256]!
-        \\ldr      s20, [x20, #255]!
-        \\ldr      s23, [x23, #1]!
-        \\ldr      s25, [x0, #-256]!
-        \\ldr      d20, [x20, #255]!
-        \\ldr      d23, [x23, #1]!
-        \\ldr      d25, [x0, #-256]!
-        \\ldr      q20, [x1, #255]!
-        \\ldr      q23, [x9, #1]!
-        \\ldr      q25, [x20, #-256]!
-        \\str      q10, [x1, #255]!
-        \\str      q22, [sp, #1]!
-        \\str      q21, [x20, #-256]!
-        \\sttrb    w9, [sp]
-        \\sttrh    wzr, [x12, #255]
-        \\sttr     w16, [x0, #-256]
-        \\sttr     x28, [x14, #1]
-        \\ldtrb    w1, [x20, #255]
-        \\ldtrh    w20, [x1, #255]
-        \\ldtr     w12, [sp, #255]
-        \\ldtr     xzr, [x12, #255]
-        \\ldtrsb   x9, [x7, #-256]
-        \\ldtrsh   x17, [x19, #-256]
-        \\ldtrsw   x20, [x15, #-256]
-        \\ldtrsb   w19, [x1, #-256]
-        \\ldtrsh   w15, [x21, #-256]
-        \\ldr      x0, [x0]
-        \\ldr      x4, [x29]
-        \\ldr      x30, [x12, #32760]
-        \\ldr      x20, [sp, #8]
-        \\ldr      xzr, [sp]
-        \\ldr      w2, [sp]
-        \\ldr      w17, [sp, #16380]
-        \\ldr      w13, [x2, #4]
-        \\ldrsw    x2, [x5, #4]
-        \\ldrsw    x23, [sp, #16380]
-        \\ldrh     w2, [x4]
-        \\ldrsh    w23, [x6, #8190]
-        \\ldrsh    wzr, [sp, #2]
-        \\ldrsh    x29, [x2, #2]
-        \\ldrb     w26, [x3, #121]
-        \\ldrb     w12, [x2]
-        \\ldrsb    w27, [sp, #4095]
-        \\ldrsb    xzr, [x15]
-        \\str      x30, [sp]
-        \\str      w20, [x4, #16380]
-        \\strh     w20, [x10, #14]
-        \\strh     w17, [sp, #8190]
-        \\strb     w23, [x3, #4095]
-        \\strb     wzr, [x2]
-        \\ldr      b31, [sp, #4095]
-        \\ldr      h20, [x2, #8190]
-        \\ldr      s10, [x19, #16380]
-        \\ldr      d3, [x10, #32760]
-        \\str      q12, [sp, #65520]
-        \\prfm    pldl1keep, [sp, #8]
-        \\prfm    pldl1strm, [x3{{(, #0)?}}]
-        \\prfm    pldl2keep, [x5, #16]
-        \\prfm    pldl2strm, [x2{{(, #0)?}}]
-        \\prfm    pldl3keep, [x5{{(, #0)?}}]
-        \\prfm    pldl3strm, [x6{{(, #0)?}}]
-        \\prfm    plil1keep, [sp, #8]
-        \\prfm    plil1strm, [x3{{(, #0)?}}]
-        \\prfm    plil2keep, [x5, #16]
-        \\prfm    plil2strm, [x2{{(, #0)?}}]
-        \\prfm    plil3keep, [x5{{(, #0)?}}]
-        \\prfm    plil3strm, [x6{{(, #0)?}}]
-        \\prfm    pstl1keep, [sp, #8]
-        \\prfm    pstl1strm, [x3{{(, #0)?}}]
-        \\prfm    pstl2keep, [x5, #16]
-        \\prfm    pstl2strm, [x2{{(, #0)?}}]
-        \\prfm    pstl3keep, [x5{{(, #0)?}}]
-        \\prfm    pstl3strm, [x6{{(, #0)?}}]
-        \\ldrb     w3, [sp, x5]
-        \\ldrb     w9, [x27, x6]
-        \\ldrsb    w10, [x30, x7]
-        \\ldrb     w11, [x29, x3, sxtx]
-        \\strb     w12, [x28, xzr, sxtx]
-        \\ldrb     w14, [x26, w6, uxtw]
-        \\ldrsb    w15, [x25, w7, uxtw]
-        \\ldrb     w17, [x23, w9, sxtw]
-        \\ldrsb    x18, [x22, w10, sxtw]
-        \\ldrsh    w3, [sp, x5]
-        \\ldrsh    w9, [x27, x6]
-        \\ldrh     w10, [x30, x7, lsl #1]
-        \\strh     w11, [x29, x3, sxtx]
-        \\ldrh     w12, [x28, xzr, sxtx]
-        \\ldrsh    x13, [x27, x5, sxtx #1]
-        \\ldrh     w14, [x26, w6, uxtw]
-        \\ldrh     w15, [x25, w7, uxtw]
-        \\ldrsh    w16, [x24, w8, uxtw #1]
-        \\ldrh     w17, [x23, w9, sxtw]
-        \\ldrh     w18, [x22, w10, sxtw]
-        \\strh     w19, [x21, wzr, sxtw #1]
-        \\ldr      w3, [sp, x5]
-        \\ldr      s9, [x27, x6]
-        \\ldr      w10, [x30, x7, lsl #2]
-        \\ldr      w11, [x29, x3, sxtx]
-        \\str      s12, [x28, xzr, sxtx]
-        \\str      w13, [x27, x5, sxtx #2]
-        \\str      w14, [x26, w6, uxtw]
-        \\ldr      w15, [x25, w7, uxtw]
-        \\ldr      w16, [x24, w8, uxtw #2]
-        \\ldrsw    x17, [x23, w9, sxtw]
-        \\ldr      w18, [x22, w10, sxtw]
-        \\ldrsw    x19, [x21, wzr, sxtw #2]
-        \\ldr      x3, [sp, x5]
-        \\str      x9, [x27, x6]
-        \\ldr      d10, [x30, x7, lsl #3]
-        \\str      x11, [x29, x3, sxtx]
-        \\ldr      x12, [x28, xzr, sxtx]
-        \\ldr      x13, [x27, x5, sxtx #3]
-        \\prfm     pldl1keep, [x26, w6, uxtw]
-        \\ldr      x15, [x25, w7, uxtw]
-        \\ldr      x16, [x24, w8, uxtw #3]
-        \\ldr      x17, [x23, w9, sxtw]
-        \\ldr      x18, [x22, w10, sxtw]
-        \\str      d19, [x21, wzr, sxtw #3]
-        \\ldr      q3, [sp, x5]
-        \\ldr      q9, [x27, x6]
-        \\ldr      q10, [x30, x7, lsl #4]
-        \\str      q11, [x29, x3, sxtx]
-        \\str      q12, [x28, xzr, sxtx]
-        \\str      q13, [x27, x5, sxtx #4]
-        \\ldr      q14, [x26, w6, uxtw]
-        \\ldr      q15, [x25, w7, uxtw]
-        \\ldr      q16, [x24, w8, uxtw #4]
-        \\ldr      q17, [x23, w9, sxtw]
-        \\str      q18, [x22, w10, sxtw]
-        \\ldr      q19, [x21, wzr, sxtw #4]
-        \\ldp      w3, w5, [sp]
-        \\stp      wzr, w9, [sp, #252]
-        \\ldp      w2, wzr, [sp, #-256]
-        \\ldp      w9, w10, [sp, #4]
-        \\ldpsw    x9, x10, [sp, #4]
-        \\ldpsw    x9, x10, [x2, #-256]
-        \\ldpsw    x20, x30, [sp, #252]
-        \\ldp      x21, x29, [x2, #504]
-        \\ldp      x22, x23, [x3, #-512]
-        \\ldp      x24, x25, [x4, #8]
-        \\ldp      s29, s28, [sp, #252]
-        \\stp      s27, s26, [sp, #-256]
-        \\ldp      s1, s2, [x3, #44]
-        \\stp      d3, d5, [x9, #504]
-        \\stp      d7, d11, [x10, #-512]
-        \\ldp      d2, d3, [x30, #-8]
-        \\stp      q3, q5, [sp]
-        \\stp      q17, q19, [sp, #1008]
-        \\ldp      q23, q29, [x1, #-1024]
-        \\ldp      w3, w5, [sp], #0
-        \\stp      wzr, w9, [sp], #252
-        \\ldp      w2, wzr, [sp], #-256
-        \\ldp      w9, w10, [sp], #4
-        \\ldpsw    x9, x10, [sp], #4
-        \\ldpsw    x9, x10, [x2], #-256
-        \\ldpsw    x20, x30, [sp], #252
-        \\ldp      x21, x29, [x2], #504
-        \\ldp      x22, x23, [x3], #-512
-        \\ldp      x24, x25, [x4], #8
-        \\ldp      s29, s28, [sp], #252
-        \\stp      s27, s26, [sp], #-256
-        \\ldp      s1, s2, [x3], #44
-        \\stp      d3, d5, [x9], #504
-        \\stp      d7, d11, [x10], #-512
-        \\ldp      d2, d3, [x30], #-8
-        \\stp      q3, q5, [sp], #0
-        \\stp      q17, q19, [sp], #1008
-        \\ldp      q23, q29, [x1], #-1024
-        \\ldp      w3, w5, [sp, #0]!
-        \\stp      wzr, w9, [sp, #252]!
-        \\ldp      w2, wzr, [sp, #-256]!
-        \\ldp      w9, w10, [sp, #4]!
-        \\ldpsw    x9, x10, [sp, #4]!
-        \\ldpsw    x9, x10, [x2, #-256]!
-        \\ldpsw    x20, x30, [sp, #252]!
-        \\ldp      x21, x29, [x2, #504]!
-        \\ldp      x22, x23, [x3, #-512]!
-        \\ldp      x24, x25, [x4, #8]!
-        \\ldp      s29, s28, [sp, #252]!
-        \\stp      s27, s26, [sp, #-256]!
-        \\ldp      s1, s2, [x3, #44]!
-        \\stp      d3, d5, [x9, #504]!
-        \\stp      d7, d11, [x10, #-512]!
-        \\ldp      d2, d3, [x30, #-8]!
-        \\stp      q3, q5, [sp, #0]!
-        \\stp      q17, q19, [sp, #1008]!
-        \\ldp      q23, q29, [x1, #-1024]!
-        \\ldnp      w3, w5, [sp]
-        \\stnp      wzr, w9, [sp, #252]
-        \\ldnp      w2, wzr, [sp, #-256]
-        \\ldnp      w9, w10, [sp, #4]
-        \\ldnp      x21, x29, [x2, #504]
-        \\ldnp      x22, x23, [x3, #-512]
-        \\ldnp      x24, x25, [x4, #8]
-        \\ldnp      s29, s28, [sp, #252]
-        \\stnp      s27, s26, [sp, #-256]
-        \\ldnp      s1, s2, [x3, #44]
-        \\stnp      d3, d5, [x9, #504]
-        \\stnp      d7, d11, [x10, #-512]
-        \\ldnp      d2, d3, [x30, #-8]
-        \\stnp      q3, q5, [sp]
-        \\stnp      q17, q19, [sp, #1008]
-        \\ldnp      q23, q29, [x1, #-1024]
-        \\orr      w3, w9, #0xffff0000
-        \\orr      wsp, w10, #0xe00000ff
-        \\orr      w9, w10, #0x3ff
-        \\and      w14, w15, #0x80008000
-        \\and      w12, w13, #0xffc3ffc3
-        \\and      w11, wzr, #0x30003
-        \\eor      w3, w6, #0xe0e0e0e0
-        \\eor      wsp, wzr, #0x3030303
-        \\eor      w16, w17, #0x81818181
-        \\{{ands     wzr,|tst}} w18, #0xcccccccc
-        \\ands     w19, w20, #0x33333333
-        \\ands     w21, w22, #0x99999999
-        \\{{ands     wzr,|tst}} w3, #0xaaaaaaaa
-        \\{{ands     wzr,|tst}} wzr, #0x55555555
-        \\eor      x3, x5, #0xffffffffc000000
-        \\and      x9, x10, #0x7fffffffffff
-        \\orr      x11, x12, #0x8000000000000fff
-        \\orr      x3, x9, #0xffff0000ffff0000
-        \\orr      sp, x10, #0xe00000ffe00000ff
-        \\orr      x9, x10, #0x3ff000003ff
-        \\and      x14, x15, #0x8000800080008000
-        \\and      x12, x13, #0xffc3ffc3ffc3ffc3
-        \\and      x11, xzr, #0x3000300030003
-        \\eor      x3, x6, #0xe0e0e0e0e0e0e0e0
-        \\eor      sp, xzr, #0x303030303030303
-        \\eor      x16, x17, #0x8181818181818181
-        \\{{ands     xzr,|tst}} x18, #0xcccccccccccccccc
-        \\ands     x19, x20, #0x3333333333333333
-        \\ands     x21, x22, #0x9999999999999999
-        \\{{ands     xzr,|tst}} x3, #0xaaaaaaaaaaaaaaaa
-        \\{{ands     xzr,|tst}} xzr, #0x5555555555555555
-        \\mov      w3, #983055
-        \\mov      x10, #-6148914691236517206
-        \\orr      w3, wzr, #0xffff
-        \\orr      x9, xzr, #0xffff00000000
-        \\and      w12, w23, w21
-        \\and      w16, w15, w1, lsl #1
-        \\and      w9, w4, w10, lsl #31
-        \\and      w3, w30, w11
-        \\and      x3, x5, x7, lsl #63
-        \\and      x5, x14, x19, asr #4
-        \\and      w3, w17, w19, ror #31
-        \\and      w0, w2, wzr, lsr #17
-        \\and      w3, w30, w11, asr
-        \\and      xzr, x4, x26
-        \\and      w3, wzr, w20, ror
-        \\and      x7, x20, xzr, asr #63
-        \\bic      x13, x20, x14, lsl #47
-        \\bic      w2, w7, w9
-        \\orr      w2, w7, w0, asr #31
-        \\orr      x8, x9, x10, lsl #12
-        \\orn      x3, x5, x7, asr
-        \\orn      w2, w5, w29
-        \\ands     w7, wzr, w9, lsl #1
-        \\ands     x3, x5, x20, ror #63
-        \\bics     w3, w5, w7
-        \\bics     x3, xzr, x3, lsl #1
-        \\tst      w3, w7, lsl #31
-        \\tst      x2, x20, asr
-        \\mov      x3, x6
-        \\mov      x3, xzr
-        \\mov      wzr, w2
-        \\mov      w3, w5
-        \\mov     w1, #{{65535|0xffff}}
-        \\movz     w2, #0, lsl #16
-        \\mov     w2, #-1235
-        \\mov     x2, #5299989643264
-        \\movk     xzr, #{{4321|0x10e1}}, lsl #48
-        \\mov      x2, #0
-        \\movk     w3, #0
-        \\movz     x4, #0, lsl #16
-        \\movk     w5, #0, lsl #16
-        \\movz     x6, #0, lsl #32
-        \\movk     x7, #0, lsl #32
-        \\movz     x8, #0, lsl #48
-        \\movk     x9, #0, lsl #48
-        \\adr      x2, #1600
-        \\adrp     x21, #6553600
-        \\adr      x0, #262144
+        \\ldr x3, [x4, #0]!
+        \\strb w9, [x2, #255]!
+        \\strb w10, [x3, #1]!
+        \\strb w10, [x3, #-256]!
+        \\strh w9, [x2, #255]!
+        \\strh w9, [x2, #1]!
+        \\strh w10, [x3, #-256]!
+        \\str w19, [sp, #255]!
+        \\str w20, [x30, #1]!
+        \\str w21, [x12, #-256]!
+        \\str xzr, [x9, #255]!
+        \\str x2, [x3, #1]!
+        \\str x19, [x12, #-256]!
+        \\ldrb w9, [x2, #255]!
+        \\ldrb w10, [x3, #1]!
+        \\ldrb w10, [x3, #-256]!
+        \\ldrh w9, [x2, #255]!
+        \\ldrh w9, [x2, #1]!
+        \\ldrh w10, [x3, #-256]!
+        \\ldr w19, [sp, #255]!
+        \\ldr w20, [x30, #1]!
+        \\ldr w21, [x12, #-256]!
+        \\ldr xzr, [x9, #255]!
+        \\ldr x2, [x3, #1]!
+        \\ldr x19, [x12, #-256]!
+        \\ldrsb xzr, [x9, #255]!
+        \\ldrsb x2, [x3, #1]!
+        \\ldrsb x19, [x12, #-256]!
+        \\ldrsh xzr, [x9, #255]!
+        \\ldrsh x2, [x3, #1]!
+        \\ldrsh x19, [x12, #-256]!
+        \\ldrsw xzr, [x9, #255]!
+        \\ldrsw x2, [x3, #1]!
+        \\ldrsw x19, [x12, #-256]!
+        \\ldrsb wzr, [x9, #255]!
+        \\ldrsb w2, [x3, #1]!
+        \\ldrsb w19, [x12, #-256]!
+        \\ldrsh wzr, [x9, #255]!
+        \\ldrsh w2, [x3, #1]!
+        \\ldrsh w19, [x12, #-256]!
+        \\str b0, [x0, #255]!
+        \\str b3, [x3, #1]!
+        \\str b5, [sp, #-256]!
+        \\str h10, [x10, #255]!
+        \\str h13, [x23, #1]!
+        \\str h15, [sp, #-256]!
+        \\str s20, [x20, #255]!
+        \\str s23, [x23, #1]!
+        \\str s25, [x0, #-256]!
+        \\str d20, [x20, #255]!
+        \\str d23, [x23, #1]!
+        \\str d25, [x0, #-256]!
+        \\ldr b0, [x0, #255]!
+        \\ldr b3, [x3, #1]!
+        \\ldr b5, [sp, #-256]!
+        \\ldr h10, [x10, #255]!
+        \\ldr h13, [x23, #1]!
+        \\ldr h15, [sp, #-256]!
+        \\ldr s20, [x20, #255]!
+        \\ldr s23, [x23, #1]!
+        \\ldr s25, [x0, #-256]!
+        \\ldr d20, [x20, #255]!
+        \\ldr d23, [x23, #1]!
+        \\ldr d25, [x0, #-256]!
+        \\ldr q20, [x1, #255]!
+        \\ldr q23, [x9, #1]!
+        \\ldr q25, [x20, #-256]!
+        \\str q10, [x1, #255]!
+        \\str q22, [sp, #1]!
+        \\str q21, [x20, #-256]!
+        \\sttrb w9, [sp]
+        \\sttrh wzr, [x12, #255]
+        \\sttr w16, [x0, #-256]
+        \\sttr x28, [x14, #1]
+        \\ldtrb w1, [x20, #255]
+        \\ldtrh w20, [x1, #255]
+        \\ldtr w12, [sp, #255]
+        \\ldtr xzr, [x12, #255]
+        \\ldtrsb x9, [x7, #-256]
+        \\ldtrsh x17, [x19, #-256]
+        \\ldtrsw x20, [x15, #-256]
+        \\ldtrsb w19, [x1, #-256]
+        \\ldtrsh w15, [x21, #-256]
+        \\ldr x0, [x0]
+        \\ldr x4, [x29]
+        \\ldr x30, [x12, #32760]
+        \\ldr x20, [sp, #8]
+        \\ldr xzr, [sp]
+        \\ldr w2, [sp]
+        \\ldr w17, [sp, #16380]
+        \\ldr w13, [x2, #4]
+        \\ldrsw x2, [x5, #4]
+        \\ldrsw x23, [sp, #16380]
+        \\ldrh w2, [x4]
+        \\ldrsh w23, [x6, #8190]
+        \\ldrsh wzr, [sp, #2]
+        \\ldrsh x29, [x2, #2]
+        \\ldrb w26, [x3, #121]
+        \\ldrb w12, [x2]
+        \\ldrsb w27, [sp, #4095]
+        \\ldrsb xzr, [x15]
+        \\str x30, [sp]
+        \\str w20, [x4, #16380]
+        \\strh w20, [x10, #14]
+        \\strh w17, [sp, #8190]
+        \\strb w23, [x3, #4095]
+        \\strb wzr, [x2]
+        \\ldr b31, [sp, #4095]
+        \\ldr h20, [x2, #8190]
+        \\ldr s10, [x19, #16380]
+        \\ldr d3, [x10, #32760]
+        \\str q12, [sp, #65520]
+        \\prfm pldl1keep, [sp, #8]
+        \\prfm pldl1strm, [x3{{(, #0)?}}]
+        \\prfm pldl2keep, [x5, #16]
+        \\prfm pldl2strm, [x2{{(, #0)?}}]
+        \\prfm pldl3keep, [x5{{(, #0)?}}]
+        \\prfm pldl3strm, [x6{{(, #0)?}}]
+        \\prfm plil1keep, [sp, #8]
+        \\prfm plil1strm, [x3{{(, #0)?}}]
+        \\prfm plil2keep, [x5, #16]
+        \\prfm plil2strm, [x2{{(, #0)?}}]
+        \\prfm plil3keep, [x5{{(, #0)?}}]
+        \\prfm plil3strm, [x6{{(, #0)?}}]
+        \\prfm pstl1keep, [sp, #8]
+        \\prfm pstl1strm, [x3{{(, #0)?}}]
+        \\prfm pstl2keep, [x5, #16]
+        \\prfm pstl2strm, [x2{{(, #0)?}}]
+        \\prfm pstl3keep, [x5{{(, #0)?}}]
+        \\prfm pstl3strm, [x6{{(, #0)?}}]
+        \\ldrb w3, [sp, x5]
+        \\ldrb w9, [x27, x6]
+        \\ldrsb w10, [x30, x7]
+        \\ldrb w11, [x29, x3, sxtx]
+        \\strb w12, [x28, xzr, sxtx]
+        \\ldrb w14, [x26, w6, uxtw]
+        \\ldrsb w15, [x25, w7, uxtw]
+        \\ldrb w17, [x23, w9, sxtw]
+        \\ldrsb x18, [x22, w10, sxtw]
+        \\ldrsh w3, [sp, x5]
+        \\ldrsh w9, [x27, x6]
+        \\ldrh w10, [x30, x7, lsl #1]
+        \\strh w11, [x29, x3, sxtx]
+        \\ldrh w12, [x28, xzr, sxtx]
+        \\ldrsh x13, [x27, x5, sxtx #1]
+        \\ldrh w14, [x26, w6, uxtw]
+        \\ldrh w15, [x25, w7, uxtw]
+        \\ldrsh w16, [x24, w8, uxtw #1]
+        \\ldrh w17, [x23, w9, sxtw]
+        \\ldrh w18, [x22, w10, sxtw]
+        \\strh w19, [x21, wzr, sxtw #1]
+        \\ldr w3, [sp, x5]
+        \\ldr s9, [x27, x6]
+        \\ldr w10, [x30, x7, lsl #2]
+        \\ldr w11, [x29, x3, sxtx]
+        \\str s12, [x28, xzr, sxtx]
+        \\str w13, [x27, x5, sxtx #2]
+        \\str w14, [x26, w6, uxtw]
+        \\ldr w15, [x25, w7, uxtw]
+        \\ldr w16, [x24, w8, uxtw #2]
+        \\ldrsw x17, [x23, w9, sxtw]
+        \\ldr w18, [x22, w10, sxtw]
+        \\ldrsw x19, [x21, wzr, sxtw #2]
+        \\ldr x3, [sp, x5]
+        \\str x9, [x27, x6]
+        \\ldr d10, [x30, x7, lsl #3]
+        \\str x11, [x29, x3, sxtx]
+        \\ldr x12, [x28, xzr, sxtx]
+        \\ldr x13, [x27, x5, sxtx #3]
+        \\prfm pldl1keep, [x26, w6, uxtw]
+        \\ldr x15, [x25, w7, uxtw]
+        \\ldr x16, [x24, w8, uxtw #3]
+        \\ldr x17, [x23, w9, sxtw]
+        \\ldr x18, [x22, w10, sxtw]
+        \\str d19, [x21, wzr, sxtw #3]
+        \\ldr q3, [sp, x5]
+        \\ldr q9, [x27, x6]
+        \\ldr q10, [x30, x7, lsl #4]
+        \\str q11, [x29, x3, sxtx]
+        \\str q12, [x28, xzr, sxtx]
+        \\str q13, [x27, x5, sxtx #4]
+        \\ldr q14, [x26, w6, uxtw]
+        \\ldr q15, [x25, w7, uxtw]
+        \\ldr q16, [x24, w8, uxtw #4]
+        \\ldr q17, [x23, w9, sxtw]
+        \\str q18, [x22, w10, sxtw]
+        \\ldr q19, [x21, wzr, sxtw #4]
+        \\ldp w3, w5, [sp]
+        \\stp wzr, w9, [sp, #252]
+        \\ldp w2, wzr, [sp, #-256]
+        \\ldp w9, w10, [sp, #4]
+        \\ldpsw x9, x10, [sp, #4]
+        \\ldpsw x9, x10, [x2, #-256]
+        \\ldpsw x20, x30, [sp, #252]
+        \\ldp x21, x29, [x2, #504]
+        \\ldp x22, x23, [x3, #-512]
+        \\ldp x24, x25, [x4, #8]
+        \\ldp s29, s28, [sp, #252]
+        \\stp s27, s26, [sp, #-256]
+        \\ldp s1, s2, [x3, #44]
+        \\stp d3, d5, [x9, #504]
+        \\stp d7, d11, [x10, #-512]
+        \\ldp d2, d3, [x30, #-8]
+        \\stp q3, q5, [sp]
+        \\stp q17, q19, [sp, #1008]
+        \\ldp q23, q29, [x1, #-1024]
+        \\ldp w3, w5, [sp], #0
+        \\stp wzr, w9, [sp], #252
+        \\ldp w2, wzr, [sp], #-256
+        \\ldp w9, w10, [sp], #4
+        \\ldpsw x9, x10, [sp], #4
+        \\ldpsw x9, x10, [x2], #-256
+        \\ldpsw x20, x30, [sp], #252
+        \\ldp x21, x29, [x2], #504
+        \\ldp x22, x23, [x3], #-512
+        \\ldp x24, x25, [x4], #8
+        \\ldp s29, s28, [sp], #252
+        \\stp s27, s26, [sp], #-256
+        \\ldp s1, s2, [x3], #44
+        \\stp d3, d5, [x9], #504
+        \\stp d7, d11, [x10], #-512
+        \\ldp d2, d3, [x30], #-8
+        \\stp q3, q5, [sp], #0
+        \\stp q17, q19, [sp], #1008
+        \\ldp q23, q29, [x1], #-1024
+        \\ldp w3, w5, [sp, #0]!
+        \\stp wzr, w9, [sp, #252]!
+        \\ldp w2, wzr, [sp, #-256]!
+        \\ldp w9, w10, [sp, #4]!
+        \\ldpsw x9, x10, [sp, #4]!
+        \\ldpsw x9, x10, [x2, #-256]!
+        \\ldpsw x20, x30, [sp, #252]!
+        \\ldp x21, x29, [x2, #504]!
+        \\ldp x22, x23, [x3, #-512]!
+        \\ldp x24, x25, [x4, #8]!
+        \\ldp s29, s28, [sp, #252]!
+        \\stp s27, s26, [sp, #-256]!
+        \\ldp s1, s2, [x3, #44]!
+        \\stp d3, d5, [x9, #504]!
+        \\stp d7, d11, [x10, #-512]!
+        \\ldp d2, d3, [x30, #-8]!
+        \\stp q3, q5, [sp, #0]!
+        \\stp q17, q19, [sp, #1008]!
+        \\ldp q23, q29, [x1, #-1024]!
+        \\ldnp w3, w5, [sp]
+        \\stnp wzr, w9, [sp, #252]
+        \\ldnp w2, wzr, [sp, #-256]
+        \\ldnp w9, w10, [sp, #4]
+        \\ldnp x21, x29, [x2, #504]
+        \\ldnp x22, x23, [x3, #-512]
+        \\ldnp x24, x25, [x4, #8]
+        \\ldnp s29, s28, [sp, #252]
+        \\stnp s27, s26, [sp, #-256]
+        \\ldnp s1, s2, [x3, #44]
+        \\stnp d3, d5, [x9, #504]
+        \\stnp d7, d11, [x10, #-512]
+        \\ldnp d2, d3, [x30, #-8]
+        \\stnp q3, q5, [sp]
+        \\stnp q17, q19, [sp, #1008]
+        \\ldnp q23, q29, [x1, #-1024]
+        \\orr w3, w9, #0xffff0000
+        \\orr wsp, w10, #0xe00000ff
+        \\orr w9, w10, #0x3ff
+        \\and w14, w15, #0x80008000
+        \\and w12, w13, #0xffc3ffc3
+        \\and w11, wzr, #0x30003
+        \\eor w3, w6, #0xe0e0e0e0
+        \\eor wsp, wzr, #0x3030303
+        \\eor w16, w17, #0x81818181
+        \\{{ands wzr,|tst}} w18, #0xcccccccc
+        \\ands w19, w20, #0x33333333
+        \\ands w21, w22, #0x99999999
+        \\{{ands wzr,|tst}} w3, #0xaaaaaaaa
+        \\{{ands wzr,|tst}} wzr, #0x55555555
+        \\eor x3, x5, #0xffffffffc000000
+        \\and x9, x10, #0x7fffffffffff
+        \\orr x11, x12, #0x8000000000000fff
+        \\orr x3, x9, #0xffff0000ffff0000
+        \\orr sp, x10, #0xe00000ffe00000ff
+        \\orr x9, x10, #0x3ff000003ff
+        \\and x14, x15, #0x8000800080008000
+        \\and x12, x13, #0xffc3ffc3ffc3ffc3
+        \\and x11, xzr, #0x3000300030003
+        \\eor x3, x6, #0xe0e0e0e0e0e0e0e0
+        \\eor sp, xzr, #0x303030303030303
+        \\eor x16, x17, #0x8181818181818181
+        \\{{ands xzr,|tst}} x18, #0xcccccccccccccccc
+        \\ands x19, x20, #0x3333333333333333
+        \\ands x21, x22, #0x9999999999999999
+        \\{{ands xzr,|tst}} x3, #0xaaaaaaaaaaaaaaaa
+        \\{{ands xzr,|tst}} xzr, #0x5555555555555555
+        \\mov w3, #983055
+        \\mov x10, #-6148914691236517206
+        \\orr w3, wzr, #0xffff
+        \\orr x9, xzr, #0xffff00000000
+        \\and w12, w23, w21
+        \\and w16, w15, w1, lsl #1
+        \\and w9, w4, w10, lsl #31
+        \\and w3, w30, w11
+        \\and x3, x5, x7, lsl #63
+        \\and x5, x14, x19, asr #4
+        \\and w3, w17, w19, ror #31
+        \\and w0, w2, wzr, lsr #17
+        \\and w3, w30, w11, asr
+        \\and xzr, x4, x26
+        \\and w3, wzr, w20, ror
+        \\and x7, x20, xzr, asr #63
+        \\bic x13, x20, x14, lsl #47
+        \\bic w2, w7, w9
+        \\orr w2, w7, w0, asr #31
+        \\orr x8, x9, x10, lsl #12
+        \\orn x3, x5, x7, asr
+        \\orn w2, w5, w29
+        \\ands w7, wzr, w9, lsl #1
+        \\ands x3, x5, x20, ror #63
+        \\bics w3, w5, w7
+        \\bics x3, xzr, x3, lsl #1
+        \\tst w3, w7, lsl #31
+        \\tst x2, x20, asr
+        \\mov x3, x6
+        \\mov x3, xzr
+        \\mov wzr, w2
+        \\mov w3, w5
+        \\mov w1, #{{65535|0xffff}}
+        \\movz w2, #0, lsl #16
+        \\mov w2, #-1235
+        \\mov x2, #5299989643264
+        \\movk xzr, #{{4321|0x10e1}}, lsl #48
+        \\mov x2, #0
+        \\movk w3, #0
+        \\movz x4, #0, lsl #16
+        \\movk w5, #0, lsl #16
+        \\movz x6, #0, lsl #32
+        \\movk x7, #0, lsl #32
+        \\movz x8, #0, lsl #48
+        \\movk x9, #0, lsl #48
+        \\adr x2, #1600
+        \\adrp x21, #6553600
+        \\adr x0, #262144
         \\nop
-        \\hint     #{{127|0x7f}}
+        \\hint #{{127|0x7f}}
         \\nop
         \\yield
         \\wfe
@@ -7021,631 +7018,631 @@ test "basic a64 instructions" {
         \\sevl
         \\dgh
         \\clrex
-        \\clrex    #0
-        \\clrex    #7
+        \\clrex #0
+        \\clrex #7
         \\clrex
-        \\dsb      #12
-        \\dsb      sy
-        \\dsb      oshld
-        \\dsb      oshst
-        \\dsb      osh
-        \\dsb      nshld
-        \\dsb      nshst
-        \\dsb      nsh
-        \\dsb      ishld
-        \\dsb      ishst
-        \\dsb      ish
-        \\dsb      ld
-        \\dsb      st
-        \\dsb      sy
-        \\dmb      #0
-        \\dmb      #12
-        \\dmb      sy
-        \\dmb      oshld
-        \\dmb      oshst
-        \\dmb      osh
-        \\dmb      nshld
-        \\dmb      nshst
-        \\dmb      nsh
-        \\dmb      ishld
-        \\dmb      ishst
-        \\dmb      ish
-        \\dmb      ld
-        \\dmb      st
-        \\dmb      sy
+        \\dsb #12
+        \\dsb sy
+        \\dsb oshld
+        \\dsb oshst
+        \\dsb osh
+        \\dsb nshld
+        \\dsb nshst
+        \\dsb nsh
+        \\dsb ishld
+        \\dsb ishst
+        \\dsb ish
+        \\dsb ld
+        \\dsb st
+        \\dsb sy
+        \\dmb #0
+        \\dmb #12
+        \\dmb sy
+        \\dmb oshld
+        \\dmb oshst
+        \\dmb osh
+        \\dmb nshld
+        \\dmb nshst
+        \\dmb nsh
+        \\dmb ishld
+        \\dmb ishst
+        \\dmb ish
+        \\dmb ld
+        \\dmb st
+        \\dmb sy
         \\isb
-        \\isb      #12
-        \\msr      {{SPSel|SPSEL}}, #0
-        \\msr      {{DAIFSet|DAIFSET}}, #15
-        \\msr      {{DAIFClr|DAIFCLR}}, #12
-        \\sys      #7, c5, c9, #7, x5
-        \\sys      #0, c15, c15, #2
-        \\sysl     x9, #7, c5, c9, #7
-        \\sysl     x1, #0, c15, c15, #2
-        \\{{sys     #0, c7, c1, #0|ic ialluis}}
-        \\{{sys     #0, c7, c5, #0|ic iallu}}
-        \\{{sys     #3, c7, c5, #1|ic ivau}}, x9
-        \\{{sys     #3, c7, c4, #1|dc zva}}, x12
-        \\{{sys     #0, c7, c6, #1|dc ivac}}
-        \\{{sys     #0, c7, c6, #2|dc isw}}, x2
-        \\{{sys     #3, c7, c10, #1|dc cvac}}, x9
-        \\{{sys     #0, c7, c10, #2|dc csw}}, x10
-        \\{{sys     #3, c7, c11, #1|dc cvau}}, x0
-        \\{{sys     #3, c7, c14, #1|dc civac}}, x3
-        \\{{sys     #0, c7, c14, #2|dc cisw}}, x30
-        \\msr      {{teecr32_el1|TEECR32_EL1}}, x12
-        \\msr      {{osdtrrx_el1|OSDTRRX_EL1}}, x12
-        \\msr      {{mdccint_el1|MDCCINT_EL1}}, x12
-        \\msr      {{mdscr_el1|MDSCR_EL1}}, x12
-        \\msr      {{osdtrtx_el1|OSDTRTX_EL1}}, x12
-        \\msr      {{dbgdtr_el0|DBGDTR_EL0}}, x12
-        \\msr      {{dbgdtrtx_el0|DBGDTRTX_EL0}}, x12
-        \\msr      {{oseccr_el1|OSECCR_EL1}}, x12
-        \\msr      {{dbgvcr32_el2|DBGVCR32_EL2}}, x12
-        \\msr      {{dbgbvr0_el1|DBGBVR0_EL1}}, x12
-        \\msr      {{dbgbvr1_el1|DBGBVR1_EL1}}, x12
-        \\msr      {{dbgbvr2_el1|DBGBVR2_EL1}}, x12
-        \\msr      {{dbgbvr3_el1|DBGBVR3_EL1}}, x12
-        \\msr      {{dbgbvr4_el1|DBGBVR4_EL1}}, x12
-        \\msr      {{dbgbvr5_el1|DBGBVR5_EL1}}, x12
-        \\msr      {{dbgbvr6_el1|DBGBVR6_EL1}}, x12
-        \\msr      {{dbgbvr7_el1|DBGBVR7_EL1}}, x12
-        \\msr      {{dbgbvr8_el1|DBGBVR8_EL1}}, x12
-        \\msr      {{dbgbvr9_el1|DBGBVR9_EL1}}, x12
-        \\msr      {{dbgbvr10_el1|DBGBVR10_EL1}}, x12
-        \\msr      {{dbgbvr11_el1|DBGBVR11_EL1}}, x12
-        \\msr      {{dbgbvr12_el1|DBGBVR12_EL1}}, x12
-        \\msr      {{dbgbvr13_el1|DBGBVR13_EL1}}, x12
-        \\msr      {{dbgbvr14_el1|DBGBVR14_EL1}}, x12
-        \\msr      {{dbgbvr15_el1|DBGBVR15_EL1}}, x12
-        \\msr      {{dbgbcr0_el1|DBGBCR0_EL1}}, x12
-        \\msr      {{dbgbcr1_el1|DBGBCR1_EL1}}, x12
-        \\msr      {{dbgbcr2_el1|DBGBCR2_EL1}}, x12
-        \\msr      {{dbgbcr3_el1|DBGBCR3_EL1}}, x12
-        \\msr      {{dbgbcr4_el1|DBGBCR4_EL1}}, x12
-        \\msr      {{dbgbcr5_el1|DBGBCR5_EL1}}, x12
-        \\msr      {{dbgbcr6_el1|DBGBCR6_EL1}}, x12
-        \\msr      {{dbgbcr7_el1|DBGBCR7_EL1}}, x12
-        \\msr      {{dbgbcr8_el1|DBGBCR8_EL1}}, x12
-        \\msr      {{dbgbcr9_el1|DBGBCR9_EL1}}, x12
-        \\msr      {{dbgbcr10_el1|DBGBCR10_EL1}}, x12
-        \\msr      {{dbgbcr11_el1|DBGBCR11_EL1}}, x12
-        \\msr      {{dbgbcr12_el1|DBGBCR12_EL1}}, x12
-        \\msr      {{dbgbcr13_el1|DBGBCR13_EL1}}, x12
-        \\msr      {{dbgbcr14_el1|DBGBCR14_EL1}}, x12
-        \\msr      {{dbgbcr15_el1|DBGBCR15_EL1}}, x12
-        \\msr      {{dbgwvr0_el1|DBGWVR0_EL1}}, x12
-        \\msr      {{dbgwvr1_el1|DBGWVR1_EL1}}, x12
-        \\msr      {{dbgwvr2_el1|DBGWVR2_EL1}}, x12
-        \\msr      {{dbgwvr3_el1|DBGWVR3_EL1}}, x12
-        \\msr      {{dbgwvr4_el1|DBGWVR4_EL1}}, x12
-        \\msr      {{dbgwvr5_el1|DBGWVR5_EL1}}, x12
-        \\msr      {{dbgwvr6_el1|DBGWVR6_EL1}}, x12
-        \\msr      {{dbgwvr7_el1|DBGWVR7_EL1}}, x12
-        \\msr      {{dbgwvr8_el1|DBGWVR8_EL1}}, x12
-        \\msr      {{dbgwvr9_el1|DBGWVR9_EL1}}, x12
-        \\msr      {{dbgwvr10_el1|DBGWVR10_EL1}}, x12
-        \\msr      {{dbgwvr11_el1|DBGWVR11_EL1}}, x12
-        \\msr      {{dbgwvr12_el1|DBGWVR12_EL1}}, x12
-        \\msr      {{dbgwvr13_el1|DBGWVR13_EL1}}, x12
-        \\msr      {{dbgwvr14_el1|DBGWVR14_EL1}}, x12
-        \\msr      {{dbgwvr15_el1|DBGWVR15_EL1}}, x12
-        \\msr      {{dbgwcr0_el1|DBGWCR0_EL1}}, x12
-        \\msr      {{dbgwcr1_el1|DBGWCR1_EL1}}, x12
-        \\msr      {{dbgwcr2_el1|DBGWCR2_EL1}}, x12
-        \\msr      {{dbgwcr3_el1|DBGWCR3_EL1}}, x12
-        \\msr      {{dbgwcr4_el1|DBGWCR4_EL1}}, x12
-        \\msr      {{dbgwcr5_el1|DBGWCR5_EL1}}, x12
-        \\msr      {{dbgwcr6_el1|DBGWCR6_EL1}}, x12
-        \\msr      {{dbgwcr7_el1|DBGWCR7_EL1}}, x12
-        \\msr      {{dbgwcr8_el1|DBGWCR8_EL1}}, x12
-        \\msr      {{dbgwcr9_el1|DBGWCR9_EL1}}, x12
-        \\msr      {{dbgwcr10_el1|DBGWCR10_EL1}}, x12
-        \\msr      {{dbgwcr11_el1|DBGWCR11_EL1}}, x12
-        \\msr      {{dbgwcr12_el1|DBGWCR12_EL1}}, x12
-        \\msr      {{dbgwcr13_el1|DBGWCR13_EL1}}, x12
-        \\msr      {{dbgwcr14_el1|DBGWCR14_EL1}}, x12
-        \\msr      {{dbgwcr15_el1|DBGWCR15_EL1}}, x12
-        \\msr      {{teehbr32_el1|TEEHBR32_EL1}}, x12
-        \\msr      {{oslar_el1|OSLAR_EL1}}, x12
-        \\msr      {{osdlr_el1|OSDLR_EL1}}, x12
-        \\msr      {{dbgprcr_el1|DBGPRCR_EL1}}, x12
-        \\msr      {{dbgclaimset_el1|DBGCLAIMSET_EL1}}, x12
-        \\msr      {{dbgclaimclr_el1|DBGCLAIMCLR_EL1}}, x12
-        \\msr      {{csselr_el1|CSSELR_EL1}}, x12
-        \\msr      {{vpidr_el2|VPIDR_EL2}}, x12
-        \\msr      {{vmpidr_el2|VMPIDR_EL2}}, x12
-        \\msr      {{sctlr_el1|SCTLR_EL1}}, x12
-        \\msr      {{sctlr_el2|SCTLR_EL2}}, x12
-        \\msr      {{sctlr_el3|SCTLR_EL3}}, x12
-        \\msr      {{actlr_el1|ACTLR_EL1}}, x12
-        \\msr      {{actlr_el2|ACTLR_EL2}}, x12
-        \\msr      {{actlr_el3|ACTLR_EL3}}, x12
-        \\msr      {{cpacr_el1|CPACR_EL1}}, x12
-        \\msr      {{hcr_el2|HCR_EL2}}, x12
-        \\msr      {{scr_el3|SCR_EL3}}, x12
-        \\msr      {{mdcr_el2|MDCR_EL2}}, x12
-        \\msr      {{sder32_el3|SDER32_EL3}}, x12
-        \\msr      {{cptr_el2|CPTR_EL2}}, x12
-        \\msr      {{cptr_el3|CPTR_EL3}}, x12
-        \\msr      {{hstr_el2|HSTR_EL2}}, x12
-        \\msr      {{hacr_el2|HACR_EL2}}, x12
-        \\msr      {{mdcr_el3|MDCR_EL3}}, x12
-        \\msr      {{ttbr0_el1|TTBR0_EL1}}, x12
-        \\msr      {{ttbr0_el2|TTBR0_EL2}}, x12
-        \\msr      {{ttbr0_el3|TTBR0_EL3}}, x12
-        \\msr      {{ttbr1_el1|TTBR1_EL1}}, x12
-        \\msr      {{tcr_el1|TCR_EL1}}, x12
-        \\msr      {{tcr_el2|TCR_EL2}}, x12
-        \\msr      {{tcr_el3|TCR_EL3}}, x12
-        \\msr      {{vttbr_el2|VTTBR_EL2}}, x12
-        \\msr      {{vtcr_el2|VTCR_EL2}}, x12
-        \\msr      {{dacr32_el2|DACR32_EL2}}, x12
-        \\msr      {{spsr_el1|SPSR_EL1}}, x12
-        \\msr      {{spsr_el2|SPSR_EL2}}, x12
-        \\msr      {{spsr_el3|SPSR_EL3}}, x12
-        \\msr      {{elr_el1|ELR_EL1}}, x12
-        \\msr      {{elr_el2|ELR_EL2}}, x12
-        \\msr      {{elr_el3|ELR_EL3}}, x12
-        \\msr      {{sp_el0|SP_EL0}}, x12
-        \\msr      {{sp_el1|SP_EL1}}, x12
-        \\msr      {{sp_el2|SP_EL2}}, x12
-        \\msr      {{SPSel|SPSEL}}, x12
-        \\msr      {{nzcv|NZCV}}, x12
-        \\msr      {{daif|DAIF}}, x12
-        \\msr      S3_0_C4_C2_2, x12
-        \\msr      {{SPSR_irq|SPSR_IRQ}}, x12
-        \\msr      {{SPSR_abt|SPSR_ABT}}, x12
-        \\msr      {{SPSR_und|SPSR_UND}}, x12
-        \\msr      {{SPSR_fiq|SPSR_FIQ}}, x12
-        \\msr      {{fpcr|FPCR}}, x12
-        \\msr      {{fpsr|FPSR}}, x12
-        \\msr      {{dspsr_el0|DSPSR_EL0}}, x12
-        \\msr      {{dlr_el0|DLR_EL0}}, x12
-        \\msr      {{ifsr32_el2|IFSR32_EL2}}, x12
-        \\msr      {{afsr0_el1|AFSR0_EL1}}, x12
-        \\msr      {{afsr0_el2|AFSR0_EL2}}, x12
-        \\msr      {{afsr0_el3|AFSR0_EL3}}, x12
-        \\msr      {{afsr1_el1|AFSR1_EL1}}, x12
-        \\msr      {{afsr1_el2|AFSR1_EL2}}, x12
-        \\msr      {{afsr1_el3|AFSR1_EL3}}, x12
-        \\msr      {{esr_el1|ESR_EL1}}, x12
-        \\msr      {{esr_el2|ESR_EL2}}, x12
-        \\msr      {{esr_el3|ESR_EL3}}, x12
-        \\msr      {{fpexc32_el2|FPEXC32_EL2}}, x12
-        \\msr      {{far_el1|FAR_EL1}}, x12
-        \\msr      {{far_el2|FAR_EL2}}, x12
-        \\msr      {{far_el3|FAR_EL3}}, x12
-        \\msr      {{hpfar_el2|HPFAR_EL2}}, x12
-        \\msr      {{par_el1|PAR_EL1}}, x12
-        \\msr      {{pmcr_el0|PMCR_EL0}}, x12
-        \\msr      {{pmcntenset_el0|PMCNTENSET_EL0}}, x12
-        \\msr      {{pmcntenclr_el0|PMCNTENCLR_EL0}}, x12
-        \\msr      {{pmovsclr_el0|PMOVSCLR_EL0}}, x12
-        \\msr      {{pmselr_el0|PMSELR_EL0}}, x12
-        \\msr      {{pmccntr_el0|PMCCNTR_EL0}}, x12
-        \\msr      {{pmxevtyper_el0|PMXEVTYPER_EL0}}, x12
-        \\msr      {{pmxevcntr_el0|PMXEVCNTR_EL0}}, x12
-        \\msr      {{pmuserenr_el0|PMUSERENR_EL0}}, x12
-        \\msr      {{pmintenset_el1|PMINTENSET_EL1}}, x12
-        \\msr      {{pmintenclr_el1|PMINTENCLR_EL1}}, x12
-        \\msr      {{pmovsset_el0|PMOVSSET_EL0}}, x12
-        \\msr      {{mair_el1|MAIR_EL1}}, x12
-        \\msr      {{mair_el2|MAIR_EL2}}, x12
-        \\msr      {{mair_el3|MAIR_EL3}}, x12
-        \\msr      {{amair_el1|AMAIR_EL1}}, x12
-        \\msr      {{amair_el2|AMAIR_EL2}}, x12
-        \\msr      {{amair_el3|AMAIR_EL3}}, x12
-        \\msr      {{vbar_el1|VBAR_EL1}}, x12
-        \\msr      {{vbar_el2|VBAR_EL2}}, x12
-        \\msr      {{vbar_el3|VBAR_EL3}}, x12
-        \\msr      {{rmr_el1|RMR_EL1}}, x12
-        \\msr      {{rmr_el2|RMR_EL2}}, x12
-        \\msr      {{rmr_el3|RMR_EL3}}, x12
-        \\msr      {{tpidr_el0|TPIDR_EL0}}, x12
-        \\msr      {{tpidr_el2|TPIDR_EL2}}, x12
-        \\msr      {{tpidr_el3|TPIDR_EL3}}, x12
-        \\msr      {{tpidrro_el0|TPIDRRO_EL0}}, x12
-        \\msr      {{tpidr_el1|TPIDR_EL1}}, x12
-        \\msr      {{cntfrq_el0|CNTFRQ_EL0}}, x12
-        \\msr      {{cntvoff_el2|CNTVOFF_EL2}}, x12
-        \\msr      {{cntkctl_el1|CNTKCTL_EL1}}, x12
-        \\msr      {{cnthctl_el2|CNTHCTL_EL2}}, x12
-        \\msr      {{cntp_tval_el0|CNTP_TVAL_EL0}}, x12
-        \\msr      {{cnthp_tval_el2|CNTHP_TVAL_EL2}}, x12
-        \\msr      {{cntps_tval_el1|CNTPS_TVAL_EL1}}, x12
-        \\msr      {{cntp_ctl_el0|CNTP_CTL_EL0}}, x12
-        \\msr      {{cnthp_ctl_el2|CNTHP_CTL_EL2}}, x12
-        \\msr      {{cntps_ctl_el1|CNTPS_CTL_EL1}}, x12
-        \\msr      {{cntp_cval_el0|CNTP_CVAL_EL0}}, x12
-        \\msr      {{cnthp_cval_el2|CNTHP_CVAL_EL2}}, x12
-        \\msr      {{cntps_cval_el1|CNTPS_CVAL_EL1}}, x12
-        \\msr      {{cntv_tval_el0|CNTV_TVAL_EL0}}, x12
-        \\msr      {{cntv_ctl_el0|CNTV_CTL_EL0}}, x12
-        \\msr      {{cntv_cval_el0|CNTV_CVAL_EL0}}, x12
-        \\msr      {{pmevcntr0_el0|PMEVCNTR0_EL0}}, x12
-        \\msr      {{pmevcntr1_el0|PMEVCNTR1_EL0}}, x12
-        \\msr      {{pmevcntr2_el0|PMEVCNTR2_EL0}}, x12
-        \\msr      {{pmevcntr3_el0|PMEVCNTR3_EL0}}, x12
-        \\msr      {{pmevcntr4_el0|PMEVCNTR4_EL0}}, x12
-        \\msr      {{pmevcntr5_el0|PMEVCNTR5_EL0}}, x12
-        \\msr      {{pmevcntr6_el0|PMEVCNTR6_EL0}}, x12
-        \\msr      {{pmevcntr7_el0|PMEVCNTR7_EL0}}, x12
-        \\msr      {{pmevcntr8_el0|PMEVCNTR8_EL0}}, x12
-        \\msr      {{pmevcntr9_el0|PMEVCNTR9_EL0}}, x12
-        \\msr      {{pmevcntr10_el0|PMEVCNTR10_EL0}}, x12
-        \\msr      {{pmevcntr11_el0|PMEVCNTR11_EL0}}, x12
-        \\msr      {{pmevcntr12_el0|PMEVCNTR12_EL0}}, x12
-        \\msr      {{pmevcntr13_el0|PMEVCNTR13_EL0}}, x12
-        \\msr      {{pmevcntr14_el0|PMEVCNTR14_EL0}}, x12
-        \\msr      {{pmevcntr15_el0|PMEVCNTR15_EL0}}, x12
-        \\msr      {{pmevcntr16_el0|PMEVCNTR16_EL0}}, x12
-        \\msr      {{pmevcntr17_el0|PMEVCNTR17_EL0}}, x12
-        \\msr      {{pmevcntr18_el0|PMEVCNTR18_EL0}}, x12
-        \\msr      {{pmevcntr19_el0|PMEVCNTR19_EL0}}, x12
-        \\msr      {{pmevcntr20_el0|PMEVCNTR20_EL0}}, x12
-        \\msr      {{pmevcntr21_el0|PMEVCNTR21_EL0}}, x12
-        \\msr      {{pmevcntr22_el0|PMEVCNTR22_EL0}}, x12
-        \\msr      {{pmevcntr23_el0|PMEVCNTR23_EL0}}, x12
-        \\msr      {{pmevcntr24_el0|PMEVCNTR24_EL0}}, x12
-        \\msr      {{pmevcntr25_el0|PMEVCNTR25_EL0}}, x12
-        \\msr      {{pmevcntr26_el0|PMEVCNTR26_EL0}}, x12
-        \\msr      {{pmevcntr27_el0|PMEVCNTR27_EL0}}, x12
-        \\msr      {{pmevcntr28_el0|PMEVCNTR28_EL0}}, x12
-        \\msr      {{pmevcntr29_el0|PMEVCNTR29_EL0}}, x12
-        \\msr      {{pmevcntr30_el0|PMEVCNTR30_EL0}}, x12
-        \\msr      {{pmccfiltr_el0|PMCCFILTR_EL0}}, x12
-        \\msr      {{pmevtyper0_el0|PMEVTYPER0_EL0}}, x12
-        \\msr      {{pmevtyper1_el0|PMEVTYPER1_EL0}}, x12
-        \\msr      {{pmevtyper2_el0|PMEVTYPER2_EL0}}, x12
-        \\msr      {{pmevtyper3_el0|PMEVTYPER3_EL0}}, x12
-        \\msr      {{pmevtyper4_el0|PMEVTYPER4_EL0}}, x12
-        \\msr      {{pmevtyper5_el0|PMEVTYPER5_EL0}}, x12
-        \\msr      {{pmevtyper6_el0|PMEVTYPER6_EL0}}, x12
-        \\msr      {{pmevtyper7_el0|PMEVTYPER7_EL0}}, x12
-        \\msr      {{pmevtyper8_el0|PMEVTYPER8_EL0}}, x12
-        \\msr      {{pmevtyper9_el0|PMEVTYPER9_EL0}}, x12
-        \\msr      {{pmevtyper10_el0|PMEVTYPER10_EL0}}, x12
-        \\msr      {{pmevtyper11_el0|PMEVTYPER11_EL0}}, x12
-        \\msr      {{pmevtyper12_el0|PMEVTYPER12_EL0}}, x12
-        \\msr      {{pmevtyper13_el0|PMEVTYPER13_EL0}}, x12
-        \\msr      {{pmevtyper14_el0|PMEVTYPER14_EL0}}, x12
-        \\msr      {{pmevtyper15_el0|PMEVTYPER15_EL0}}, x12
-        \\msr      {{pmevtyper16_el0|PMEVTYPER16_EL0}}, x12
-        \\msr      {{pmevtyper17_el0|PMEVTYPER17_EL0}}, x12
-        \\msr      {{pmevtyper18_el0|PMEVTYPER18_EL0}}, x12
-        \\msr      {{pmevtyper19_el0|PMEVTYPER19_EL0}}, x12
-        \\msr      {{pmevtyper20_el0|PMEVTYPER20_EL0}}, x12
-        \\msr      {{pmevtyper21_el0|PMEVTYPER21_EL0}}, x12
-        \\msr      {{pmevtyper22_el0|PMEVTYPER22_EL0}}, x12
-        \\msr      {{pmevtyper23_el0|PMEVTYPER23_EL0}}, x12
-        \\msr      {{pmevtyper24_el0|PMEVTYPER24_EL0}}, x12
-        \\msr      {{pmevtyper25_el0|PMEVTYPER25_EL0}}, x12
-        \\msr      {{pmevtyper26_el0|PMEVTYPER26_EL0}}, x12
-        \\msr      {{pmevtyper27_el0|PMEVTYPER27_EL0}}, x12
-        \\msr      {{pmevtyper28_el0|PMEVTYPER28_EL0}}, x12
-        \\msr      {{pmevtyper29_el0|PMEVTYPER29_EL0}}, x12
-        \\msr      {{pmevtyper30_el0|PMEVTYPER30_EL0}}, x12
-        \\mrs      x9, {{teecr32_el1|TEECR32_EL1}}
-        \\mrs      x9, {{osdtrrx_el1|OSDTRRX_EL1}}
-        \\mrs      x9, {{mdccsr_el0|MDCCSR_EL0}}
-        \\mrs      x9, {{mdccint_el1|MDCCINT_EL1}}
-        \\mrs      x9, {{mdscr_el1|MDSCR_EL1}}
-        \\mrs      x9, {{osdtrtx_el1|OSDTRTX_EL1}}
-        \\mrs      x9, {{dbgdtr_el0|DBGDTR_EL0}}
-        \\mrs      x9, {{dbgdtrrx_el0|DBGDTRRX_EL0}}
-        \\mrs      x9, {{oseccr_el1|OSECCR_EL1}}
-        \\mrs      x9, {{dbgvcr32_el2|DBGVCR32_EL2}}
-        \\mrs      x9, {{dbgbvr0_el1|DBGBVR0_EL1}}
-        \\mrs      x9, {{dbgbvr1_el1|DBGBVR1_EL1}}
-        \\mrs      x9, {{dbgbvr2_el1|DBGBVR2_EL1}}
-        \\mrs      x9, {{dbgbvr3_el1|DBGBVR3_EL1}}
-        \\mrs      x9, {{dbgbvr4_el1|DBGBVR4_EL1}}
-        \\mrs      x9, {{dbgbvr5_el1|DBGBVR5_EL1}}
-        \\mrs      x9, {{dbgbvr6_el1|DBGBVR6_EL1}}
-        \\mrs      x9, {{dbgbvr7_el1|DBGBVR7_EL1}}
-        \\mrs      x9, {{dbgbvr8_el1|DBGBVR8_EL1}}
-        \\mrs      x9, {{dbgbvr9_el1|DBGBVR9_EL1}}
-        \\mrs      x9, {{dbgbvr10_el1|DBGBVR10_EL1}}
-        \\mrs      x9, {{dbgbvr11_el1|DBGBVR11_EL1}}
-        \\mrs      x9, {{dbgbvr12_el1|DBGBVR12_EL1}}
-        \\mrs      x9, {{dbgbvr13_el1|DBGBVR13_EL1}}
-        \\mrs      x9, {{dbgbvr14_el1|DBGBVR14_EL1}}
-        \\mrs      x9, {{dbgbvr15_el1|DBGBVR15_EL1}}
-        \\mrs      x9, {{dbgbcr0_el1|DBGBCR0_EL1}}
-        \\mrs      x9, {{dbgbcr1_el1|DBGBCR1_EL1}}
-        \\mrs      x9, {{dbgbcr2_el1|DBGBCR2_EL1}}
-        \\mrs      x9, {{dbgbcr3_el1|DBGBCR3_EL1}}
-        \\mrs      x9, {{dbgbcr4_el1|DBGBCR4_EL1}}
-        \\mrs      x9, {{dbgbcr5_el1|DBGBCR5_EL1}}
-        \\mrs      x9, {{dbgbcr6_el1|DBGBCR6_EL1}}
-        \\mrs      x9, {{dbgbcr7_el1|DBGBCR7_EL1}}
-        \\mrs      x9, {{dbgbcr8_el1|DBGBCR8_EL1}}
-        \\mrs      x9, {{dbgbcr9_el1|DBGBCR9_EL1}}
-        \\mrs      x9, {{dbgbcr10_el1|DBGBCR10_EL1}}
-        \\mrs      x9, {{dbgbcr11_el1|DBGBCR11_EL1}}
-        \\mrs      x9, {{dbgbcr12_el1|DBGBCR12_EL1}}
-        \\mrs      x9, {{dbgbcr13_el1|DBGBCR13_EL1}}
-        \\mrs      x9, {{dbgbcr14_el1|DBGBCR14_EL1}}
-        \\mrs      x9, {{dbgbcr15_el1|DBGBCR15_EL1}}
-        \\mrs      x9, {{dbgwvr0_el1|DBGWVR0_EL1}}
-        \\mrs      x9, {{dbgwvr1_el1|DBGWVR1_EL1}}
-        \\mrs      x9, {{dbgwvr2_el1|DBGWVR2_EL1}}
-        \\mrs      x9, {{dbgwvr3_el1|DBGWVR3_EL1}}
-        \\mrs      x9, {{dbgwvr4_el1|DBGWVR4_EL1}}
-        \\mrs      x9, {{dbgwvr5_el1|DBGWVR5_EL1}}
-        \\mrs      x9, {{dbgwvr6_el1|DBGWVR6_EL1}}
-        \\mrs      x9, {{dbgwvr7_el1|DBGWVR7_EL1}}
-        \\mrs      x9, {{dbgwvr8_el1|DBGWVR8_EL1}}
-        \\mrs      x9, {{dbgwvr9_el1|DBGWVR9_EL1}}
-        \\mrs      x9, {{dbgwvr10_el1|DBGWVR10_EL1}}
-        \\mrs      x9, {{dbgwvr11_el1|DBGWVR11_EL1}}
-        \\mrs      x9, {{dbgwvr12_el1|DBGWVR12_EL1}}
-        \\mrs      x9, {{dbgwvr13_el1|DBGWVR13_EL1}}
-        \\mrs      x9, {{dbgwvr14_el1|DBGWVR14_EL1}}
-        \\mrs      x9, {{dbgwvr15_el1|DBGWVR15_EL1}}
-        \\mrs      x9, {{dbgwcr0_el1|DBGWCR0_EL1}}
-        \\mrs      x9, {{dbgwcr1_el1|DBGWCR1_EL1}}
-        \\mrs      x9, {{dbgwcr2_el1|DBGWCR2_EL1}}
-        \\mrs      x9, {{dbgwcr3_el1|DBGWCR3_EL1}}
-        \\mrs      x9, {{dbgwcr4_el1|DBGWCR4_EL1}}
-        \\mrs      x9, {{dbgwcr5_el1|DBGWCR5_EL1}}
-        \\mrs      x9, {{dbgwcr6_el1|DBGWCR6_EL1}}
-        \\mrs      x9, {{dbgwcr7_el1|DBGWCR7_EL1}}
-        \\mrs      x9, {{dbgwcr8_el1|DBGWCR8_EL1}}
-        \\mrs      x9, {{dbgwcr9_el1|DBGWCR9_EL1}}
-        \\mrs      x9, {{dbgwcr10_el1|DBGWCR10_EL1}}
-        \\mrs      x9, {{dbgwcr11_el1|DBGWCR11_EL1}}
-        \\mrs      x9, {{dbgwcr12_el1|DBGWCR12_EL1}}
-        \\mrs      x9, {{dbgwcr13_el1|DBGWCR13_EL1}}
-        \\mrs      x9, {{dbgwcr14_el1|DBGWCR14_EL1}}
-        \\mrs      x9, {{dbgwcr15_el1|DBGWCR15_EL1}}
-        \\mrs      x9, {{mdrar_el1|MDRAR_EL1}}
-        \\mrs      x9, {{teehbr32_el1|TEEHBR32_EL1}}
-        \\mrs      x9, {{oslsr_el1|OSLSR_EL1}}
-        \\mrs      x9, {{osdlr_el1|OSDLR_EL1}}
-        \\mrs      x9, {{dbgprcr_el1|DBGPRCR_EL1}}
-        \\mrs      x9, {{dbgclaimset_el1|DBGCLAIMSET_EL1}}
-        \\mrs      x9, {{dbgclaimclr_el1|DBGCLAIMCLR_EL1}}
-        \\mrs      x9, {{dbgauthstatus_el1|DBGAUTHSTATUS_EL1}}
-        \\mrs      x9, {{midr_el1|MIDR_EL1}}
-        \\mrs      x9, {{ccsidr_el1|CCSIDR_EL1}}
-        \\mrs      x9, {{csselr_el1|CSSELR_EL1}}
-        \\mrs  x9, {{ccsidr2_el1|CCSIDR2_EL1}}
-        \\mrs      x9, {{vpidr_el2|VPIDR_EL2}}
-        \\mrs      x9, {{clidr_el1|CLIDR_EL1}}
-        \\mrs      x9, {{ctr_el0|CTR_EL0}}
-        \\mrs      x9, {{mpidr_el1|MPIDR_EL1}}
-        \\mrs      x9, {{vmpidr_el2|VMPIDR_EL2}}
-        \\mrs      x9, {{revidr_el1|REVIDR_EL1}}
-        \\mrs      x9, {{aidr_el1|AIDR_EL1}}
-        \\mrs      x9, {{dczid_el0|DCZID_EL0}}
-        \\mrs      x9, {{id_pfr0_el1|ID_PFR0_EL1}}
-        \\mrs      x9, {{id_pfr1_el1|ID_PFR1_EL1}}
-        \\mrs      x9, {{id_dfr0_el1|ID_DFR0_EL1}}
-        \\mrs      x9, {{id_afr0_el1|ID_AFR0_EL1}}
-        \\mrs      x9, {{id_mmfr0_el1|ID_MMFR0_EL1}}
-        \\mrs      x9, {{id_mmfr1_el1|ID_MMFR1_EL1}}
-        \\mrs      x9, {{id_mmfr2_el1|ID_MMFR2_EL1}}
-        \\mrs      x9, {{id_mmfr3_el1|ID_MMFR3_EL1}}
-        \\mrs      x9, {{id_mmfr4_el1|ID_MMFR4_EL1}}
-        \\mrs      x9, {{id_mmfr5_el1|ID_MMFR5_EL1}}
-        \\mrs      x9, {{id_isar0_el1|ID_ISAR0_EL1}}
-        \\mrs      x9, {{id_isar1_el1|ID_ISAR1_EL1}}
-        \\mrs      x9, {{id_isar2_el1|ID_ISAR2_EL1}}
-        \\mrs      x9, {{id_isar3_el1|ID_ISAR3_EL1}}
-        \\mrs      x9, {{id_isar4_el1|ID_ISAR4_EL1}}
-        \\mrs      x9, {{id_isar5_el1|ID_ISAR5_EL1}}
-        \\mrs      x9, {{mvfr0_el1|MVFR0_EL1}}
-        \\mrs      x9, {{mvfr1_el1|MVFR1_EL1}}
-        \\mrs      x9, {{mvfr2_el1|MVFR2_EL1}}
-        \\mrs      x9, {{id_aa64pfr0_el1|ID_AA64PFR0_EL1}}
-        \\mrs      x9, {{id_aa64pfr1_el1|ID_AA64PFR1_EL1}}
-        \\mrs      x9, {{id_aa64dfr0_el1|ID_AA64DFR0_EL1}}
-        \\mrs      x9, {{id_aa64dfr1_el1|ID_AA64DFR1_EL1}}
-        \\mrs      x9, {{id_aa64afr0_el1|ID_AA64AFR0_EL1}}
-        \\mrs      x9, {{id_aa64afr1_el1|ID_AA64AFR1_EL1}}
-        \\mrs      x9, {{id_aa64isar0_el1|ID_AA64ISAR0_EL1}}
-        \\mrs      x9, {{id_aa64isar1_el1|ID_AA64ISAR1_EL1}}
-        \\mrs      x9, {{id_aa64isar2_el1|ID_AA64ISAR2_EL1}}
-        \\mrs      x9, {{id_aa64mmfr0_el1|ID_AA64MMFR0_EL1}}
-        \\mrs      x9, {{id_aa64mmfr1_el1|ID_AA64MMFR1_EL1}}
-        \\mrs      x9, {{sctlr_el1|SCTLR_EL1}}
-        \\mrs      x9, {{sctlr_el2|SCTLR_EL2}}
-        \\mrs      x9, {{sctlr_el3|SCTLR_EL3}}
-        \\mrs      x9, {{actlr_el1|ACTLR_EL1}}
-        \\mrs      x9, {{actlr_el2|ACTLR_EL2}}
-        \\mrs      x9, {{actlr_el3|ACTLR_EL3}}
-        \\mrs      x9, {{cpacr_el1|CPACR_EL1}}
-        \\mrs      x9, {{hcr_el2|HCR_EL2}}
-        \\mrs      x9, {{scr_el3|SCR_EL3}}
-        \\mrs      x9, {{mdcr_el2|MDCR_EL2}}
-        \\mrs      x9, {{sder32_el3|SDER32_EL3}}
-        \\mrs      x9, {{cptr_el2|CPTR_EL2}}
-        \\mrs      x9, {{cptr_el3|CPTR_EL3}}
-        \\mrs      x9, {{hstr_el2|HSTR_EL2}}
-        \\mrs      x9, {{hacr_el2|HACR_EL2}}
-        \\mrs      x9, {{mdcr_el3|MDCR_EL3}}
-        \\mrs      x9, {{ttbr0_el1|TTBR0_EL1}}
-        \\mrs      x9, {{ttbr0_el2|TTBR0_EL2}}
-        \\mrs      x9, {{ttbr0_el3|TTBR0_EL3}}
-        \\mrs      x9, {{ttbr1_el1|TTBR1_EL1}}
-        \\mrs      x9, {{tcr_el1|TCR_EL1}}
-        \\mrs      x9, {{tcr_el2|TCR_EL2}}
-        \\mrs      x9, {{tcr_el3|TCR_EL3}}
-        \\mrs      x9, {{vttbr_el2|VTTBR_EL2}}
-        \\mrs      x9, {{vtcr_el2|VTCR_EL2}}
-        \\mrs      x9, {{dacr32_el2|DACR32_EL2}}
-        \\mrs      x9, {{spsr_el1|SPSR_EL1}}
-        \\mrs      x9, {{spsr_el2|SPSR_EL2}}
-        \\mrs      x9, {{spsr_el3|SPSR_EL3}}
-        \\mrs      x9, {{elr_el1|ELR_EL1}}
-        \\mrs      x9, {{elr_el2|ELR_EL2}}
-        \\mrs      x9, {{elr_el3|ELR_EL3}}
-        \\mrs      x9, {{sp_el0|SP_EL0}}
-        \\mrs      x9, {{sp_el1|SP_EL1}}
-        \\mrs      x9, {{sp_el2|SP_EL2}}
-        \\mrs      x9, {{SPSel|SPSEL}}
-        \\mrs      x9, {{nzcv|NZCV}}
-        \\mrs      x9, {{daif|DAIF}}
-        \\mrs      x9, {{CurrentEL|CURRENTEL}}
-        \\mrs      x9, {{SPSR_irq|SPSR_IRQ}}
-        \\mrs      x9, {{SPSR_abt|SPSR_ABT}}
-        \\mrs      x9, {{SPSR_und|SPSR_UND}}
-        \\mrs      x9, {{SPSR_fiq|SPSR_FIQ}}
-        \\mrs      x9, {{fpcr|FPCR}}
-        \\mrs      x9, {{fpsr|FPSR}}
-        \\mrs      x9, {{dspsr_el0|DSPSR_EL0}}
-        \\mrs      x9, {{dlr_el0|DLR_EL0}}
-        \\mrs      x9, {{ifsr32_el2|IFSR32_EL2}}
-        \\mrs      x9, {{afsr0_el1|AFSR0_EL1}}
-        \\mrs      x9, {{afsr0_el2|AFSR0_EL2}}
-        \\mrs      x9, {{afsr0_el3|AFSR0_EL3}}
-        \\mrs      x9, {{afsr1_el1|AFSR1_EL1}}
-        \\mrs      x9, {{afsr1_el2|AFSR1_EL2}}
-        \\mrs      x9, {{afsr1_el3|AFSR1_EL3}}
-        \\mrs      x9, {{esr_el1|ESR_EL1}}
-        \\mrs      x9, {{esr_el2|ESR_EL2}}
-        \\mrs      x9, {{esr_el3|ESR_EL3}}
-        \\mrs      x9, {{fpexc32_el2|FPEXC32_EL2}}
-        \\mrs      x9, {{far_el1|FAR_EL1}}
-        \\mrs      x9, {{far_el2|FAR_EL2}}
-        \\mrs      x9, {{far_el3|FAR_EL3}}
-        \\mrs      x9, {{hpfar_el2|HPFAR_EL2}}
-        \\mrs      x9, {{par_el1|PAR_EL1}}
-        \\mrs      x9, {{pmcr_el0|PMCR_EL0}}
-        \\mrs      x9, {{pmcntenset_el0|PMCNTENSET_EL0}}
-        \\mrs      x9, {{pmcntenclr_el0|PMCNTENCLR_EL0}}
-        \\mrs      x9, {{pmovsclr_el0|PMOVSCLR_EL0}}
-        \\mrs      x9, {{pmselr_el0|PMSELR_EL0}}
-        \\mrs      x9, {{pmceid0_el0|PMCEID0_EL0}}
-        \\mrs      x9, {{pmceid1_el0|PMCEID1_EL0}}
-        \\mrs      x9, {{pmccntr_el0|PMCCNTR_EL0}}
-        \\mrs      x9, {{pmxevtyper_el0|PMXEVTYPER_EL0}}
-        \\mrs      x9, {{pmxevcntr_el0|PMXEVCNTR_EL0}}
-        \\mrs      x9, {{pmuserenr_el0|PMUSERENR_EL0}}
-        \\mrs      x9, {{pmintenset_el1|PMINTENSET_EL1}}
-        \\mrs      x9, {{pmintenclr_el1|PMINTENCLR_EL1}}
-        \\mrs      x9, {{pmovsset_el0|PMOVSSET_EL0}}
-        \\mrs      x9, {{mair_el1|MAIR_EL1}}
-        \\mrs      x9, {{mair_el2|MAIR_EL2}}
-        \\mrs      x9, {{mair_el3|MAIR_EL3}}
-        \\mrs      x9, {{amair_el1|AMAIR_EL1}}
-        \\mrs      x9, {{amair_el2|AMAIR_EL2}}
-        \\mrs      x9, {{amair_el3|AMAIR_EL3}}
-        \\mrs      x9, {{vbar_el1|VBAR_EL1}}
-        \\mrs      x9, {{vbar_el2|VBAR_EL2}}
-        \\mrs      x9, {{vbar_el3|VBAR_EL3}}
-        \\mrs      x9, {{rvbar_el1|RVBAR_EL1}}
-        \\mrs      x9, {{rvbar_el2|RVBAR_EL2}}
-        \\mrs      x9, {{rvbar_el3|RVBAR_EL3}}
-        \\mrs      x9, {{rmr_el1|RMR_EL1}}
-        \\mrs      x9, {{rmr_el2|RMR_EL2}}
-        \\mrs      x9, {{rmr_el3|RMR_EL3}}
-        \\mrs      x9, {{isr_el1|ISR_EL1}}
-        \\mrs      x9, {{contextidr_el1|CONTEXTIDR_EL1}}
-        \\mrs      x9, {{tpidr_el0|TPIDR_EL0}}
-        \\mrs      x9, {{tpidr_el2|TPIDR_EL2}}
-        \\mrs      x9, {{tpidr_el3|TPIDR_EL3}}
-        \\mrs      x9, {{tpidrro_el0|TPIDRRO_EL0}}
-        \\mrs      x9, {{tpidr_el1|TPIDR_EL1}}
-        \\mrs      x9, {{cntfrq_el0|CNTFRQ_EL0}}
-        \\mrs      x9, {{cntpct_el0|CNTPCT_EL0}}
-        \\mrs      x9, {{cntvct_el0|CNTVCT_EL0}}
-        \\mrs      x9, {{cntvoff_el2|CNTVOFF_EL2}}
-        \\mrs      x9, {{cntkctl_el1|CNTKCTL_EL1}}
-        \\mrs      x9, {{cnthctl_el2|CNTHCTL_EL2}}
-        \\mrs      x9, {{cntp_tval_el0|CNTP_TVAL_EL0}}
-        \\mrs      x9, {{cnthp_tval_el2|CNTHP_TVAL_EL2}}
-        \\mrs      x9, {{cntps_tval_el1|CNTPS_TVAL_EL1}}
-        \\mrs      x9, {{cntp_ctl_el0|CNTP_CTL_EL0}}
-        \\mrs      x9, {{cnthp_ctl_el2|CNTHP_CTL_EL2}}
-        \\mrs      x9, {{cntps_ctl_el1|CNTPS_CTL_EL1}}
-        \\mrs      x9, {{cntp_cval_el0|CNTP_CVAL_EL0}}
-        \\mrs      x9, {{cnthp_cval_el2|CNTHP_CVAL_EL2}}
-        \\mrs      x9, {{cntps_cval_el1|CNTPS_CVAL_EL1}}
-        \\mrs      x9, {{cntv_tval_el0|CNTV_TVAL_EL0}}
-        \\mrs      x9, {{cntv_ctl_el0|CNTV_CTL_EL0}}
-        \\mrs      x9, {{cntv_cval_el0|CNTV_CVAL_EL0}}
-        \\mrs      x9, {{pmevcntr0_el0|PMEVCNTR0_EL0}}
-        \\mrs      x9, {{pmevcntr1_el0|PMEVCNTR1_EL0}}
-        \\mrs      x9, {{pmevcntr2_el0|PMEVCNTR2_EL0}}
-        \\mrs      x9, {{pmevcntr3_el0|PMEVCNTR3_EL0}}
-        \\mrs      x9, {{pmevcntr4_el0|PMEVCNTR4_EL0}}
-        \\mrs      x9, {{pmevcntr5_el0|PMEVCNTR5_EL0}}
-        \\mrs      x9, {{pmevcntr6_el0|PMEVCNTR6_EL0}}
-        \\mrs      x9, {{pmevcntr7_el0|PMEVCNTR7_EL0}}
-        \\mrs      x9, {{pmevcntr8_el0|PMEVCNTR8_EL0}}
-        \\mrs      x9, {{pmevcntr9_el0|PMEVCNTR9_EL0}}
-        \\mrs      x9, {{pmevcntr10_el0|PMEVCNTR10_EL0}}
-        \\mrs      x9, {{pmevcntr11_el0|PMEVCNTR11_EL0}}
-        \\mrs      x9, {{pmevcntr12_el0|PMEVCNTR12_EL0}}
-        \\mrs      x9, {{pmevcntr13_el0|PMEVCNTR13_EL0}}
-        \\mrs      x9, {{pmevcntr14_el0|PMEVCNTR14_EL0}}
-        \\mrs      x9, {{pmevcntr15_el0|PMEVCNTR15_EL0}}
-        \\mrs      x9, {{pmevcntr16_el0|PMEVCNTR16_EL0}}
-        \\mrs      x9, {{pmevcntr17_el0|PMEVCNTR17_EL0}}
-        \\mrs      x9, {{pmevcntr18_el0|PMEVCNTR18_EL0}}
-        \\mrs      x9, {{pmevcntr19_el0|PMEVCNTR19_EL0}}
-        \\mrs      x9, {{pmevcntr20_el0|PMEVCNTR20_EL0}}
-        \\mrs      x9, {{pmevcntr21_el0|PMEVCNTR21_EL0}}
-        \\mrs      x9, {{pmevcntr22_el0|PMEVCNTR22_EL0}}
-        \\mrs      x9, {{pmevcntr23_el0|PMEVCNTR23_EL0}}
-        \\mrs      x9, {{pmevcntr24_el0|PMEVCNTR24_EL0}}
-        \\mrs      x9, {{pmevcntr25_el0|PMEVCNTR25_EL0}}
-        \\mrs      x9, {{pmevcntr26_el0|PMEVCNTR26_EL0}}
-        \\mrs      x9, {{pmevcntr27_el0|PMEVCNTR27_EL0}}
-        \\mrs      x9, {{pmevcntr28_el0|PMEVCNTR28_EL0}}
-        \\mrs      x9, {{pmevcntr29_el0|PMEVCNTR29_EL0}}
-        \\mrs      x9, {{pmevcntr30_el0|PMEVCNTR30_EL0}}
-        \\mrs      x9, {{pmccfiltr_el0|PMCCFILTR_EL0}}
-        \\mrs      x9, {{pmevtyper0_el0|PMEVTYPER0_EL0}}
-        \\mrs      x9, {{pmevtyper1_el0|PMEVTYPER1_EL0}}
-        \\mrs      x9, {{pmevtyper2_el0|PMEVTYPER2_EL0}}
-        \\mrs      x9, {{pmevtyper3_el0|PMEVTYPER3_EL0}}
-        \\mrs      x9, {{pmevtyper4_el0|PMEVTYPER4_EL0}}
-        \\mrs      x9, {{pmevtyper5_el0|PMEVTYPER5_EL0}}
-        \\mrs      x9, {{pmevtyper6_el0|PMEVTYPER6_EL0}}
-        \\mrs      x9, {{pmevtyper7_el0|PMEVTYPER7_EL0}}
-        \\mrs      x9, {{pmevtyper8_el0|PMEVTYPER8_EL0}}
-        \\mrs      x9, {{pmevtyper9_el0|PMEVTYPER9_EL0}}
-        \\mrs      x9, {{pmevtyper10_el0|PMEVTYPER10_EL0}}
-        \\mrs      x9, {{pmevtyper11_el0|PMEVTYPER11_EL0}}
-        \\mrs      x9, {{pmevtyper12_el0|PMEVTYPER12_EL0}}
-        \\mrs      x9, {{pmevtyper13_el0|PMEVTYPER13_EL0}}
-        \\mrs      x9, {{pmevtyper14_el0|PMEVTYPER14_EL0}}
-        \\mrs      x9, {{pmevtyper15_el0|PMEVTYPER15_EL0}}
-        \\mrs      x9, {{pmevtyper16_el0|PMEVTYPER16_EL0}}
-        \\mrs      x9, {{pmevtyper17_el0|PMEVTYPER17_EL0}}
-        \\mrs      x9, {{pmevtyper18_el0|PMEVTYPER18_EL0}}
-        \\mrs      x9, {{pmevtyper19_el0|PMEVTYPER19_EL0}}
-        \\mrs      x9, {{pmevtyper20_el0|PMEVTYPER20_EL0}}
-        \\mrs      x9, {{pmevtyper21_el0|PMEVTYPER21_EL0}}
-        \\mrs      x9, {{pmevtyper22_el0|PMEVTYPER22_EL0}}
-        \\mrs      x9, {{pmevtyper23_el0|PMEVTYPER23_EL0}}
-        \\mrs      x9, {{pmevtyper24_el0|PMEVTYPER24_EL0}}
-        \\mrs      x9, {{pmevtyper25_el0|PMEVTYPER25_EL0}}
-        \\mrs      x9, {{pmevtyper26_el0|PMEVTYPER26_EL0}}
-        \\mrs      x9, {{pmevtyper27_el0|PMEVTYPER27_EL0}}
-        \\mrs      x9, {{pmevtyper28_el0|PMEVTYPER28_EL0}}
-        \\mrs      x9, {{pmevtyper29_el0|PMEVTYPER29_EL0}}
-        \\mrs      x9, {{pmevtyper30_el0|PMEVTYPER30_EL0}}
-        \\mrs     x12, {{s3_7_c15_c1_5|S3_7_C15_C1_5}}
-        \\mrs     x13, {{s3_2_c11_c15_7|S3_2_C11_C15_7}}
-        \\mrs     xzr, {{s0_0_c4_c0_0|S0_0_C4_C0_0}}
-        \\msr     {{s3_0_c15_c0_0|S3_0_C15_C0_0}}, x12
-        \\msr     {{s3_7_c11_c13_7|S3_7_C11_C13_7}}, x5
-        \\msr     {{s0_0_c4_c0_0|S0_0_C4_C0_0}}, xzr
-        \\tbz     x12, #62, #0
-        \\tbz     x12, #62, #4
-        \\tbz     x12, #62, #-32768
-        \\tbnz    x12, #60, #32764
-        \\b        #4
-        \\b        #-4
-        \\b        #134217724
-        \\br       x20
-        \\blr      xzr
-        \\ret      x10
+        \\isb #12
+        \\msr {{SPSel|SPSEL}}, #0
+        \\msr {{DAIFSet|DAIFSET}}, #15
+        \\msr {{DAIFClr|DAIFCLR}}, #12
+        \\sys #7, c5, c9, #7, x5
+        \\sys #0, c15, c15, #2
+        \\sysl x9, #7, c5, c9, #7
+        \\sysl x1, #0, c15, c15, #2
+        \\{{sys #0, c7, c1, #0|ic ialluis}}
+        \\{{sys #0, c7, c5, #0|ic iallu}}
+        \\{{sys #3, c7, c5, #1|ic ivau}}, x9
+        \\{{sys #3, c7, c4, #1|dc zva}}, x12
+        \\{{sys #0, c7, c6, #1|dc ivac}}
+        \\{{sys #0, c7, c6, #2|dc isw}}, x2
+        \\{{sys #3, c7, c10, #1|dc cvac}}, x9
+        \\{{sys #0, c7, c10, #2|dc csw}}, x10
+        \\{{sys #3, c7, c11, #1|dc cvau}}, x0
+        \\{{sys #3, c7, c14, #1|dc civac}}, x3
+        \\{{sys #0, c7, c14, #2|dc cisw}}, x30
+        \\msr {{teecr32_el1|TEECR32_EL1}}, x12
+        \\msr {{osdtrrx_el1|OSDTRRX_EL1}}, x12
+        \\msr {{mdccint_el1|MDCCINT_EL1}}, x12
+        \\msr {{mdscr_el1|MDSCR_EL1}}, x12
+        \\msr {{osdtrtx_el1|OSDTRTX_EL1}}, x12
+        \\msr {{dbgdtr_el0|DBGDTR_EL0}}, x12
+        \\msr {{dbgdtrtx_el0|DBGDTRTX_EL0}}, x12
+        \\msr {{oseccr_el1|OSECCR_EL1}}, x12
+        \\msr {{dbgvcr32_el2|DBGVCR32_EL2}}, x12
+        \\msr {{dbgbvr0_el1|DBGBVR0_EL1}}, x12
+        \\msr {{dbgbvr1_el1|DBGBVR1_EL1}}, x12
+        \\msr {{dbgbvr2_el1|DBGBVR2_EL1}}, x12
+        \\msr {{dbgbvr3_el1|DBGBVR3_EL1}}, x12
+        \\msr {{dbgbvr4_el1|DBGBVR4_EL1}}, x12
+        \\msr {{dbgbvr5_el1|DBGBVR5_EL1}}, x12
+        \\msr {{dbgbvr6_el1|DBGBVR6_EL1}}, x12
+        \\msr {{dbgbvr7_el1|DBGBVR7_EL1}}, x12
+        \\msr {{dbgbvr8_el1|DBGBVR8_EL1}}, x12
+        \\msr {{dbgbvr9_el1|DBGBVR9_EL1}}, x12
+        \\msr {{dbgbvr10_el1|DBGBVR10_EL1}}, x12
+        \\msr {{dbgbvr11_el1|DBGBVR11_EL1}}, x12
+        \\msr {{dbgbvr12_el1|DBGBVR12_EL1}}, x12
+        \\msr {{dbgbvr13_el1|DBGBVR13_EL1}}, x12
+        \\msr {{dbgbvr14_el1|DBGBVR14_EL1}}, x12
+        \\msr {{dbgbvr15_el1|DBGBVR15_EL1}}, x12
+        \\msr {{dbgbcr0_el1|DBGBCR0_EL1}}, x12
+        \\msr {{dbgbcr1_el1|DBGBCR1_EL1}}, x12
+        \\msr {{dbgbcr2_el1|DBGBCR2_EL1}}, x12
+        \\msr {{dbgbcr3_el1|DBGBCR3_EL1}}, x12
+        \\msr {{dbgbcr4_el1|DBGBCR4_EL1}}, x12
+        \\msr {{dbgbcr5_el1|DBGBCR5_EL1}}, x12
+        \\msr {{dbgbcr6_el1|DBGBCR6_EL1}}, x12
+        \\msr {{dbgbcr7_el1|DBGBCR7_EL1}}, x12
+        \\msr {{dbgbcr8_el1|DBGBCR8_EL1}}, x12
+        \\msr {{dbgbcr9_el1|DBGBCR9_EL1}}, x12
+        \\msr {{dbgbcr10_el1|DBGBCR10_EL1}}, x12
+        \\msr {{dbgbcr11_el1|DBGBCR11_EL1}}, x12
+        \\msr {{dbgbcr12_el1|DBGBCR12_EL1}}, x12
+        \\msr {{dbgbcr13_el1|DBGBCR13_EL1}}, x12
+        \\msr {{dbgbcr14_el1|DBGBCR14_EL1}}, x12
+        \\msr {{dbgbcr15_el1|DBGBCR15_EL1}}, x12
+        \\msr {{dbgwvr0_el1|DBGWVR0_EL1}}, x12
+        \\msr {{dbgwvr1_el1|DBGWVR1_EL1}}, x12
+        \\msr {{dbgwvr2_el1|DBGWVR2_EL1}}, x12
+        \\msr {{dbgwvr3_el1|DBGWVR3_EL1}}, x12
+        \\msr {{dbgwvr4_el1|DBGWVR4_EL1}}, x12
+        \\msr {{dbgwvr5_el1|DBGWVR5_EL1}}, x12
+        \\msr {{dbgwvr6_el1|DBGWVR6_EL1}}, x12
+        \\msr {{dbgwvr7_el1|DBGWVR7_EL1}}, x12
+        \\msr {{dbgwvr8_el1|DBGWVR8_EL1}}, x12
+        \\msr {{dbgwvr9_el1|DBGWVR9_EL1}}, x12
+        \\msr {{dbgwvr10_el1|DBGWVR10_EL1}}, x12
+        \\msr {{dbgwvr11_el1|DBGWVR11_EL1}}, x12
+        \\msr {{dbgwvr12_el1|DBGWVR12_EL1}}, x12
+        \\msr {{dbgwvr13_el1|DBGWVR13_EL1}}, x12
+        \\msr {{dbgwvr14_el1|DBGWVR14_EL1}}, x12
+        \\msr {{dbgwvr15_el1|DBGWVR15_EL1}}, x12
+        \\msr {{dbgwcr0_el1|DBGWCR0_EL1}}, x12
+        \\msr {{dbgwcr1_el1|DBGWCR1_EL1}}, x12
+        \\msr {{dbgwcr2_el1|DBGWCR2_EL1}}, x12
+        \\msr {{dbgwcr3_el1|DBGWCR3_EL1}}, x12
+        \\msr {{dbgwcr4_el1|DBGWCR4_EL1}}, x12
+        \\msr {{dbgwcr5_el1|DBGWCR5_EL1}}, x12
+        \\msr {{dbgwcr6_el1|DBGWCR6_EL1}}, x12
+        \\msr {{dbgwcr7_el1|DBGWCR7_EL1}}, x12
+        \\msr {{dbgwcr8_el1|DBGWCR8_EL1}}, x12
+        \\msr {{dbgwcr9_el1|DBGWCR9_EL1}}, x12
+        \\msr {{dbgwcr10_el1|DBGWCR10_EL1}}, x12
+        \\msr {{dbgwcr11_el1|DBGWCR11_EL1}}, x12
+        \\msr {{dbgwcr12_el1|DBGWCR12_EL1}}, x12
+        \\msr {{dbgwcr13_el1|DBGWCR13_EL1}}, x12
+        \\msr {{dbgwcr14_el1|DBGWCR14_EL1}}, x12
+        \\msr {{dbgwcr15_el1|DBGWCR15_EL1}}, x12
+        \\msr {{teehbr32_el1|TEEHBR32_EL1}}, x12
+        \\msr {{oslar_el1|OSLAR_EL1}}, x12
+        \\msr {{osdlr_el1|OSDLR_EL1}}, x12
+        \\msr {{dbgprcr_el1|DBGPRCR_EL1}}, x12
+        \\msr {{dbgclaimset_el1|DBGCLAIMSET_EL1}}, x12
+        \\msr {{dbgclaimclr_el1|DBGCLAIMCLR_EL1}}, x12
+        \\msr {{csselr_el1|CSSELR_EL1}}, x12
+        \\msr {{vpidr_el2|VPIDR_EL2}}, x12
+        \\msr {{vmpidr_el2|VMPIDR_EL2}}, x12
+        \\msr {{sctlr_el1|SCTLR_EL1}}, x12
+        \\msr {{sctlr_el2|SCTLR_EL2}}, x12
+        \\msr {{sctlr_el3|SCTLR_EL3}}, x12
+        \\msr {{actlr_el1|ACTLR_EL1}}, x12
+        \\msr {{actlr_el2|ACTLR_EL2}}, x12
+        \\msr {{actlr_el3|ACTLR_EL3}}, x12
+        \\msr {{cpacr_el1|CPACR_EL1}}, x12
+        \\msr {{hcr_el2|HCR_EL2}}, x12
+        \\msr {{scr_el3|SCR_EL3}}, x12
+        \\msr {{mdcr_el2|MDCR_EL2}}, x12
+        \\msr {{sder32_el3|SDER32_EL3}}, x12
+        \\msr {{cptr_el2|CPTR_EL2}}, x12
+        \\msr {{cptr_el3|CPTR_EL3}}, x12
+        \\msr {{hstr_el2|HSTR_EL2}}, x12
+        \\msr {{hacr_el2|HACR_EL2}}, x12
+        \\msr {{mdcr_el3|MDCR_EL3}}, x12
+        \\msr {{ttbr0_el1|TTBR0_EL1}}, x12
+        \\msr {{ttbr0_el2|TTBR0_EL2}}, x12
+        \\msr {{ttbr0_el3|TTBR0_EL3}}, x12
+        \\msr {{ttbr1_el1|TTBR1_EL1}}, x12
+        \\msr {{tcr_el1|TCR_EL1}}, x12
+        \\msr {{tcr_el2|TCR_EL2}}, x12
+        \\msr {{tcr_el3|TCR_EL3}}, x12
+        \\msr {{vttbr_el2|VTTBR_EL2}}, x12
+        \\msr {{vtcr_el2|VTCR_EL2}}, x12
+        \\msr {{dacr32_el2|DACR32_EL2}}, x12
+        \\msr {{spsr_el1|SPSR_EL1}}, x12
+        \\msr {{spsr_el2|SPSR_EL2}}, x12
+        \\msr {{spsr_el3|SPSR_EL3}}, x12
+        \\msr {{elr_el1|ELR_EL1}}, x12
+        \\msr {{elr_el2|ELR_EL2}}, x12
+        \\msr {{elr_el3|ELR_EL3}}, x12
+        \\msr {{sp_el0|SP_EL0}}, x12
+        \\msr {{sp_el1|SP_EL1}}, x12
+        \\msr {{sp_el2|SP_EL2}}, x12
+        \\msr {{SPSel|SPSEL}}, x12
+        \\msr {{nzcv|NZCV}}, x12
+        \\msr {{daif|DAIF}}, x12
+        \\msr S3_0_C4_C2_2, x12
+        \\msr {{SPSR_irq|SPSR_IRQ}}, x12
+        \\msr {{SPSR_abt|SPSR_ABT}}, x12
+        \\msr {{SPSR_und|SPSR_UND}}, x12
+        \\msr {{SPSR_fiq|SPSR_FIQ}}, x12
+        \\msr {{fpcr|FPCR}}, x12
+        \\msr {{fpsr|FPSR}}, x12
+        \\msr {{dspsr_el0|DSPSR_EL0}}, x12
+        \\msr {{dlr_el0|DLR_EL0}}, x12
+        \\msr {{ifsr32_el2|IFSR32_EL2}}, x12
+        \\msr {{afsr0_el1|AFSR0_EL1}}, x12
+        \\msr {{afsr0_el2|AFSR0_EL2}}, x12
+        \\msr {{afsr0_el3|AFSR0_EL3}}, x12
+        \\msr {{afsr1_el1|AFSR1_EL1}}, x12
+        \\msr {{afsr1_el2|AFSR1_EL2}}, x12
+        \\msr {{afsr1_el3|AFSR1_EL3}}, x12
+        \\msr {{esr_el1|ESR_EL1}}, x12
+        \\msr {{esr_el2|ESR_EL2}}, x12
+        \\msr {{esr_el3|ESR_EL3}}, x12
+        \\msr {{fpexc32_el2|FPEXC32_EL2}}, x12
+        \\msr {{far_el1|FAR_EL1}}, x12
+        \\msr {{far_el2|FAR_EL2}}, x12
+        \\msr {{far_el3|FAR_EL3}}, x12
+        \\msr {{hpfar_el2|HPFAR_EL2}}, x12
+        \\msr {{par_el1|PAR_EL1}}, x12
+        \\msr {{pmcr_el0|PMCR_EL0}}, x12
+        \\msr {{pmcntenset_el0|PMCNTENSET_EL0}}, x12
+        \\msr {{pmcntenclr_el0|PMCNTENCLR_EL0}}, x12
+        \\msr {{pmovsclr_el0|PMOVSCLR_EL0}}, x12
+        \\msr {{pmselr_el0|PMSELR_EL0}}, x12
+        \\msr {{pmccntr_el0|PMCCNTR_EL0}}, x12
+        \\msr {{pmxevtyper_el0|PMXEVTYPER_EL0}}, x12
+        \\msr {{pmxevcntr_el0|PMXEVCNTR_EL0}}, x12
+        \\msr {{pmuserenr_el0|PMUSERENR_EL0}}, x12
+        \\msr {{pmintenset_el1|PMINTENSET_EL1}}, x12
+        \\msr {{pmintenclr_el1|PMINTENCLR_EL1}}, x12
+        \\msr {{pmovsset_el0|PMOVSSET_EL0}}, x12
+        \\msr {{mair_el1|MAIR_EL1}}, x12
+        \\msr {{mair_el2|MAIR_EL2}}, x12
+        \\msr {{mair_el3|MAIR_EL3}}, x12
+        \\msr {{amair_el1|AMAIR_EL1}}, x12
+        \\msr {{amair_el2|AMAIR_EL2}}, x12
+        \\msr {{amair_el3|AMAIR_EL3}}, x12
+        \\msr {{vbar_el1|VBAR_EL1}}, x12
+        \\msr {{vbar_el2|VBAR_EL2}}, x12
+        \\msr {{vbar_el3|VBAR_EL3}}, x12
+        \\msr {{rmr_el1|RMR_EL1}}, x12
+        \\msr {{rmr_el2|RMR_EL2}}, x12
+        \\msr {{rmr_el3|RMR_EL3}}, x12
+        \\msr {{tpidr_el0|TPIDR_EL0}}, x12
+        \\msr {{tpidr_el2|TPIDR_EL2}}, x12
+        \\msr {{tpidr_el3|TPIDR_EL3}}, x12
+        \\msr {{tpidrro_el0|TPIDRRO_EL0}}, x12
+        \\msr {{tpidr_el1|TPIDR_EL1}}, x12
+        \\msr {{cntfrq_el0|CNTFRQ_EL0}}, x12
+        \\msr {{cntvoff_el2|CNTVOFF_EL2}}, x12
+        \\msr {{cntkctl_el1|CNTKCTL_EL1}}, x12
+        \\msr {{cnthctl_el2|CNTHCTL_EL2}}, x12
+        \\msr {{cntp_tval_el0|CNTP_TVAL_EL0}}, x12
+        \\msr {{cnthp_tval_el2|CNTHP_TVAL_EL2}}, x12
+        \\msr {{cntps_tval_el1|CNTPS_TVAL_EL1}}, x12
+        \\msr {{cntp_ctl_el0|CNTP_CTL_EL0}}, x12
+        \\msr {{cnthp_ctl_el2|CNTHP_CTL_EL2}}, x12
+        \\msr {{cntps_ctl_el1|CNTPS_CTL_EL1}}, x12
+        \\msr {{cntp_cval_el0|CNTP_CVAL_EL0}}, x12
+        \\msr {{cnthp_cval_el2|CNTHP_CVAL_EL2}}, x12
+        \\msr {{cntps_cval_el1|CNTPS_CVAL_EL1}}, x12
+        \\msr {{cntv_tval_el0|CNTV_TVAL_EL0}}, x12
+        \\msr {{cntv_ctl_el0|CNTV_CTL_EL0}}, x12
+        \\msr {{cntv_cval_el0|CNTV_CVAL_EL0}}, x12
+        \\msr {{pmevcntr0_el0|PMEVCNTR0_EL0}}, x12
+        \\msr {{pmevcntr1_el0|PMEVCNTR1_EL0}}, x12
+        \\msr {{pmevcntr2_el0|PMEVCNTR2_EL0}}, x12
+        \\msr {{pmevcntr3_el0|PMEVCNTR3_EL0}}, x12
+        \\msr {{pmevcntr4_el0|PMEVCNTR4_EL0}}, x12
+        \\msr {{pmevcntr5_el0|PMEVCNTR5_EL0}}, x12
+        \\msr {{pmevcntr6_el0|PMEVCNTR6_EL0}}, x12
+        \\msr {{pmevcntr7_el0|PMEVCNTR7_EL0}}, x12
+        \\msr {{pmevcntr8_el0|PMEVCNTR8_EL0}}, x12
+        \\msr {{pmevcntr9_el0|PMEVCNTR9_EL0}}, x12
+        \\msr {{pmevcntr10_el0|PMEVCNTR10_EL0}}, x12
+        \\msr {{pmevcntr11_el0|PMEVCNTR11_EL0}}, x12
+        \\msr {{pmevcntr12_el0|PMEVCNTR12_EL0}}, x12
+        \\msr {{pmevcntr13_el0|PMEVCNTR13_EL0}}, x12
+        \\msr {{pmevcntr14_el0|PMEVCNTR14_EL0}}, x12
+        \\msr {{pmevcntr15_el0|PMEVCNTR15_EL0}}, x12
+        \\msr {{pmevcntr16_el0|PMEVCNTR16_EL0}}, x12
+        \\msr {{pmevcntr17_el0|PMEVCNTR17_EL0}}, x12
+        \\msr {{pmevcntr18_el0|PMEVCNTR18_EL0}}, x12
+        \\msr {{pmevcntr19_el0|PMEVCNTR19_EL0}}, x12
+        \\msr {{pmevcntr20_el0|PMEVCNTR20_EL0}}, x12
+        \\msr {{pmevcntr21_el0|PMEVCNTR21_EL0}}, x12
+        \\msr {{pmevcntr22_el0|PMEVCNTR22_EL0}}, x12
+        \\msr {{pmevcntr23_el0|PMEVCNTR23_EL0}}, x12
+        \\msr {{pmevcntr24_el0|PMEVCNTR24_EL0}}, x12
+        \\msr {{pmevcntr25_el0|PMEVCNTR25_EL0}}, x12
+        \\msr {{pmevcntr26_el0|PMEVCNTR26_EL0}}, x12
+        \\msr {{pmevcntr27_el0|PMEVCNTR27_EL0}}, x12
+        \\msr {{pmevcntr28_el0|PMEVCNTR28_EL0}}, x12
+        \\msr {{pmevcntr29_el0|PMEVCNTR29_EL0}}, x12
+        \\msr {{pmevcntr30_el0|PMEVCNTR30_EL0}}, x12
+        \\msr {{pmccfiltr_el0|PMCCFILTR_EL0}}, x12
+        \\msr {{pmevtyper0_el0|PMEVTYPER0_EL0}}, x12
+        \\msr {{pmevtyper1_el0|PMEVTYPER1_EL0}}, x12
+        \\msr {{pmevtyper2_el0|PMEVTYPER2_EL0}}, x12
+        \\msr {{pmevtyper3_el0|PMEVTYPER3_EL0}}, x12
+        \\msr {{pmevtyper4_el0|PMEVTYPER4_EL0}}, x12
+        \\msr {{pmevtyper5_el0|PMEVTYPER5_EL0}}, x12
+        \\msr {{pmevtyper6_el0|PMEVTYPER6_EL0}}, x12
+        \\msr {{pmevtyper7_el0|PMEVTYPER7_EL0}}, x12
+        \\msr {{pmevtyper8_el0|PMEVTYPER8_EL0}}, x12
+        \\msr {{pmevtyper9_el0|PMEVTYPER9_EL0}}, x12
+        \\msr {{pmevtyper10_el0|PMEVTYPER10_EL0}}, x12
+        \\msr {{pmevtyper11_el0|PMEVTYPER11_EL0}}, x12
+        \\msr {{pmevtyper12_el0|PMEVTYPER12_EL0}}, x12
+        \\msr {{pmevtyper13_el0|PMEVTYPER13_EL0}}, x12
+        \\msr {{pmevtyper14_el0|PMEVTYPER14_EL0}}, x12
+        \\msr {{pmevtyper15_el0|PMEVTYPER15_EL0}}, x12
+        \\msr {{pmevtyper16_el0|PMEVTYPER16_EL0}}, x12
+        \\msr {{pmevtyper17_el0|PMEVTYPER17_EL0}}, x12
+        \\msr {{pmevtyper18_el0|PMEVTYPER18_EL0}}, x12
+        \\msr {{pmevtyper19_el0|PMEVTYPER19_EL0}}, x12
+        \\msr {{pmevtyper20_el0|PMEVTYPER20_EL0}}, x12
+        \\msr {{pmevtyper21_el0|PMEVTYPER21_EL0}}, x12
+        \\msr {{pmevtyper22_el0|PMEVTYPER22_EL0}}, x12
+        \\msr {{pmevtyper23_el0|PMEVTYPER23_EL0}}, x12
+        \\msr {{pmevtyper24_el0|PMEVTYPER24_EL0}}, x12
+        \\msr {{pmevtyper25_el0|PMEVTYPER25_EL0}}, x12
+        \\msr {{pmevtyper26_el0|PMEVTYPER26_EL0}}, x12
+        \\msr {{pmevtyper27_el0|PMEVTYPER27_EL0}}, x12
+        \\msr {{pmevtyper28_el0|PMEVTYPER28_EL0}}, x12
+        \\msr {{pmevtyper29_el0|PMEVTYPER29_EL0}}, x12
+        \\msr {{pmevtyper30_el0|PMEVTYPER30_EL0}}, x12
+        \\mrs x9, {{teecr32_el1|TEECR32_EL1}}
+        \\mrs x9, {{osdtrrx_el1|OSDTRRX_EL1}}
+        \\mrs x9, {{mdccsr_el0|MDCCSR_EL0}}
+        \\mrs x9, {{mdccint_el1|MDCCINT_EL1}}
+        \\mrs x9, {{mdscr_el1|MDSCR_EL1}}
+        \\mrs x9, {{osdtrtx_el1|OSDTRTX_EL1}}
+        \\mrs x9, {{dbgdtr_el0|DBGDTR_EL0}}
+        \\mrs x9, {{dbgdtrrx_el0|DBGDTRRX_EL0}}
+        \\mrs x9, {{oseccr_el1|OSECCR_EL1}}
+        \\mrs x9, {{dbgvcr32_el2|DBGVCR32_EL2}}
+        \\mrs x9, {{dbgbvr0_el1|DBGBVR0_EL1}}
+        \\mrs x9, {{dbgbvr1_el1|DBGBVR1_EL1}}
+        \\mrs x9, {{dbgbvr2_el1|DBGBVR2_EL1}}
+        \\mrs x9, {{dbgbvr3_el1|DBGBVR3_EL1}}
+        \\mrs x9, {{dbgbvr4_el1|DBGBVR4_EL1}}
+        \\mrs x9, {{dbgbvr5_el1|DBGBVR5_EL1}}
+        \\mrs x9, {{dbgbvr6_el1|DBGBVR6_EL1}}
+        \\mrs x9, {{dbgbvr7_el1|DBGBVR7_EL1}}
+        \\mrs x9, {{dbgbvr8_el1|DBGBVR8_EL1}}
+        \\mrs x9, {{dbgbvr9_el1|DBGBVR9_EL1}}
+        \\mrs x9, {{dbgbvr10_el1|DBGBVR10_EL1}}
+        \\mrs x9, {{dbgbvr11_el1|DBGBVR11_EL1}}
+        \\mrs x9, {{dbgbvr12_el1|DBGBVR12_EL1}}
+        \\mrs x9, {{dbgbvr13_el1|DBGBVR13_EL1}}
+        \\mrs x9, {{dbgbvr14_el1|DBGBVR14_EL1}}
+        \\mrs x9, {{dbgbvr15_el1|DBGBVR15_EL1}}
+        \\mrs x9, {{dbgbcr0_el1|DBGBCR0_EL1}}
+        \\mrs x9, {{dbgbcr1_el1|DBGBCR1_EL1}}
+        \\mrs x9, {{dbgbcr2_el1|DBGBCR2_EL1}}
+        \\mrs x9, {{dbgbcr3_el1|DBGBCR3_EL1}}
+        \\mrs x9, {{dbgbcr4_el1|DBGBCR4_EL1}}
+        \\mrs x9, {{dbgbcr5_el1|DBGBCR5_EL1}}
+        \\mrs x9, {{dbgbcr6_el1|DBGBCR6_EL1}}
+        \\mrs x9, {{dbgbcr7_el1|DBGBCR7_EL1}}
+        \\mrs x9, {{dbgbcr8_el1|DBGBCR8_EL1}}
+        \\mrs x9, {{dbgbcr9_el1|DBGBCR9_EL1}}
+        \\mrs x9, {{dbgbcr10_el1|DBGBCR10_EL1}}
+        \\mrs x9, {{dbgbcr11_el1|DBGBCR11_EL1}}
+        \\mrs x9, {{dbgbcr12_el1|DBGBCR12_EL1}}
+        \\mrs x9, {{dbgbcr13_el1|DBGBCR13_EL1}}
+        \\mrs x9, {{dbgbcr14_el1|DBGBCR14_EL1}}
+        \\mrs x9, {{dbgbcr15_el1|DBGBCR15_EL1}}
+        \\mrs x9, {{dbgwvr0_el1|DBGWVR0_EL1}}
+        \\mrs x9, {{dbgwvr1_el1|DBGWVR1_EL1}}
+        \\mrs x9, {{dbgwvr2_el1|DBGWVR2_EL1}}
+        \\mrs x9, {{dbgwvr3_el1|DBGWVR3_EL1}}
+        \\mrs x9, {{dbgwvr4_el1|DBGWVR4_EL1}}
+        \\mrs x9, {{dbgwvr5_el1|DBGWVR5_EL1}}
+        \\mrs x9, {{dbgwvr6_el1|DBGWVR6_EL1}}
+        \\mrs x9, {{dbgwvr7_el1|DBGWVR7_EL1}}
+        \\mrs x9, {{dbgwvr8_el1|DBGWVR8_EL1}}
+        \\mrs x9, {{dbgwvr9_el1|DBGWVR9_EL1}}
+        \\mrs x9, {{dbgwvr10_el1|DBGWVR10_EL1}}
+        \\mrs x9, {{dbgwvr11_el1|DBGWVR11_EL1}}
+        \\mrs x9, {{dbgwvr12_el1|DBGWVR12_EL1}}
+        \\mrs x9, {{dbgwvr13_el1|DBGWVR13_EL1}}
+        \\mrs x9, {{dbgwvr14_el1|DBGWVR14_EL1}}
+        \\mrs x9, {{dbgwvr15_el1|DBGWVR15_EL1}}
+        \\mrs x9, {{dbgwcr0_el1|DBGWCR0_EL1}}
+        \\mrs x9, {{dbgwcr1_el1|DBGWCR1_EL1}}
+        \\mrs x9, {{dbgwcr2_el1|DBGWCR2_EL1}}
+        \\mrs x9, {{dbgwcr3_el1|DBGWCR3_EL1}}
+        \\mrs x9, {{dbgwcr4_el1|DBGWCR4_EL1}}
+        \\mrs x9, {{dbgwcr5_el1|DBGWCR5_EL1}}
+        \\mrs x9, {{dbgwcr6_el1|DBGWCR6_EL1}}
+        \\mrs x9, {{dbgwcr7_el1|DBGWCR7_EL1}}
+        \\mrs x9, {{dbgwcr8_el1|DBGWCR8_EL1}}
+        \\mrs x9, {{dbgwcr9_el1|DBGWCR9_EL1}}
+        \\mrs x9, {{dbgwcr10_el1|DBGWCR10_EL1}}
+        \\mrs x9, {{dbgwcr11_el1|DBGWCR11_EL1}}
+        \\mrs x9, {{dbgwcr12_el1|DBGWCR12_EL1}}
+        \\mrs x9, {{dbgwcr13_el1|DBGWCR13_EL1}}
+        \\mrs x9, {{dbgwcr14_el1|DBGWCR14_EL1}}
+        \\mrs x9, {{dbgwcr15_el1|DBGWCR15_EL1}}
+        \\mrs x9, {{mdrar_el1|MDRAR_EL1}}
+        \\mrs x9, {{teehbr32_el1|TEEHBR32_EL1}}
+        \\mrs x9, {{oslsr_el1|OSLSR_EL1}}
+        \\mrs x9, {{osdlr_el1|OSDLR_EL1}}
+        \\mrs x9, {{dbgprcr_el1|DBGPRCR_EL1}}
+        \\mrs x9, {{dbgclaimset_el1|DBGCLAIMSET_EL1}}
+        \\mrs x9, {{dbgclaimclr_el1|DBGCLAIMCLR_EL1}}
+        \\mrs x9, {{dbgauthstatus_el1|DBGAUTHSTATUS_EL1}}
+        \\mrs x9, {{midr_el1|MIDR_EL1}}
+        \\mrs x9, {{ccsidr_el1|CCSIDR_EL1}}
+        \\mrs x9, {{csselr_el1|CSSELR_EL1}}
+        \\mrs x9, {{ccsidr2_el1|CCSIDR2_EL1}}
+        \\mrs x9, {{vpidr_el2|VPIDR_EL2}}
+        \\mrs x9, {{clidr_el1|CLIDR_EL1}}
+        \\mrs x9, {{ctr_el0|CTR_EL0}}
+        \\mrs x9, {{mpidr_el1|MPIDR_EL1}}
+        \\mrs x9, {{vmpidr_el2|VMPIDR_EL2}}
+        \\mrs x9, {{revidr_el1|REVIDR_EL1}}
+        \\mrs x9, {{aidr_el1|AIDR_EL1}}
+        \\mrs x9, {{dczid_el0|DCZID_EL0}}
+        \\mrs x9, {{id_pfr0_el1|ID_PFR0_EL1}}
+        \\mrs x9, {{id_pfr1_el1|ID_PFR1_EL1}}
+        \\mrs x9, {{id_dfr0_el1|ID_DFR0_EL1}}
+        \\mrs x9, {{id_afr0_el1|ID_AFR0_EL1}}
+        \\mrs x9, {{id_mmfr0_el1|ID_MMFR0_EL1}}
+        \\mrs x9, {{id_mmfr1_el1|ID_MMFR1_EL1}}
+        \\mrs x9, {{id_mmfr2_el1|ID_MMFR2_EL1}}
+        \\mrs x9, {{id_mmfr3_el1|ID_MMFR3_EL1}}
+        \\mrs x9, {{id_mmfr4_el1|ID_MMFR4_EL1}}
+        \\mrs x9, {{id_mmfr5_el1|ID_MMFR5_EL1}}
+        \\mrs x9, {{id_isar0_el1|ID_ISAR0_EL1}}
+        \\mrs x9, {{id_isar1_el1|ID_ISAR1_EL1}}
+        \\mrs x9, {{id_isar2_el1|ID_ISAR2_EL1}}
+        \\mrs x9, {{id_isar3_el1|ID_ISAR3_EL1}}
+        \\mrs x9, {{id_isar4_el1|ID_ISAR4_EL1}}
+        \\mrs x9, {{id_isar5_el1|ID_ISAR5_EL1}}
+        \\mrs x9, {{mvfr0_el1|MVFR0_EL1}}
+        \\mrs x9, {{mvfr1_el1|MVFR1_EL1}}
+        \\mrs x9, {{mvfr2_el1|MVFR2_EL1}}
+        \\mrs x9, {{id_aa64pfr0_el1|ID_AA64PFR0_EL1}}
+        \\mrs x9, {{id_aa64pfr1_el1|ID_AA64PFR1_EL1}}
+        \\mrs x9, {{id_aa64dfr0_el1|ID_AA64DFR0_EL1}}
+        \\mrs x9, {{id_aa64dfr1_el1|ID_AA64DFR1_EL1}}
+        \\mrs x9, {{id_aa64afr0_el1|ID_AA64AFR0_EL1}}
+        \\mrs x9, {{id_aa64afr1_el1|ID_AA64AFR1_EL1}}
+        \\mrs x9, {{id_aa64isar0_el1|ID_AA64ISAR0_EL1}}
+        \\mrs x9, {{id_aa64isar1_el1|ID_AA64ISAR1_EL1}}
+        \\mrs x9, {{id_aa64isar2_el1|ID_AA64ISAR2_EL1}}
+        \\mrs x9, {{id_aa64mmfr0_el1|ID_AA64MMFR0_EL1}}
+        \\mrs x9, {{id_aa64mmfr1_el1|ID_AA64MMFR1_EL1}}
+        \\mrs x9, {{sctlr_el1|SCTLR_EL1}}
+        \\mrs x9, {{sctlr_el2|SCTLR_EL2}}
+        \\mrs x9, {{sctlr_el3|SCTLR_EL3}}
+        \\mrs x9, {{actlr_el1|ACTLR_EL1}}
+        \\mrs x9, {{actlr_el2|ACTLR_EL2}}
+        \\mrs x9, {{actlr_el3|ACTLR_EL3}}
+        \\mrs x9, {{cpacr_el1|CPACR_EL1}}
+        \\mrs x9, {{hcr_el2|HCR_EL2}}
+        \\mrs x9, {{scr_el3|SCR_EL3}}
+        \\mrs x9, {{mdcr_el2|MDCR_EL2}}
+        \\mrs x9, {{sder32_el3|SDER32_EL3}}
+        \\mrs x9, {{cptr_el2|CPTR_EL2}}
+        \\mrs x9, {{cptr_el3|CPTR_EL3}}
+        \\mrs x9, {{hstr_el2|HSTR_EL2}}
+        \\mrs x9, {{hacr_el2|HACR_EL2}}
+        \\mrs x9, {{mdcr_el3|MDCR_EL3}}
+        \\mrs x9, {{ttbr0_el1|TTBR0_EL1}}
+        \\mrs x9, {{ttbr0_el2|TTBR0_EL2}}
+        \\mrs x9, {{ttbr0_el3|TTBR0_EL3}}
+        \\mrs x9, {{ttbr1_el1|TTBR1_EL1}}
+        \\mrs x9, {{tcr_el1|TCR_EL1}}
+        \\mrs x9, {{tcr_el2|TCR_EL2}}
+        \\mrs x9, {{tcr_el3|TCR_EL3}}
+        \\mrs x9, {{vttbr_el2|VTTBR_EL2}}
+        \\mrs x9, {{vtcr_el2|VTCR_EL2}}
+        \\mrs x9, {{dacr32_el2|DACR32_EL2}}
+        \\mrs x9, {{spsr_el1|SPSR_EL1}}
+        \\mrs x9, {{spsr_el2|SPSR_EL2}}
+        \\mrs x9, {{spsr_el3|SPSR_EL3}}
+        \\mrs x9, {{elr_el1|ELR_EL1}}
+        \\mrs x9, {{elr_el2|ELR_EL2}}
+        \\mrs x9, {{elr_el3|ELR_EL3}}
+        \\mrs x9, {{sp_el0|SP_EL0}}
+        \\mrs x9, {{sp_el1|SP_EL1}}
+        \\mrs x9, {{sp_el2|SP_EL2}}
+        \\mrs x9, {{SPSel|SPSEL}}
+        \\mrs x9, {{nzcv|NZCV}}
+        \\mrs x9, {{daif|DAIF}}
+        \\mrs x9, {{CurrentEL|CURRENTEL}}
+        \\mrs x9, {{SPSR_irq|SPSR_IRQ}}
+        \\mrs x9, {{SPSR_abt|SPSR_ABT}}
+        \\mrs x9, {{SPSR_und|SPSR_UND}}
+        \\mrs x9, {{SPSR_fiq|SPSR_FIQ}}
+        \\mrs x9, {{fpcr|FPCR}}
+        \\mrs x9, {{fpsr|FPSR}}
+        \\mrs x9, {{dspsr_el0|DSPSR_EL0}}
+        \\mrs x9, {{dlr_el0|DLR_EL0}}
+        \\mrs x9, {{ifsr32_el2|IFSR32_EL2}}
+        \\mrs x9, {{afsr0_el1|AFSR0_EL1}}
+        \\mrs x9, {{afsr0_el2|AFSR0_EL2}}
+        \\mrs x9, {{afsr0_el3|AFSR0_EL3}}
+        \\mrs x9, {{afsr1_el1|AFSR1_EL1}}
+        \\mrs x9, {{afsr1_el2|AFSR1_EL2}}
+        \\mrs x9, {{afsr1_el3|AFSR1_EL3}}
+        \\mrs x9, {{esr_el1|ESR_EL1}}
+        \\mrs x9, {{esr_el2|ESR_EL2}}
+        \\mrs x9, {{esr_el3|ESR_EL3}}
+        \\mrs x9, {{fpexc32_el2|FPEXC32_EL2}}
+        \\mrs x9, {{far_el1|FAR_EL1}}
+        \\mrs x9, {{far_el2|FAR_EL2}}
+        \\mrs x9, {{far_el3|FAR_EL3}}
+        \\mrs x9, {{hpfar_el2|HPFAR_EL2}}
+        \\mrs x9, {{par_el1|PAR_EL1}}
+        \\mrs x9, {{pmcr_el0|PMCR_EL0}}
+        \\mrs x9, {{pmcntenset_el0|PMCNTENSET_EL0}}
+        \\mrs x9, {{pmcntenclr_el0|PMCNTENCLR_EL0}}
+        \\mrs x9, {{pmovsclr_el0|PMOVSCLR_EL0}}
+        \\mrs x9, {{pmselr_el0|PMSELR_EL0}}
+        \\mrs x9, {{pmceid0_el0|PMCEID0_EL0}}
+        \\mrs x9, {{pmceid1_el0|PMCEID1_EL0}}
+        \\mrs x9, {{pmccntr_el0|PMCCNTR_EL0}}
+        \\mrs x9, {{pmxevtyper_el0|PMXEVTYPER_EL0}}
+        \\mrs x9, {{pmxevcntr_el0|PMXEVCNTR_EL0}}
+        \\mrs x9, {{pmuserenr_el0|PMUSERENR_EL0}}
+        \\mrs x9, {{pmintenset_el1|PMINTENSET_EL1}}
+        \\mrs x9, {{pmintenclr_el1|PMINTENCLR_EL1}}
+        \\mrs x9, {{pmovsset_el0|PMOVSSET_EL0}}
+        \\mrs x9, {{mair_el1|MAIR_EL1}}
+        \\mrs x9, {{mair_el2|MAIR_EL2}}
+        \\mrs x9, {{mair_el3|MAIR_EL3}}
+        \\mrs x9, {{amair_el1|AMAIR_EL1}}
+        \\mrs x9, {{amair_el2|AMAIR_EL2}}
+        \\mrs x9, {{amair_el3|AMAIR_EL3}}
+        \\mrs x9, {{vbar_el1|VBAR_EL1}}
+        \\mrs x9, {{vbar_el2|VBAR_EL2}}
+        \\mrs x9, {{vbar_el3|VBAR_EL3}}
+        \\mrs x9, {{rvbar_el1|RVBAR_EL1}}
+        \\mrs x9, {{rvbar_el2|RVBAR_EL2}}
+        \\mrs x9, {{rvbar_el3|RVBAR_EL3}}
+        \\mrs x9, {{rmr_el1|RMR_EL1}}
+        \\mrs x9, {{rmr_el2|RMR_EL2}}
+        \\mrs x9, {{rmr_el3|RMR_EL3}}
+        \\mrs x9, {{isr_el1|ISR_EL1}}
+        \\mrs x9, {{contextidr_el1|CONTEXTIDR_EL1}}
+        \\mrs x9, {{tpidr_el0|TPIDR_EL0}}
+        \\mrs x9, {{tpidr_el2|TPIDR_EL2}}
+        \\mrs x9, {{tpidr_el3|TPIDR_EL3}}
+        \\mrs x9, {{tpidrro_el0|TPIDRRO_EL0}}
+        \\mrs x9, {{tpidr_el1|TPIDR_EL1}}
+        \\mrs x9, {{cntfrq_el0|CNTFRQ_EL0}}
+        \\mrs x9, {{cntpct_el0|CNTPCT_EL0}}
+        \\mrs x9, {{cntvct_el0|CNTVCT_EL0}}
+        \\mrs x9, {{cntvoff_el2|CNTVOFF_EL2}}
+        \\mrs x9, {{cntkctl_el1|CNTKCTL_EL1}}
+        \\mrs x9, {{cnthctl_el2|CNTHCTL_EL2}}
+        \\mrs x9, {{cntp_tval_el0|CNTP_TVAL_EL0}}
+        \\mrs x9, {{cnthp_tval_el2|CNTHP_TVAL_EL2}}
+        \\mrs x9, {{cntps_tval_el1|CNTPS_TVAL_EL1}}
+        \\mrs x9, {{cntp_ctl_el0|CNTP_CTL_EL0}}
+        \\mrs x9, {{cnthp_ctl_el2|CNTHP_CTL_EL2}}
+        \\mrs x9, {{cntps_ctl_el1|CNTPS_CTL_EL1}}
+        \\mrs x9, {{cntp_cval_el0|CNTP_CVAL_EL0}}
+        \\mrs x9, {{cnthp_cval_el2|CNTHP_CVAL_EL2}}
+        \\mrs x9, {{cntps_cval_el1|CNTPS_CVAL_EL1}}
+        \\mrs x9, {{cntv_tval_el0|CNTV_TVAL_EL0}}
+        \\mrs x9, {{cntv_ctl_el0|CNTV_CTL_EL0}}
+        \\mrs x9, {{cntv_cval_el0|CNTV_CVAL_EL0}}
+        \\mrs x9, {{pmevcntr0_el0|PMEVCNTR0_EL0}}
+        \\mrs x9, {{pmevcntr1_el0|PMEVCNTR1_EL0}}
+        \\mrs x9, {{pmevcntr2_el0|PMEVCNTR2_EL0}}
+        \\mrs x9, {{pmevcntr3_el0|PMEVCNTR3_EL0}}
+        \\mrs x9, {{pmevcntr4_el0|PMEVCNTR4_EL0}}
+        \\mrs x9, {{pmevcntr5_el0|PMEVCNTR5_EL0}}
+        \\mrs x9, {{pmevcntr6_el0|PMEVCNTR6_EL0}}
+        \\mrs x9, {{pmevcntr7_el0|PMEVCNTR7_EL0}}
+        \\mrs x9, {{pmevcntr8_el0|PMEVCNTR8_EL0}}
+        \\mrs x9, {{pmevcntr9_el0|PMEVCNTR9_EL0}}
+        \\mrs x9, {{pmevcntr10_el0|PMEVCNTR10_EL0}}
+        \\mrs x9, {{pmevcntr11_el0|PMEVCNTR11_EL0}}
+        \\mrs x9, {{pmevcntr12_el0|PMEVCNTR12_EL0}}
+        \\mrs x9, {{pmevcntr13_el0|PMEVCNTR13_EL0}}
+        \\mrs x9, {{pmevcntr14_el0|PMEVCNTR14_EL0}}
+        \\mrs x9, {{pmevcntr15_el0|PMEVCNTR15_EL0}}
+        \\mrs x9, {{pmevcntr16_el0|PMEVCNTR16_EL0}}
+        \\mrs x9, {{pmevcntr17_el0|PMEVCNTR17_EL0}}
+        \\mrs x9, {{pmevcntr18_el0|PMEVCNTR18_EL0}}
+        \\mrs x9, {{pmevcntr19_el0|PMEVCNTR19_EL0}}
+        \\mrs x9, {{pmevcntr20_el0|PMEVCNTR20_EL0}}
+        \\mrs x9, {{pmevcntr21_el0|PMEVCNTR21_EL0}}
+        \\mrs x9, {{pmevcntr22_el0|PMEVCNTR22_EL0}}
+        \\mrs x9, {{pmevcntr23_el0|PMEVCNTR23_EL0}}
+        \\mrs x9, {{pmevcntr24_el0|PMEVCNTR24_EL0}}
+        \\mrs x9, {{pmevcntr25_el0|PMEVCNTR25_EL0}}
+        \\mrs x9, {{pmevcntr26_el0|PMEVCNTR26_EL0}}
+        \\mrs x9, {{pmevcntr27_el0|PMEVCNTR27_EL0}}
+        \\mrs x9, {{pmevcntr28_el0|PMEVCNTR28_EL0}}
+        \\mrs x9, {{pmevcntr29_el0|PMEVCNTR29_EL0}}
+        \\mrs x9, {{pmevcntr30_el0|PMEVCNTR30_EL0}}
+        \\mrs x9, {{pmccfiltr_el0|PMCCFILTR_EL0}}
+        \\mrs x9, {{pmevtyper0_el0|PMEVTYPER0_EL0}}
+        \\mrs x9, {{pmevtyper1_el0|PMEVTYPER1_EL0}}
+        \\mrs x9, {{pmevtyper2_el0|PMEVTYPER2_EL0}}
+        \\mrs x9, {{pmevtyper3_el0|PMEVTYPER3_EL0}}
+        \\mrs x9, {{pmevtyper4_el0|PMEVTYPER4_EL0}}
+        \\mrs x9, {{pmevtyper5_el0|PMEVTYPER5_EL0}}
+        \\mrs x9, {{pmevtyper6_el0|PMEVTYPER6_EL0}}
+        \\mrs x9, {{pmevtyper7_el0|PMEVTYPER7_EL0}}
+        \\mrs x9, {{pmevtyper8_el0|PMEVTYPER8_EL0}}
+        \\mrs x9, {{pmevtyper9_el0|PMEVTYPER9_EL0}}
+        \\mrs x9, {{pmevtyper10_el0|PMEVTYPER10_EL0}}
+        \\mrs x9, {{pmevtyper11_el0|PMEVTYPER11_EL0}}
+        \\mrs x9, {{pmevtyper12_el0|PMEVTYPER12_EL0}}
+        \\mrs x9, {{pmevtyper13_el0|PMEVTYPER13_EL0}}
+        \\mrs x9, {{pmevtyper14_el0|PMEVTYPER14_EL0}}
+        \\mrs x9, {{pmevtyper15_el0|PMEVTYPER15_EL0}}
+        \\mrs x9, {{pmevtyper16_el0|PMEVTYPER16_EL0}}
+        \\mrs x9, {{pmevtyper17_el0|PMEVTYPER17_EL0}}
+        \\mrs x9, {{pmevtyper18_el0|PMEVTYPER18_EL0}}
+        \\mrs x9, {{pmevtyper19_el0|PMEVTYPER19_EL0}}
+        \\mrs x9, {{pmevtyper20_el0|PMEVTYPER20_EL0}}
+        \\mrs x9, {{pmevtyper21_el0|PMEVTYPER21_EL0}}
+        \\mrs x9, {{pmevtyper22_el0|PMEVTYPER22_EL0}}
+        \\mrs x9, {{pmevtyper23_el0|PMEVTYPER23_EL0}}
+        \\mrs x9, {{pmevtyper24_el0|PMEVTYPER24_EL0}}
+        \\mrs x9, {{pmevtyper25_el0|PMEVTYPER25_EL0}}
+        \\mrs x9, {{pmevtyper26_el0|PMEVTYPER26_EL0}}
+        \\mrs x9, {{pmevtyper27_el0|PMEVTYPER27_EL0}}
+        \\mrs x9, {{pmevtyper28_el0|PMEVTYPER28_EL0}}
+        \\mrs x9, {{pmevtyper29_el0|PMEVTYPER29_EL0}}
+        \\mrs x9, {{pmevtyper30_el0|PMEVTYPER30_EL0}}
+        \\mrs x12, {{s3_7_c15_c1_5|S3_7_C15_C1_5}}
+        \\mrs x13, {{s3_2_c11_c15_7|S3_2_C11_C15_7}}
+        \\mrs xzr, {{s0_0_c4_c0_0|S0_0_C4_C0_0}}
+        \\msr {{s3_0_c15_c0_0|S3_0_C15_C0_0}}, x12
+        \\msr {{s3_7_c11_c13_7|S3_7_C11_C13_7}}, x5
+        \\msr {{s0_0_c4_c0_0|S0_0_C4_C0_0}}, xzr
+        \\tbz x12, #62, #0
+        \\tbz x12, #62, #4
+        \\tbz x12, #62, #-32768
+        \\tbnz x12, #60, #32764
+        \\b #4
+        \\b #-4
+        \\b #134217724
+        \\br x20
+        \\blr xzr
+        \\ret x10
         \\ret
         \\eret
         \\drps

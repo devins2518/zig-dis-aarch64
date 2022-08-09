@@ -31,6 +31,10 @@ pub const Register = struct {
     pub fn getWidth(self: Self) Width {
         return self.width;
     }
+
+    pub fn eq(self: *const Self, other: *const Self) bool {
+        return self.reg == other.reg and self.width == other.width and self.sp == other.sp;
+    }
 };
 
 pub const Width = enum {
