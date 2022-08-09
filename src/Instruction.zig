@@ -566,6 +566,19 @@ pub const Instruction = union(enum) {
                 try std.fmt.format(writer, "{}, ", .{mrs.rt});
                 try mrs.formatSysReg(writer);
             },
+            .fcmp => |fcmp| {
+                const e = if (fcmp.e) "e" else "";
+                try std.fmt.format(writer, "{s}{s} {}, ", .{ @tagName(self.*), e, fcmp.rn });
+                switch (fcmp.payload) {
+                    .rm => |rm| try std.fmt.format(writer, "{}", .{rm}),
+                    .zero => try std.fmt.format(writer, "#0.0", .{}),
+                }
+            },
+            .fccmp => |fccmp| {
+                const e = if (fccmp.e) "e" else "";
+                try std.fmt.format(writer, "{s}{s} {}, {}, #{}, {s}", .{ @tagName(self.*), e, fccmp.rn, fccmp.rm, fccmp.nzcv, @tagName(fccmp.cond) });
+            },
+            .fcsel => |fcsel| try std.fmt.format(writer, "{s} {}, {}, {}, {s}", .{ @tagName(self.*), fcsel.rd, fcsel.rn, fcsel.rm, @tagName(fcsel.cond) }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -1845,7 +1858,7 @@ pub const SysRegMoveInstr = struct {
 pub const FPCompInstr = struct {
     e: bool,
     rn: Register,
-    rm: Register,
+    payload: union(enum) { rm: Register, zero },
 };
 
 pub const FPCondCompInstr = struct {

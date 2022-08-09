@@ -1844,16 +1844,31 @@ pub const Disassembler = struct {
         {
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
-            const ptype = @truncate(u2, op >> 22);
+            const ftype = @truncate(u2, op >> 22);
             const o1 = @truncate(u2, op >> 14);
+            const opc = @truncate(u1, op >> 3);
             const opcode2 = @truncate(u5, op);
             const e = opcode2 == 0b10000 or opcode2 == 0b11000;
+            const width = if (ftype == 0b11)
+                Width.h
+            else if (ftype == 0b00)
+                Width.s
+            else if (ftype == 0b01)
+                Width.d
+            else
+                return error.Unallocated;
+            const rm = Register.from(op >> 16, width, false);
+            const FPCompPayload = Field(FPCompInstr, .payload);
+            const rm_or_zero = if (opc == 0b1)
+                @as(FPCompPayload, FPCompPayload.zero)
+            else
+                FPCompPayload{ .rm = rm };
             const payload = FPCompInstr{
                 .e = e,
-                .rn = Register.from(op >> 5, .h, false),
-                .rm = Register.from(op >> 16, .h, false),
+                .rn = Register.from(op >> 5, width, false),
+                .payload = rm_or_zero,
             };
-            return if (m == 0b1 or s == 0b1 or ptype == 0b10 or o1 != 0b00 or @truncate(u3, opcode2) != 0b00)
+            return if (m == 0b1 or s == 0b1 or ftype == 0b10 or o1 != 0b00 or @truncate(u3, opcode2) != 0b00)
                 error.Unallocated
             else
                 Instruction{ .fcmp = payload };
@@ -1881,16 +1896,24 @@ pub const Disassembler = struct {
         {
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
-            const ptype = @truncate(u2, op >> 22);
+            const ftype = @truncate(u2, op >> 22);
             const o1 = @truncate(u1, op >> 4);
+            const width = if (ftype == 0b11)
+                Width.h
+            else if (ftype == 0b00)
+                Width.s
+            else if (ftype == 0b01)
+                Width.d
+            else
+                return error.Unallocated;
             const payload = FPCondCompInstr{
                 .e = o1 == 0b1,
-                .rn = Register.from(op >> 5, .h, false),
-                .rm = Register.from(op >> 16, .h, false),
+                .rn = Register.from(op >> 5, width, false),
+                .rm = Register.from(op >> 16, width, false),
                 .nzcv = @truncate(u4, op),
                 .cond = @intToEnum(Condition, @truncate(u4, op >> 12)),
             };
-            return if (m == 0b1 or s == 0b1 or ptype == 0b10)
+            return if (m == 0b1 or s == 0b1 or ftype == 0b10)
                 error.Unallocated
             else
                 Instruction{ .fccmp = payload };
@@ -1934,9 +1957,22 @@ pub const Disassembler = struct {
         {
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
-            const ptype = @truncate(u2, op >> 22);
-            const payload = FPCondSelInstr{ .rn = Register.from(op >> 5, .h, false), .rd = Register.from(op, .h, false), .rm = Register.from(op >> 16, .h, false), .cond = @intToEnum(Condition, @truncate(u4, op >> 12)) };
-            return if (m == 0b1 or s == 0b1 or ptype == 0b10)
+            const ftype = @truncate(u2, op >> 22);
+            const width = if (ftype == 0b11)
+                Width.h
+            else if (ftype == 0b00)
+                Width.s
+            else if (ftype == 0b01)
+                Width.d
+            else
+                return error.Unallocated;
+            const payload = FPCondSelInstr{
+                .rn = Register.from(op >> 5, width, false),
+                .rd = Register.from(op, width, false),
+                .rm = Register.from(op >> 16, width, false),
+                .cond = @intToEnum(Condition, @truncate(u4, op >> 12)),
+            };
+            return if (m == 0b1 or s == 0b1 or ftype == 0b10)
                 error.Unallocated
             else
                 Instruction{ .fcsel = payload };
