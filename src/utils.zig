@@ -55,7 +55,5 @@ pub const Width = enum {
 };
 
 pub fn Field(comptime ty: type, comptime mem: anytype) type {
-    comptime {
-        return std.meta.fieldInfo(ty, mem).field_type;
-    }
+    return comptime std.meta.fieldInfo(ty, mem).field_type;
 }

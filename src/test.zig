@@ -2570,13 +2570,13 @@ test "arm64 branch" {
         \\br x5
         \\blr x9
         \\tbnz w11, #3, #0
-        \\brk #0x1
-        \\dcps1 #0x2
-        \\dcps2 #0x3
-        \\dcps3 #0x4
-        \\hlt #0x5
-        \\hvc #0x6
-        \\smc #0x7
+        \\brk #1
+        \\dcps1 #2
+        \\dcps2 #3
+        \\dcps3 #4
+        \\hlt #5
+        \\hvc #6
+        \\smc #7
         \\svc #8
         \\b #28
         \\bl #24
