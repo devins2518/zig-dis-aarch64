@@ -11,9 +11,11 @@ const BranchInstr = @import("instruction.zig").BranchInstr;
 const CompBranchInstr = @import("instruction.zig").CompBranchInstr;
 const ConCompInstr = @import("instruction.zig").ConCompInstr;
 const Condition = @import("instruction.zig").Condition;
+const CvtInstr = @import("instruction.zig").CvtInstr;
 const DataProcInstr = @import("instruction.zig").DataProcInstr;
 const ExceptionInstr = @import("instruction.zig").ExceptionInstr;
 const ExtractInstr = @import("instruction.zig").ExtractInstr;
+const FMovInstr = @import("instruction.zig").FMovInstr;
 const FPCompInstr = @import("instruction.zig").FPCompInstr;
 const FPCondCompInstr = @import("instruction.zig").FPCondCompInstr;
 const FPCondSelInstr = @import("instruction.zig").FPCondSelInstr;
@@ -156,7 +158,7 @@ pub const Disassembler = struct {
                     .n = @truncate(u1, op >> 22),
                     .op = log_op,
                     .width = width,
-                    .rn = Register.from(op >> 5, width, true),
+                    .rn = Register.from(op >> 5, width, false),
                     .rd = Register.from(op, width, true),
                     .payload = .{ .imm = .{
                         .immr = @truncate(u6, op >> 16),
@@ -173,13 +175,18 @@ pub const Disassembler = struct {
                 const width = Width.from(op >> 31);
                 const opc = @truncate(u2, op >> 29);
                 const hw = @truncate(u2, op >> 21);
+                const imm16 = @truncate(u16, op >> 5);
+                const ext = if (!(imm16 == 0 and hw != 0))
+                    .@""
+                else
+                    @intToEnum(Field(MovInstr, .ext), opc);
                 break :blk if (opc == 0b01 or (width == .w and (hw == 0b10 or hw == 0b11)))
                     error.Unallocated
                 else .{ .mov = .{
-                    .ext = @intToEnum(Field(MovInstr, .ext), opc),
+                    .ext = ext,
                     .width = width,
                     .hw = @truncate(u2, op >> 21),
-                    .imm16 = @truncate(u16, op >> 5),
+                    .imm16 = imm16,
                     .rd = Register.from(op, width, false),
                 } };
             },
@@ -488,6 +495,7 @@ pub const Disassembler = struct {
         const SizeTy = Field(LoadStoreInstr, .size);
         const LdStPayloadTy = Field(LoadStoreInstr, .payload);
         const IndexTy = @typeInfo(Field(LoadStoreInstr, .index)).Optional.child;
+        const LdStPrfm = Field(LoadStoreInstr, .ld_st_prfm);
         if (op0 == 0b0000 and op1 == 1 and op2 <= 0b01 and op3 >= 0b100000 or
             // TODO reduce
             (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 5) == 1) or
@@ -515,11 +523,12 @@ pub const Disassembler = struct {
             else
                 ExtTy.@"";
             const rs = Register.from(op >> 16, .w, false);
-            const rs_or_zero = if (rs.toInt() == 0b11111)
+            const rs_or_zero = if (rs.toInt() == 0b11111 and load)
                 LdStPayloadTy{ .imm7 = 0 }
             else
                 LdStPayloadTy{ .rs = rs };
             const payload = LoadStoreInstr{
+                .ld_st_prfm = if (load) .ld else .st,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .rt2 = Register.from(op >> 10, width, false),
@@ -541,17 +550,16 @@ pub const Disassembler = struct {
                 if (o0) ExtTy.a else ExtTy.@""
             else if (o0) ExtTy.l else ExtTy.@"";
             const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.@"";
-            const rt2 = Register.from(op >> 10, width, false);
-            const rt2_or_null = if (rt2.toInt() == 0b11111) null else rt2;
             const rs = Register.from(op >> 16, .w, false);
             const rs_or_zero = if (rs.toInt() == 0b11111)
                 LdStPayloadTy{ .imm7 = 0 }
             else
                 LdStPayloadTy{ .rs = rs };
             const payload = LoadStoreInstr{
+                .ld_st_prfm = if (load) .ld else .st,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
-                .rt2 = rt2_or_null,
+                .rt2 = null,
                 .ext = ext,
                 .op = .xr,
                 .size = size,
@@ -578,6 +586,7 @@ pub const Disassembler = struct {
             else
                 LdStPayloadTy{ .rs = rs };
             const payload = LoadStoreInstr{
+                .ld_st_prfm = if (load) .ld else .st,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .rt2 = rt2_or_null,
@@ -606,13 +615,15 @@ pub const Disassembler = struct {
                 else => return error.Unallocated,
             };
             const size_ext = if (opc == 0b10 and v == 0) SizeTy.sw else SizeTy.@"";
+            var imm19 = @truncate(u19, op >> 5);
             const payload = LoadStoreInstr{
+                .ld_st_prfm = if (opc == 0b11 and v == 0) .prfm else .ld,
                 .rn = undefined,
                 .rt = Register.from(op, width, false),
                 .ext = .@"",
                 .op = .r,
                 .size = size_ext,
-                .payload = .{ .imm19 = @truncate(u19, op >> 5) },
+                .payload = .{ .imm19 = imm19 },
             };
             return if (opc == 0b11 and v == 0)
                 Instruction{ .prfm = payload }
@@ -644,6 +655,7 @@ pub const Disassembler = struct {
                 else => unreachable,
             };
             const payload = LoadStoreInstr{
+                .ld_st_prfm = if (load) .ld else .st,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .rt2 = Register.from(op >> 10, width, false),
@@ -697,6 +709,7 @@ pub const Disassembler = struct {
                 else => @as(i7, 1),
             };
             const payload = LoadStoreInstr{
+                .ld_st_prfm = if (load) .ld else .st,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .rt2 = Register.from(op >> 10, width, false),
@@ -773,7 +786,14 @@ pub const Disassembler = struct {
                 SizeTy.sw
             else
                 SizeTy.@"";
+            const ld_st_prfm = if (size == 0b11 and v == 0 and opc == 0b10)
+                LdStPrfm.prfm
+            else if (load)
+                LdStPrfm.ld
+            else
+                LdStPrfm.st;
             const payload = LoadStoreInstr{
+                .ld_st_prfm = ld_st_prfm,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .ext = ext,
@@ -866,15 +886,7 @@ pub const Disassembler = struct {
                     option,
                 ),
             } };
-            const payload = LoadStoreInstr{
-                .rn = rn,
-                .rt = rt,
-                .ext = .@"",
-                .op = .r,
-                .size = size_ext,
-                .payload = shift,
-            };
-            if ((size == 0b00 and v == 0 and opc == 0b01) or
+            const ld_st_prfm = if ((size == 0b00 and v == 0 and opc == 0b01) or
                 (size == 0b00 and v == 0 and opc == 0b10) or
                 (size == 0b00 and v == 0 and opc == 0b11) or
                 (size == 0b00 and v == 1 and opc == 0b01) or
@@ -888,9 +900,8 @@ pub const Disassembler = struct {
                 (size == 0b10 and v == 1 and opc == 0b01) or
                 (size == 0b11 and v == 0 and opc == 0b01) or
                 (size == 0b11 and v == 1 and opc == 0b01))
-            {
-                return Instruction{ .ld = payload };
-            } else if ((size == 0b00 and v == 0 and opc == 0b00) or
+                LdStPrfm.ld
+            else if ((size == 0b00 and v == 0 and opc == 0b00) or
                 (size == 0b00 and v == 1 and opc == 0b00) or
                 (size == 0b00 and v == 1 and opc == 0b10) or
                 (size == 0b01 and v == 0 and opc == 0b00) or
@@ -899,11 +910,26 @@ pub const Disassembler = struct {
                 (size == 0b10 and v == 1 and opc == 0b00) or
                 (size == 0b11 and v == 0 and opc == 0b00) or
                 (size == 0b11 and v == 1 and opc == 0b00))
-            {
-                return Instruction{ .st = payload };
-            } else if (size == 0b11 and v == 0 and opc == 0b10) {
-                return Instruction{ .prfm = payload };
-            } else return error.Unallocated;
+                LdStPrfm.st
+            else if (size == 0b11 and v == 0 and opc == 0b10)
+                LdStPrfm.prfm
+            else
+                return error.Unallocated;
+
+            const payload = LoadStoreInstr{
+                .ld_st_prfm = ld_st_prfm,
+                .rn = rn,
+                .rt = rt,
+                .ext = .@"",
+                .op = .r,
+                .size = size_ext,
+                .payload = shift,
+            };
+            return switch (ld_st_prfm) {
+                .ld => Instruction{ .ld = payload },
+                .st => Instruction{ .st = payload },
+                .prfm => Instruction{ .prfm = payload },
+            };
         } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and @truncate(u1, op4) == 0b1) { // Load/store register (pac)
             // TODO
             const load = true;
@@ -972,7 +998,14 @@ pub const Disassembler = struct {
                 .q => 16,
                 else => @as(u12, 1),
             } else 1;
+            const ld_st_prfm = if (size == 0b11 and v == 0 and opc == 0b10)
+                LdStPrfm.prfm
+            else if (load)
+                LdStPrfm.ld
+            else
+                LdStPrfm.st;
             const payload = LoadStoreInstr{
+                .ld_st_prfm = ld_st_prfm,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .ext = .@"",
@@ -1636,6 +1669,23 @@ pub const Disassembler = struct {
             const rmode = @truncate(u2, op >> 19);
             const opcode = @truncate(u3, op >> 16);
             const scale = @truncate(u6, op >> 10);
+            const rd_width = if (sf == 0b1) Width.x else Width.w;
+            const rn_width = switch (ptype) {
+                0b00 => Width.s,
+                0b01 => Width.d,
+                0b11 => Width.h,
+                else => unreachable,
+            };
+            const to_fixed_payload = CvtInstr{
+                .rd = Register.from(op, rd_width, false),
+                .rn = Register.from(op >> 5, rn_width, false),
+                .fbits = @truncate(u6, op >> 10),
+            };
+            const to_float_payload = CvtInstr{
+                .rd = Register.from(op, rn_width, false),
+                .rn = Register.from(op >> 5, rd_width, false),
+                .fbits = @truncate(u6, op >> 10),
+            };
             return if ((sf == 0b0 and scale <= 0b011111) or
                 s == 0b1 or ptype == 0b10 or opcode >= 0b100 or
                 (@truncate(u1, rmode) == 0b0 and @truncate(u2, opcode >> 1) == 0b00) or
@@ -1644,13 +1694,13 @@ pub const Disassembler = struct {
                 (@truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b01))
                 error.Unallocated
             else if (rmode == 0b11 and opcode == 0b001)
-                @as(Instruction, Instruction.fcvtzu)
+                Instruction{ .fcvtzu = to_fixed_payload }
             else if (rmode == 0b11 and opcode == 0b000)
-                @as(Instruction, Instruction.fcvtzs)
+                Instruction{ .fcvtzs = to_fixed_payload }
             else if (rmode == 0b00 and opcode == 0b011)
-                @as(Instruction, Instruction.ucvtf)
+                Instruction{ .ucvtf = to_float_payload }
             else if (rmode == 0b00 and opcode == 0b010)
-                @as(Instruction, Instruction.scvtf)
+                Instruction{ .scvtf = to_float_payload }
             else
                 error.Unallocated;
         } else if (@truncate(u1, op0 >> 2) == 0b0 and
@@ -1683,106 +1733,106 @@ pub const Disassembler = struct {
                 (sf == 0b1 and s == 0b0 and ptype == 0b10 and @truncate(u1, rmode) == 0b0 and @truncate(u2, opcode >> 1) == 0b11) or
                 (sf == 0b1 and s == 0b0 and ptype == 0b10 and @truncate(u1, rmode >> 1) == 0b1 and @truncate(u2, opcode >> 1) == 0b11))
                 error.Unallocated
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b101) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b101) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b101) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b101) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b101) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b101))
-                @as(Instruction, Instruction.fcvtau)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b100) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b100) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b100) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b100) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b100) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b100))
-                @as(Instruction, Instruction.fcvtas)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b001))
-                @as(Instruction, Instruction.fcvtzu)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b11 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b11 and opcode == 0b000))
-                @as(Instruction, Instruction.fcvtzs)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b001))
-                @as(Instruction, Instruction.fcvtmu)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b10 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b10 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b10 and opcode == 0b000))
-                @as(Instruction, Instruction.fcvtms)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b001))
-                @as(Instruction, Instruction.fcvtpu)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b01 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b01 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b01 and opcode == 0b000))
-                @as(Instruction, Instruction.fcvtps)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b001) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b001) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b001))
-                @as(Instruction, Instruction.fcvtnu)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b000) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b000) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b000))
-                @as(Instruction, Instruction.fcvtns)
-            else if (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b110)
-                @as(Instruction, Instruction.fjcvtzs)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b110) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b111) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b110) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b111) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b10 and rmode == 0b01 and opcode == 0b110) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b10 and rmode == 0b01 and opcode == 0b111) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111))
-                @as(Instruction, Instruction.fmov)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b011) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b011) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b011) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b011) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b011) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b011))
-                @as(Instruction, Instruction.ucvtf)
-            else if ((sf == 0b0 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b010) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b010) or
-                (sf == 0b0 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b010) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b010) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b01 and rmode == 0b00 and opcode == 0b010) or
-                (sf == 0b1 and s == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b010))
-                @as(Instruction, Instruction.scvtf)
-            else
-                error.Unallocated;
+            else if ((sf == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b111) or
+                (sf == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111) or
+                (sf == 0b1 and ptype == 0b01 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b1 and ptype == 0b01 and rmode == 0b00 and opcode == 0b111) or
+                (sf == 0b1 and ptype == 0b10 and rmode == 0b01 and opcode == 0b110) or
+                (sf == 0b1 and ptype == 0b10 and rmode == 0b01 and opcode == 0b111) or
+                (sf == 0b1 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                (sf == 0b1 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111))
+            blk: {
+                const mov_rd_width = if ((sf == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                    (sf == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b110))
+                    Width.w
+                else if ((sf == 0b1 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                    (sf == 0b1 and ptype == 0b01 and rmode == 0b00 and opcode == 0b110) or
+                    (sf == 0b1 and ptype == 0b10 and rmode == 0b01 and opcode == 0b110))
+                    Width.x
+                else if ((sf == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111) or
+                    (sf == 0b1 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111))
+                    Width.h
+                else if (sf == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b111)
+                    Width.s
+                else if (sf == 0b1 and ptype == 0b01 and rmode == 0b00 and opcode == 0b111)
+                    Width.d
+                else if (sf == 0b1 and ptype == 0b10 and rmode == 0b01 and opcode == 0b111)
+                    Width.v
+                else
+                    unreachable;
+                const mov_rs_width = if ((sf == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b111) or
+                    (sf == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111))
+                    Width.w
+                else if ((sf == 0b1 and ptype == 0b01 and rmode == 0b00 and opcode == 0b111) or
+                    (sf == 0b1 and ptype == 0b10 and rmode == 0b01 and opcode == 0b111) or
+                    (sf == 0b1 and ptype == 0b11 and rmode == 0b00 and opcode == 0b111))
+                    Width.x
+                else if ((sf == 0b0 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110) or
+                    (sf == 0b1 and ptype == 0b11 and rmode == 0b00 and opcode == 0b110))
+                    Width.h
+                else if (sf == 0b0 and ptype == 0b00 and rmode == 0b00 and opcode == 0b110)
+                    Width.s
+                else if (sf == 0b1 and ptype == 0b01 and rmode == 0b00 and opcode == 0b110)
+                    Width.d
+                else if (sf == 0b1 and ptype == 0b10 and rmode == 0b01 and opcode == 0b110)
+                    Width.v
+                else
+                    unreachable;
+                const payload = FMovInstr{
+                    .rd = Register.from(op, mov_rd_width, false),
+                    .payload = .{ .rs = Register.from(op >> 5, mov_rs_width, false) },
+                };
+                break :blk Instruction{ .fmov = payload };
+            } else blk: {
+                const rd_width = if (sf == 0b1) Width.x else Width.w;
+                const rn_width = switch (ptype) {
+                    0b00 => Width.s,
+                    0b01 => Width.d,
+                    0b11 => Width.h,
+                    else => unreachable,
+                };
+                const to_fixed_payload = CvtInstr{
+                    .rd = Register.from(op, rd_width, false),
+                    .rn = Register.from(op >> 5, rn_width, false),
+                    .fbits = null,
+                };
+                const to_float_payload = CvtInstr{
+                    .rd = Register.from(op, rn_width, false),
+                    .rn = Register.from(op >> 5, rd_width, false),
+                    .fbits = null,
+                };
+                _ = to_float_payload;
+                break :blk if (rmode == 0b00 and opcode == 0b101)
+                    Instruction{ .fcvtau = to_fixed_payload }
+                else if (rmode == 0b00 and opcode == 0b100)
+                    Instruction{ .fcvtas = to_fixed_payload }
+                else if (rmode == 0b11 and opcode == 0b001)
+                    Instruction{ .fcvtzu = to_fixed_payload }
+                else if (rmode == 0b11 and opcode == 0b000)
+                    Instruction{ .fcvtzs = to_fixed_payload }
+                else if (rmode == 0b10 and opcode == 0b001)
+                    Instruction{ .fcvtmu = to_fixed_payload }
+                else if (rmode == 0b10 and opcode == 0b000)
+                    Instruction{ .fcvtms = to_fixed_payload }
+                else if (rmode == 0b01 and opcode == 0b001)
+                    Instruction{ .fcvtpu = to_fixed_payload }
+                else if (rmode == 0b01 and opcode == 0b000)
+                    Instruction{ .fcvtps = to_fixed_payload }
+                else if (rmode == 0b00 and opcode == 0b001)
+                    Instruction{ .fcvtnu = to_fixed_payload }
+                else if (rmode == 0b00 and opcode == 0b000)
+                    Instruction{ .fcvtns = to_fixed_payload }
+                else if (sf == 0b0 and ptype == 0b01 and rmode == 0b11 and opcode == 0b110)
+                    @as(Instruction, Instruction.fjcvtzs)
+                else if (rmode == 0b00 and opcode == 0b011)
+                    Instruction{ .ucvtf = to_float_payload }
+                else if (rmode == 0b00 and opcode == 0b010)
+                    Instruction{ .scvtf = to_float_payload }
+                else
+                    error.Unallocated;
+            };
         } else if (@truncate(u1, op0 >> 2) == 0b0 and
             @truncate(u1, op0) == 0b1 and
             op1 <= 0b01 and
@@ -1793,37 +1843,62 @@ pub const Disassembler = struct {
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
             const opcode = @truncate(u6, op >> 15);
+            const ftype_width = switch (ptype) {
+                0b00 => Width.s,
+                0b01 => Width.d,
+                0b11 => Width.h,
+                else => unreachable,
+            };
+            const opc_width = switch (@truncate(u2, opcode)) {
+                0b00 => Width.s,
+                0b01 => Width.d,
+                0b11 => Width.h,
+                else => null,
+            };
+            const single_data_payload = DataProcInstr{
+                .rn = Register.from(op >> 5, ftype_width, false),
+                .rd = Register.from(op, ftype_width, false),
+            };
             return if (m == 0b1 or s == 0b1 or ptype == 0b10 or opcode >= 0b100000)
                 error.Unallocated
-            else if (opcode == 0b000000)
-                @as(Instruction, Instruction.fmov)
-            else if (opcode == 0b000001)
-                @as(Instruction, Instruction.fabs)
+            else if (opcode == 0b000000) blk: {
+                const payload = FMovInstr{
+                    .rd = Register.from(op, ftype_width, false),
+                    .payload = .{ .rs = Register.from(op >> 5, ftype_width, false) },
+                };
+                break :blk Instruction{ .fmov = payload };
+            } else if (opcode == 0b000001)
+                Instruction{ .fabs = single_data_payload }
             else if (opcode == 0b000010)
-                @as(Instruction, Instruction.fneg)
+                Instruction{ .fneg = single_data_payload }
             else if (opcode == 0b000011)
-                @as(Instruction, Instruction.fsqrt)
+                Instruction{ .fsqrt = single_data_payload }
             else if ((ptype == 0b00 and opcode == 0b000101) or
                 (ptype == 0b00 and opcode == 0b000111) or
                 (ptype == 0b01 and opcode == 0b000100) or
                 (ptype == 0b01 and opcode == 0b000111) or
                 (ptype == 0b11 and opcode == 0b000100) or
                 (ptype == 0b11 and opcode == 0b000101))
-                @as(Instruction, Instruction.fcvt)
-            else if (opcode == 0b001000)
-                @as(Instruction, Instruction.frintn)
+            blk: {
+                const payload = DataProcInstr{
+                    .rn = Register.from(op >> 5, ftype_width, false),
+                    .rd = Register.from(op, opc_width.?, false),
+                };
+                break :blk Instruction{ .fcvt = payload };
+            } else if (opcode == 0b001000)
+                Instruction{ .frintn = single_data_payload }
             else if (opcode == 0b001001)
-                @as(Instruction, Instruction.frintp)
+                Instruction{ .frintp = single_data_payload }
             else if (opcode == 0b001010)
-                @as(Instruction, Instruction.frintm)
+                Instruction{ .frintm = single_data_payload }
             else if (opcode == 0b001011)
-                @as(Instruction, Instruction.frintz)
+                Instruction{ .frintz = single_data_payload }
             else if (opcode == 0b001100)
-                @as(Instruction, Instruction.frinta)
+                Instruction{ .frinta = single_data_payload }
             else if (opcode == 0b001110)
-                @as(Instruction, Instruction.frintx)
+                Instruction{ .frintx = single_data_payload }
             else if (opcode == 0b001111)
-                @as(Instruction, Instruction.frinti)
+                Instruction{ .frinti = single_data_payload }
             else if (ptype <= 0b01 and opcode == 0b010000)
                 @as(Instruction, Instruction.frint32z)
             else if (ptype <= 0b01 and opcode == 0b010001)
@@ -1882,10 +1957,72 @@ pub const Disassembler = struct {
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
             const imm5 = @truncate(u5, op >> 5);
-            return if (m == 0b1 or s == 0b1 or ptype == 0b10 or imm5 != 0b00000)
-                error.Unallocated
-            else if (ptype != 0b10)
-                @as(Instruction, Instruction.fmov)
+            const imm8 = @truncate(u8, op >> 13);
+            const a = @truncate(u1, imm8 >> 7);
+            const b = @truncate(u1, imm8 >> 6);
+            const c = @truncate(u1, imm8 >> 5);
+            const d = @truncate(u1, imm8 >> 4);
+            const e = @truncate(u1, imm8 >> 3);
+            const f = @truncate(u1, imm8 >> 2);
+            const g = @truncate(u1, imm8 >> 1);
+            const h = @truncate(u1, imm8);
+            const rd_width = switch (ptype) {
+                0b00 => Width.s,
+                0b01 => Width.d,
+                0b11 => Width.h,
+                else => unreachable,
+            };
+            const fp_const = switch (rd_width) {
+                .h => @floatCast(f64, @bitCast(f16, 0 |
+                    @as(u16, a) << 15 |
+                    @as(u16, ~b) << 14 |
+                    @as(u16, b) << 13 |
+                    @as(u16, b) << 12 |
+                    @as(u16, c) << 11 |
+                    @as(u16, d) << 10 |
+                    @as(u16, e) << 9 |
+                    @as(u16, f) << 8 |
+                    @as(u16, g) << 7 |
+                    @as(u16, h) << 6)),
+                .s => @floatCast(f64, @bitCast(f32, 0 |
+                    @as(u32, a) << 31 |
+                    @as(u32, ~b) << 30 |
+                    @as(u32, b) << 29 |
+                    @as(u32, b) << 28 |
+                    @as(u32, b) << 27 |
+                    @as(u32, b) << 26 |
+                    @as(u32, b) << 25 |
+                    @as(u32, c) << 24 |
+                    @as(u32, d) << 23 |
+                    @as(u32, e) << 22 |
+                    @as(u32, f) << 21 |
+                    @as(u32, g) << 20 |
+                    @as(u32, h) << 19)),
+                .d => @bitCast(f64, 0 |
+                    @as(u64, a) << 63 |
+                    @as(u64, ~b) << 62 |
+                    @as(u64, b) << 61 |
+                    @as(u64, b) << 60 |
+                    @as(u64, b) << 59 |
+                    @as(u64, b) << 58 |
+                    @as(u64, b) << 57 |
+                    @as(u64, b) << 56 |
+                    @as(u64, b) << 55 |
+                    @as(u64, b) << 54 |
+                    @as(u64, c) << 53 |
+                    @as(u64, d) << 52 |
+                    @as(u64, e) << 51 |
+                    @as(u64, f) << 50 |
+                    @as(u64, g) << 49 |
+                    @as(u64, h) << 48),
+                else => unreachable,
+            };
+            const payload = FMovInstr{
+                .rd = Register.from(op, rd_width, false),
+                .payload = .{ .fp_const = fp_const },
+            };
+            return if (m != 0b1 and s != 0b1 and imm5 == 0b00000)
+                Instruction{ .fmov = payload }
             else
                 error.Unallocated;
         } else if (@truncate(u1, op0 >> 2) == 0b0 and
@@ -1927,26 +2064,37 @@ pub const Disassembler = struct {
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
             const opcode = @truncate(u4, op >> 12);
+            const width = switch (ptype) {
+                0b00 => Width.s,
+                0b01 => Width.d,
+                0b11 => Width.h,
+                else => unreachable,
+            };
+            const payload = DataProcInstr{
+                .rn = Register.from(op >> 5, width, false),
+                .rd = Register.from(op, width, false),
+                .rm = Register.from(op >> 16, width, false),
+            };
             return if (m == 0b1 or s == 0b1 or ptype == 0b10)
                 error.Unallocated
             else if (opcode == 0b0000)
-                @as(Instruction, Instruction.fmul)
+                Instruction{ .fmul = payload }
             else if (opcode == 0b0001)
-                @as(Instruction, Instruction.fdiv)
+                Instruction{ .fdiv = payload }
             else if (opcode == 0b0010)
-                @as(Instruction, Instruction.fadd)
+                Instruction{ .fadd = payload }
             else if (opcode == 0b0011)
-                @as(Instruction, Instruction.fsub)
+                Instruction{ .fsub = payload }
             else if (opcode == 0b0100)
-                @as(Instruction, Instruction.fmax)
+                Instruction{ .fmax = payload }
             else if (opcode == 0b0101)
-                @as(Instruction, Instruction.fmin)
+                Instruction{ .fmin = payload }
             else if (opcode == 0b0110)
-                @as(Instruction, Instruction.fmaxnm)
+                Instruction{ .fmaxnm = payload }
             else if (opcode == 0b0111)
-                @as(Instruction, Instruction.fminnm)
+                Instruction{ .fminnm = payload }
             else if (opcode == 0b1000)
-                @as(Instruction, Instruction.fnmul)
+                Instruction{ .fnmul = payload }
             else
                 error.Unallocated;
         } else if (@truncate(u1, op0 >> 2) == 0b0 and
@@ -1982,16 +2130,28 @@ pub const Disassembler = struct {
             const ptype = @truncate(u2, op >> 22);
             const o1 = @truncate(u1, op >> 21);
             const o0 = @truncate(u1, op >> 15);
+            const width = switch (ptype) {
+                0b00 => Width.s,
+                0b01 => Width.d,
+                0b11 => Width.h,
+                else => unreachable,
+            };
+            const payload = DataProcInstr{
+                .rn = Register.from(op >> 5, width, false),
+                .rd = Register.from(op, width, false),
+                .rm = Register.from(op >> 16, width, false),
+                .ra = Register.from(op >> 10, width, false),
+            };
             return if (m == 0b1 or s == 0b1 or ptype == 0b10)
                 error.Unallocated
             else if (o1 == 0b0 and o0 == 0b0)
-                @as(Instruction, Instruction.fmadd)
+                Instruction{ .fmadd = payload }
             else if (o1 == 0b0 and o0 == 0b1)
-                @as(Instruction, Instruction.fmsub)
+                Instruction{ .fmsub = payload }
             else if (o1 == 0b1 and o0 == 0b0)
-                @as(Instruction, Instruction.fnmadd)
+                Instruction{ .fnmadd = payload }
             else if (o1 == 0b1 and o0 == 0b1)
-                @as(Instruction, Instruction.fnmsub)
+                Instruction{ .fnmsub = payload }
             else
                 error.Unallocated;
         } else return error.Unallocated;

@@ -203,33 +203,33 @@ pub const Instruction = union(enum) {
     // XAR
     // Crypto two register SHA512
     // Conversion between floating point and fixed point
-    fcvtzu,
-    fcvtzs,
-    ucvtf,
-    scvtf,
+    fcvtzu: CvtInstr,
+    fcvtzs: CvtInstr,
+    ucvtf: CvtInstr,
+    scvtf: CvtInstr,
     // Conversion between floating point and integer
-    fcvtau,
-    fcvtas,
-    fcvtmu,
-    fcvtms,
-    fcvtpu,
-    fcvtps,
-    fcvtnu,
-    fcvtns,
+    fcvtau: CvtInstr,
+    fcvtas: CvtInstr,
+    fcvtmu: CvtInstr,
+    fcvtms: CvtInstr,
+    fcvtpu: CvtInstr,
+    fcvtps: CvtInstr,
+    fcvtnu: CvtInstr,
+    fcvtns: CvtInstr,
     fjcvtzs,
     // Floating point data processing (1 source)
-    fmov,
-    fabs,
-    fneg,
-    fsqrt,
-    fcvt,
-    frintn,
-    frintp,
-    frintm,
-    frintz,
-    frinta,
-    frintx,
-    frinti,
+    fmov: FMovInstr,
+    fabs: DataProcInstr,
+    fneg: DataProcInstr,
+    fsqrt: DataProcInstr,
+    fcvt: DataProcInstr,
+    frintn: DataProcInstr,
+    frintp: DataProcInstr,
+    frintm: DataProcInstr,
+    frintz: DataProcInstr,
+    frinta: DataProcInstr,
+    frintx: DataProcInstr,
+    frinti: DataProcInstr,
     frint32z,
     frint32x,
     frint64z,
@@ -241,22 +241,22 @@ pub const Instruction = union(enum) {
     // Floating point conditional compare
     fccmp: FPCondCompInstr,
     // Floating point data processing (2 source)
-    fadd,
-    fdiv,
-    fmax,
-    fmaxnm,
-    fmin,
-    fminnm,
-    fmul,
-    fnmul,
-    fsub,
+    fadd: DataProcInstr,
+    fdiv: DataProcInstr,
+    fmax: DataProcInstr,
+    fmaxnm: DataProcInstr,
+    fmin: DataProcInstr,
+    fminnm: DataProcInstr,
+    fmul: DataProcInstr,
+    fnmul: DataProcInstr,
+    fsub: DataProcInstr,
     // Floating point conditional select
     fcsel: FPCondSelInstr,
     // Floating point data processing (3 source)
-    fmadd,
-    fmsub,
-    fnmadd,
-    fnmsub,
+    fmadd: DataProcInstr,
+    fmsub: DataProcInstr,
+    fnmadd: DataProcInstr,
+    fnmsub: DataProcInstr,
 
     // Loads and Stores
     // Compare and swap pair
@@ -332,6 +332,15 @@ pub const Instruction = union(enum) {
             .gmi,
             .pacga,
             .subps,
+            .fadd,
+            .fdiv,
+            .fmax,
+            .fmaxnm,
+            .fmin,
+            .fminnm,
+            .fmul,
+            .fnmul,
+            .fsub,
             => |instr| {
                 const name = if (self.* == .asrv)
                     "asr"
@@ -356,6 +365,17 @@ pub const Instruction = union(enum) {
             .rev,
             .rev16,
             .rev32,
+            .fabs,
+            .fneg,
+            .fsqrt,
+            .fcvt,
+            .frintn,
+            .frintp,
+            .frintm,
+            .frintz,
+            .frinta,
+            .frintx,
+            .frinti,
             => |instr| try std.fmt.format(writer, "{s} {}, {}", .{
                 @tagName(self.*),
                 instr.rd,
@@ -369,6 +389,10 @@ pub const Instruction = union(enum) {
             .umsubl,
             .smulh,
             .umulh,
+            .fmadd,
+            .fmsub,
+            .fnmadd,
+            .fnmsub,
             => |instr| {
                 if (self.* == .smulh or self.* == .umulh)
                     try std.fmt.format(writer, "{s} {}, {}, {}", .{ @tagName(self.*), instr.rd, instr.rn, instr.rm.? })
@@ -490,14 +514,18 @@ pub const Instruction = union(enum) {
                     try std.fmt.format(writer, "{s}{s}{s}", .{ ty, target, policy })
                 else
                     try std.fmt.format(writer, "#{}", .{rt});
-                try std.fmt.format(writer, ", [{}", .{prfm.rn});
-                switch (prfm.payload) {
-                    .imm12 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .imm19 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .simm9 => |simm| if (simm > 0) try std.fmt.format(writer, ", #{}", .{@bitCast(i9, simm)}),
-                    else => {},
+                if (prfm.payload == .imm19)
+                    try std.fmt.format(writer, ", #{}", .{@bitCast(i21, @as(u21, prfm.payload.imm19) << 2)})
+                else {
+                    try std.fmt.format(writer, ", [{}", .{prfm.rn});
+                    switch (prfm.payload) {
+                        .imm12 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                        .imm19 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                        .simm9 => |simm| if (simm > 0) try std.fmt.format(writer, ", #{}", .{@bitCast(i9, simm)}),
+                        else => {},
+                    }
+                    try std.fmt.format(writer, "]", .{});
                 }
-                try std.fmt.format(writer, "]", .{});
             },
             .clrex, .isb => |instr| {
                 try std.fmt.format(writer, "{s}", .{@tagName(self.*)});
@@ -579,6 +607,36 @@ pub const Instruction = union(enum) {
                 try std.fmt.format(writer, "{s}{s} {}, {}, #{}, {s}", .{ @tagName(self.*), e, fccmp.rn, fccmp.rm, fccmp.nzcv, @tagName(fccmp.cond) });
             },
             .fcsel => |fcsel| try std.fmt.format(writer, "{s} {}, {}, {}, {s}", .{ @tagName(self.*), fcsel.rd, fcsel.rn, fcsel.rm, @tagName(fcsel.cond) }),
+            .fmov => |fmov| {
+                try std.fmt.format(writer, "{s} {}", .{ @tagName(self.*), fmov.rd });
+                if (fmov.rd.width == .v)
+                    try std.fmt.format(writer, ".d[1]", .{});
+                switch (fmov.payload) {
+                    .rs => |rs| {
+                        try std.fmt.format(writer, ", {}", .{rs});
+                        if (rs.width == .v)
+                            try std.fmt.format(writer, ".d[1]", .{});
+                    },
+                    .fp_const => |fp| try std.fmt.format(writer, ", #{d:.8}", .{fp}),
+                }
+            },
+            .fcvtzu,
+            .fcvtzs,
+            .ucvtf,
+            .scvtf,
+            .fcvtau,
+            .fcvtas,
+            .fcvtmu,
+            .fcvtms,
+            .fcvtpu,
+            .fcvtps,
+            .fcvtnu,
+            .fcvtns,
+            => |instr| {
+                try std.fmt.format(writer, "{s} {}, {}", .{ @tagName(self.*), instr.rd, instr.rn });
+                if (instr.fbits) |fbits|
+                    try std.fmt.format(writer, ", #{}", .{64 - @as(u7, fbits)});
+            },
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -725,6 +783,8 @@ pub const LogInstr = struct {
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         if (self.op == .@"and" and self.s and self.rd.toInt() == 0b11111) {
             try std.fmt.format(writer, "tst {}, ", .{self.rn});
+        } else if (self.op == .orr and !self.s and self.rn.toInt() == 0b11111 and self.payload == .shift_reg and self.payload.shift_reg.shift == 0b00) {
+            try std.fmt.format(writer, "mov {}, ", .{self.rd});
         } else {
             const s = if (self.s) "s" else "";
             try std.fmt.format(writer, "{s}{s} {}, {}, ", .{
@@ -738,12 +798,15 @@ pub const LogInstr = struct {
             .imm => |imm| try std.fmt.format(writer, "#0x{x}", .{self.decodeBitMasks(imm.imms, imm.immr)}),
             .shift_reg => |shift| {
                 try std.fmt.format(writer, "{s}", .{shift.rm});
-                if (shift.imm6 != 0) switch (shift.shift) {
-                    0b00 => try std.fmt.format(writer, ", lsl #{}", .{shift.imm6}),
-                    0b01 => try std.fmt.format(writer, ", lsr #{}", .{shift.imm6}),
-                    0b10 => try std.fmt.format(writer, ", asr #{}", .{shift.imm6}),
-                    0b11 => try std.fmt.format(writer, ", ror #{}", .{shift.imm6}),
-                };
+                if (shift.imm6 != 0 or shift.shift != 0b00) {
+                    switch (shift.shift) {
+                        0b00 => try std.fmt.format(writer, ", lsl", .{}),
+                        0b01 => try std.fmt.format(writer, ", lsr", .{}),
+                        0b10 => try std.fmt.format(writer, ", asr", .{}),
+                        0b11 => try std.fmt.format(writer, ", ror", .{}),
+                    }
+                    if (shift.imm6 != 0) try std.fmt.format(writer, " #{}", .{shift.imm6});
+                }
             },
         }
     }
@@ -822,10 +885,11 @@ pub const PCRelAddrInstr = struct {
 };
 
 pub const MovInstr = struct {
-    ext: enum(u2) {
+    ext: enum(u3) {
         n = 0b00,
         z = 0b10,
         k = 0b11,
+        @"",
     },
     width: Width,
     hw: u2,
@@ -977,6 +1041,7 @@ pub const ShaInstr = struct {
 };
 
 pub const LoadStoreInstr = struct {
+    ld_st_prfm: enum { ld, st, prfm },
     rn: Register,
     rt: Register,
     rt2: ?Register = null,
@@ -1029,39 +1094,44 @@ pub const LoadStoreInstr = struct {
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         switch (self.op) {
-            .xp, .xr => {
-                if (self.payload == .rs) try std.fmt.format(writer, " {},", .{self.payload.rs});
+            .xr, .xp => {
+                if (self.payload == .rs and self.ld_st_prfm != .ld) try std.fmt.format(writer, " {},", .{self.payload.rs});
                 try std.fmt.format(writer, " {}, ", .{self.rt});
                 if (self.rt2) |rt2| try std.fmt.format(writer, "{}, ", .{rt2});
                 try std.fmt.format(writer, "[{}]", .{self.rn});
             },
             .r, .p, .np => {
                 try std.fmt.format(writer, " {},", .{self.rt});
-                if (self.rt2) |rt2| try std.fmt.format(writer, " {},", .{rt2});
-                try std.fmt.format(writer, " [{}", .{self.rn});
-                if (self.index != null and self.index.? == .post)
-                    try std.fmt.format(writer, "]", .{});
-                switch (self.payload) {
-                    .rs => |reg| try std.fmt.format(writer, ", {}", .{reg}),
-                    .imm7 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .simm7 => |imm| if (imm != 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .imm9 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .simm9 => |simm| if (simm > 0) try std.fmt.format(writer, ", #{}", .{@bitCast(i9, simm)}),
-                    .imm12 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .imm19 => |imm| if (imm > 0) try std.fmt.format(writer, ", #{}", .{imm}),
-                    .shifted_reg => |sr| {
-                        try std.fmt.format(writer, ", {}", .{sr.rm});
-                        if (sr.shift or sr.shift_type != .lsl)
-                            try std.fmt.format(writer, ", {s}", .{@tagName(sr.shift_type)});
-                        if (sr.shift) {
-                            try std.fmt.format(writer, " #{}", .{sr.amount});
-                        }
-                    },
+                if (self.payload == .imm19) {
+                    try std.fmt.format(writer, " #{}", .{@bitCast(i21, @as(u21, self.payload.imm19) << 2)});
+                } else {
+                    if (self.rt2 != null and !(self.ext == .l or self.ext == .a)) try std.fmt.format(writer, " {},", .{self.rt2.?});
+                    try std.fmt.format(writer, " [{}", .{self.rn});
+                    if (self.index != null and self.index.? == .post)
+                        try std.fmt.format(writer, "]", .{});
+                    if (self.ext != .l and self.ext != .a)
+                        switch (self.payload) {
+                            .rs => |reg| try std.fmt.format(writer, ", {}", .{reg}),
+                            .imm7 => |imm| if (imm != 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                            .simm7 => |imm| if (imm != 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                            .imm9 => |imm| if (imm != 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                            .simm9 => |simm| if (simm != 0) try std.fmt.format(writer, ", #{}", .{@bitCast(i9, simm)}),
+                            .imm12 => |imm| if (imm != 0) try std.fmt.format(writer, ", #{}", .{imm}),
+                            .shifted_reg => |sr| {
+                                try std.fmt.format(writer, ", {}", .{sr.rm});
+                                if (sr.shift or sr.shift_type != .lsl)
+                                    try std.fmt.format(writer, ", {s}", .{@tagName(sr.shift_type)});
+                                if (sr.shift) {
+                                    try std.fmt.format(writer, " #{}", .{sr.amount});
+                                }
+                            },
+                            else => unreachable,
+                        };
+                    if (self.index != null and self.index.? == .pre)
+                        try std.fmt.format(writer, "]!", .{})
+                    else if (self.index == null)
+                        try std.fmt.format(writer, "]", .{});
                 }
-                if (self.index != null and self.index.? == .pre)
-                    try std.fmt.format(writer, "]!", .{})
-                else if (self.index == null)
-                    try std.fmt.format(writer, "]", .{});
             },
         }
     }
@@ -1878,4 +1948,18 @@ pub const FPCondSelInstr = struct {
 
 pub const SysWithResInstr = struct {
     rt: Register,
+};
+
+pub const FMovInstr = struct {
+    rd: Register,
+    payload: union(enum) {
+        rs: Register,
+        fp_const: f64,
+    },
+};
+
+pub const CvtInstr = struct {
+    rd: Register,
+    rn: Register,
+    fbits: ?u6,
 };
