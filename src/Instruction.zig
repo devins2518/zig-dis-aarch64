@@ -490,7 +490,7 @@ pub const Instruction = union(enum) {
                 .su0, .su1 => try std.fmt.format(writer, "{s}{s} {}.4s, {}.4s", .{ @tagName(self.*), @tagName(sha.op), sha.rd, sha.rn }),
                 else => unreachable,
             },
-            .ld, .st => |ldst| try std.fmt.format(writer, "{s}{s}{s}{s}{}", .{ @tagName(self.*), @tagName(ldst.ext), @tagName(ldst.op), @tagName(ldst.size), ldst }),
+            .ld, .st => |ldst| try std.fmt.format(writer, "{s}{s}{s}{s}{}", .{ @tagName(self.*), if (ldst.ext == .none) "" else @tagName(ldst.ext), @tagName(ldst.op), if (ldst.size == .none) "" else @tagName(ldst.size), ldst }),
             .prfm => |prfm| {
                 const rt = prfm.rt.toInt();
                 const ty = switch (@truncate(u2, rt >> 3)) {
@@ -509,9 +509,9 @@ pub const Instruction = union(enum) {
                     0 => "keep",
                     1 => "strm",
                 };
-                try std.fmt.format(writer, "prf{s}m ", .{@tagName(prfm.ext)});
+                try std.fmt.format(writer, "prf{s}m ", .{if (prfm.ext == .none) "" else @tagName(prfm.ext)});
                 if (ty != null and target != null)
-                    try std.fmt.format(writer, "{s}{s}{s}", .{ ty, target, policy })
+                    try std.fmt.format(writer, "{?s}{?s}{s}", .{ ty, target, policy })
                 else
                     try std.fmt.format(writer, "#{}", .{rt});
                 if (prfm.payload == .imm19)
@@ -744,11 +744,9 @@ pub const AddSubInstr = struct {
                     const m = if (m_int == 0b11111)
                         "zr"
                     else
-                        std.fmt.bufPrintZ(&m_buf, "{}", .{m_int});
-                    try std.fmt.format(writer, "{s}{s}", .{
-                        r,
-                        m,
-                    });
+                        // TODO
+                        std.fmt.bufPrintZ(&m_buf, "{}", .{m_int}) catch unreachable;
+                    try std.fmt.format(writer, "{s}{s}", .{ r, m });
                 }
 
                 if (!(std.mem.eql(u8, "lsl", option) or std.mem.eql(u8, "", option)) and ext.imm3 == 0) {
@@ -826,7 +824,7 @@ pub const LogInstr = struct {
 
         if ((pattern & (pattern - 1)) == 0) @panic("decode failure");
 
-        const leading_zeroes = @clz(u32, pattern);
+        const leading_zeroes = @clz(pattern);
         const ones = (imms + 1) & (@as(u32, 0x7fffffff) >> @truncate(u5, leading_zeroes));
         const mask = lookup[leading_zeroes - 25];
         const ret = std.math.rotr(u64, mask ^ (mask << @truncate(u6, ones)), @as(u32, immr));
@@ -889,7 +887,7 @@ pub const MovInstr = struct {
         n = 0b00,
         z = 0b10,
         k = 0b11,
-        @"",
+        none,
     },
     width: Width,
     hw: u2,
@@ -897,7 +895,7 @@ pub const MovInstr = struct {
     rd: Register,
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        try std.fmt.format(writer, "mov{s} {}, #{}", .{ @tagName(self.ext), self.rd, self.imm16 });
+        try std.fmt.format(writer, "mov{s} {}, #{}", .{ if (self.ext != .none) @tagName(self.ext) else "", self.rd, self.imm16 });
         if (self.width == .w and self.hw != 0)
             try std.fmt.format(writer, ", lsl #16", .{})
         else if (self.width == .x and self.hw != 0)
@@ -1053,7 +1051,7 @@ pub const LoadStoreInstr = struct {
         u, // Unscaled
         t, // Unprivileged
         g, // Tagged
-        @"", // None
+        none, // None
     },
     op: enum {
         xp, // Exclusive pair
@@ -1068,7 +1066,7 @@ pub const LoadStoreInstr = struct {
         sb, // Signed byte
         sh, // Signed halfword
         sw, // Signed halfword
-        @"", // Word or double word
+        none, // Word or double word
     },
     payload: union(enum) {
         rs: Register,
@@ -1432,9 +1430,9 @@ pub const SysRegMoveInstr = struct {
 
     fn formatSysReg(self: *const @This(), writer: anytype) !void {
         // TODO
-        if (self.o0 == 0b0 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 010)
+        if (self.o0 == 0b0 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b010)
             try std.fmt.format(writer, "OSDTRRX_EL1", .{})
-        else if (self.o0 == 0b0 and self.op1 == 0b011 and self.crn == 0b0000 and self.crm == 0b0001 and self.op2 == 000)
+        else if (self.o0 == 0b0 and self.op1 == 0b011 and self.crn == 0b0000 and self.crm == 0b0001 and self.op2 == 0b000)
             try std.fmt.format(writer, "MDCCSR_EL0", .{})
         else if (self.o0 == 0b0 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0010 and self.op2 == 0b000)
             try std.fmt.format(writer, "MDCCINT_EL1", .{})

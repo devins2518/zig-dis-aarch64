@@ -176,16 +176,20 @@ pub const Disassembler = struct {
                 const opc = @truncate(u2, op >> 29);
                 const hw = @truncate(u2, op >> 21);
                 const imm16 = @truncate(u16, op >> 5);
-                const ext = if (!(imm16 == 0 and hw != 0))
-                    .@""
+                const ext: Field(MovInstr, .ext) = if (opc == 0b00)
+                    .n
+                else if (opc == 0b10)
+                    .z
+                else if (opc == 0b11)
+                    .k
                 else
-                    @intToEnum(Field(MovInstr, .ext), opc);
-                break :blk if (opc == 0b01 or (width == .w and (hw == 0b10 or hw == 0b11)))
+                    break :blk error.Unallocated;
+                break :blk if (width == .w and (hw == 0b10 or hw == 0b11))
                     error.Unallocated
                 else .{ .mov = .{
                     .ext = ext,
                     .width = width,
-                    .hw = @truncate(u2, op >> 21),
+                    .hw = hw,
                     .imm16 = imm16,
                     .rd = Register.from(op, width, false),
                 } };
@@ -521,7 +525,7 @@ pub const Disassembler = struct {
             else if (!load and o0)
                 ExtTy.l
             else
-                ExtTy.@"";
+                ExtTy.none;
             const rs = Register.from(op >> 16, .w, false);
             const rs_or_zero = if (rs.toInt() == 0b11111 and load)
                 LdStPayloadTy{ .imm7 = 0 }
@@ -534,7 +538,7 @@ pub const Disassembler = struct {
                 .rt2 = Register.from(op >> 10, width, false),
                 .ext = ext,
                 .op = OpTy.xp,
-                .size = .@"",
+                .size = .none,
                 .payload = rs_or_zero,
             };
             if (load)
@@ -547,9 +551,9 @@ pub const Disassembler = struct {
             const o0 = @truncate(u1, op >> 15) == 1;
             const width = if (reg_size == 0b11) Width.x else Width.w;
             const ext = if (load)
-                if (o0) ExtTy.a else ExtTy.@""
-            else if (o0) ExtTy.l else ExtTy.@"";
-            const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.@"";
+                if (o0) ExtTy.a else ExtTy.none
+            else if (o0) ExtTy.l else ExtTy.none;
+            const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.none;
             const rs = Register.from(op >> 16, .w, false);
             const rs_or_zero = if (rs.toInt() == 0b11111)
                 LdStPayloadTy{ .imm7 = 0 }
@@ -577,7 +581,7 @@ pub const Disassembler = struct {
             const ext = if (load)
                 if (o0) ExtTy.a else ExtTy.la
             else if (o0) ExtTy.l else ExtTy.ll;
-            const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.@"";
+            const size = if (reg_size == 0b00) SizeTy.b else if (reg_size == 0b01) SizeTy.h else SizeTy.none;
             const rt2 = Register.from(op >> 10, width, false);
             const rt2_or_null = if (rt2.toInt() == 0b11111) null else rt2;
             const rs = Register.from(op >> 16, width, false);
@@ -614,13 +618,13 @@ pub const Disassembler = struct {
                 0b101 => Width.q,
                 else => return error.Unallocated,
             };
-            const size_ext = if (opc == 0b10 and v == 0) SizeTy.sw else SizeTy.@"";
+            const size_ext = if (opc == 0b10 and v == 0) SizeTy.sw else SizeTy.none;
             var imm19 = @truncate(u19, op >> 5);
             const payload = LoadStoreInstr{
                 .ld_st_prfm = if (opc == 0b11 and v == 0) .prfm else .ld,
                 .rn = undefined,
                 .rt = Register.from(op, width, false),
-                .ext = .@"",
+                .ext = .none,
                 .op = .r,
                 .size = size_ext,
                 .payload = .{ .imm19 = imm19 },
@@ -659,9 +663,9 @@ pub const Disassembler = struct {
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
                 .rt2 = Register.from(op >> 10, width, false),
-                .ext = .@"",
+                .ext = .none,
                 .op = .np,
-                .size = .@"",
+                .size = .none,
                 .payload = .{ .simm7 = simm7 },
             };
             return if (load)
@@ -675,7 +679,7 @@ pub const Disassembler = struct {
             const ext = if (opc == 0b01 and v == 0 and !load)
                 ExtTy.g
             else
-                ExtTy.@"";
+                ExtTy.none;
             const index = if (op2 == 0b01)
                 IndexTy.post
             else if (op2 == 0b11)
@@ -685,7 +689,7 @@ pub const Disassembler = struct {
             const size = if (opc == 0b01 and v == 0 and load)
                 SizeTy.sw
             else
-                SizeTy.@"";
+                SizeTy.none;
             const width = if (opc == 0b00 and v == 0)
                 Width.w
             else if ((opc == 0b01 and v == 0) or
@@ -744,7 +748,7 @@ pub const Disassembler = struct {
             else if (op4 == 0b10)
                 ExtTy.t
             else
-                ExtTy.@"";
+                ExtTy.none;
             const index = if (op4 == 0b01)
                 IndexTy.post
             else if (op4 == 0b11)
@@ -785,7 +789,7 @@ pub const Disassembler = struct {
             else if (size == 0b10 and v == 0 and opc == 0b10)
                 SizeTy.sw
             else
-                SizeTy.@"";
+                SizeTy.none;
             const ld_st_prfm = if (size == 0b11 and v == 0 and opc == 0b10)
                 LdStPrfm.prfm
             else if (load)
@@ -858,7 +862,7 @@ pub const Disassembler = struct {
             else if (size == 0b10 and v == 0 and opc == 0b10)
                 SizeTy.sw
             else
-                SizeTy.@"";
+                SizeTy.none;
             const rm_width = if (@truncate(u1, option) == 0)
                 Width.w
             else
@@ -920,7 +924,7 @@ pub const Disassembler = struct {
                 .ld_st_prfm = ld_st_prfm,
                 .rn = rn,
                 .rt = rt,
-                .ext = .@"",
+                .ext = .none,
                 .op = .r,
                 .size = size_ext,
                 .payload = shift,
@@ -954,7 +958,7 @@ pub const Disassembler = struct {
             else if (size == 0b10 and v == 0 and opc == 0b10)
                 SizeExt.sw
             else
-                SizeExt.@"";
+                SizeExt.none;
             const width = if ((size == 0b11 and v == 0) or
                 (size == 0b00 and v == 0 and opc == 0b10) or
                 (size == 0b01 and v == 0 and opc == 0b10) or
@@ -1008,7 +1012,7 @@ pub const Disassembler = struct {
                 .ld_st_prfm = ld_st_prfm,
                 .rn = Register.from(op >> 5, .x, true),
                 .rt = Register.from(op, width, false),
-                .ext = .@"",
+                .ext = .none,
                 .op = .r,
                 .size = size_ext,
                 .payload = .{ .imm12 = imm12 },
@@ -1803,7 +1807,6 @@ pub const Disassembler = struct {
                     .rn = Register.from(op >> 5, rd_width, false),
                     .fbits = null,
                 };
-                _ = to_float_payload;
                 break :blk if (rmode == 0b00 and opcode == 0b101)
                     Instruction{ .fcvtau = to_fixed_payload }
                 else if (rmode == 0b00 and opcode == 0b100)

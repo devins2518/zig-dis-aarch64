@@ -3618,6 +3618,7 @@ test "armv9a rme" {
 }
 
 test "basic a64 instructions" {
+    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         // Add/sub (immediate)
         0xa4, 0x00, 0x00, 0x11,
