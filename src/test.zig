@@ -3618,7 +3618,6 @@ test "armv9a rme" {
 }
 
 test "basic a64 instructions" {
-    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         // Add/sub (immediate)
         0xa4, 0x00, 0x00, 0x11,
@@ -6866,12 +6865,12 @@ test "basic a64 instructions" {
         \\mov x3, xzr
         \\mov wzr, w2
         \\mov w3, w5
-        \\mov w1, #65535
+        \\movz w1, #65535
         \\movz w2, #0, lsl #16
-        \\mov w2, #-1235
-        \\mov x2, #5299989643264
+        \\movn w2, #1234
+        \\movz x2, #1234, lsl #32
         \\movk xzr, #4321, lsl #48
-        \\mov x2, #0
+        \\movz x2, #0
         \\movk w3, #0
         \\movz x4, #0, lsl #16
         \\movk w5, #0, lsl #16

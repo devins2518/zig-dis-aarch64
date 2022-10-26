@@ -177,9 +177,15 @@ pub const Disassembler = struct {
                 const hw = @truncate(u2, op >> 21);
                 const imm16 = @truncate(u16, op >> 5);
                 const ext: Field(MovInstr, .ext) = if (opc == 0b00)
-                    .n
+                    if (imm16 == 0x0000 and @truncate(u1, hw >> 1) != 0b0)
+                        .none
+                    else
+                        .n
                 else if (opc == 0b10)
-                    .z
+                    if (imm16 == 0x0000 and !(width == .x or @truncate(u1, hw >> 1) == 0b0))
+                        .none
+                    else
+                        .z
                 else if (opc == 0b11)
                     .k
                 else

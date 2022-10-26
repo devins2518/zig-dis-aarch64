@@ -873,8 +873,7 @@ pub const PCRelAddrInstr = struct {
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var imm = @as(u64, self.immhi) << 2 | self.immlo;
-        if (imm & (@as(u64, 1) << (21 - 1)) != 0)
-            imm |= ~((@as(u64, 1) << 32) - 1);
+        if (self.p) imm <<= 12;
         try std.fmt.format(writer, "{}, #{}", .{
             self.rd,
             imm,
