@@ -109,7 +109,7 @@ pub const Instruction = union(enum) {
     wfet: SysWithRegInstr,
     wfit: SysWithRegInstr,
     // Hints
-    hint,
+    hint: HintInstr,
     nop,
     yield,
     wfe,
@@ -637,6 +637,7 @@ pub const Instruction = union(enum) {
                 if (instr.fbits) |fbits|
                     try std.fmt.format(writer, ", #{}", .{64 - @as(u7, fbits)});
             },
+            .hint => |instr| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), instr.imm }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -1426,11 +1427,16 @@ pub const SysRegMoveInstr = struct {
     op1: u3,
     o0: u1,
     o20: u1,
+    op: enum { read, write },
 
     fn formatSysReg(self: *const @This(), writer: anytype) !void {
         // TODO
         if (self.o0 == 0b0 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b010)
             try std.fmt.format(writer, "OSDTRRX_EL1", .{})
+        else if (self.o0 == 0b0 and self.op1 == 0b010 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b000)
+            try std.fmt.format(writer, "TEECR32_EL1", .{})
+        else if (self.o0 == 0b0 and self.op1 == 0b010 and self.crn == 0b0001 and self.crm == 0b0000 and self.op2 == 0b000)
+            try std.fmt.format(writer, "TEEHBR32_EL1", .{})
         else if (self.o0 == 0b0 and self.op1 == 0b011 and self.crn == 0b0000 and self.crm == 0b0001 and self.op2 == 0b000)
             try std.fmt.format(writer, "MDCCSR_EL0", .{})
         else if (self.o0 == 0b0 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0010 and self.op2 == 0b000)
@@ -1442,9 +1448,10 @@ pub const SysRegMoveInstr = struct {
         else if (self.o0 == 0b0 and self.op1 == 0b011 and self.crn == 0b0000 and self.crm == 0b0100 and self.op2 == 0b000)
             try std.fmt.format(writer, "DBGDTR_EL0", .{})
         else if (self.o0 == 0b0 and self.op1 == 0b011 and self.crn == 0b0000 and self.crm == 0b0101 and self.op2 == 0b000)
-            try std.fmt.format(writer, "DBGDTRRX_EL0", .{})
-        else if (self.o0 == 0b0 and self.op1 == 0b011 and self.crn == 0b0000 and self.crm == 0b0101 and self.op2 == 0b000)
-            try std.fmt.format(writer, "DBGDTRTX_EL0", .{})
+            if (self.op == .read)
+                try std.fmt.format(writer, "DBGDTRTX_EL0", .{})
+            else
+                try std.fmt.format(writer, "DBGDTRRX_EL0", .{})
         else if (self.o0 == 0b0 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0110 and self.op2 == 0b010)
             try std.fmt.format(writer, "OSECCR_EL1", .{})
         else if (self.o0 == 0b0 and self.op1 == 0b100 and self.crn == 0b0000 and self.crm == 0b0111 and self.op2 == 0b000)
@@ -1477,6 +1484,8 @@ pub const SysRegMoveInstr = struct {
             try std.fmt.format(writer, "MIDR_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b001 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b000)
             try std.fmt.format(writer, "CCSIDR_EL1", .{})
+        else if (self.o0 == 0b1 and self.op1 == 0b001 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b010)
+            try std.fmt.format(writer, "CCSIDR2_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b010 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b000)
             try std.fmt.format(writer, "CSSELR_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b100 and self.crn == 0b0000 and self.crm == 0b0000 and self.op2 == 0b000)
@@ -1525,6 +1534,8 @@ pub const SysRegMoveInstr = struct {
             try std.fmt.format(writer, "ID_ISAR5_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0010 and self.op2 == 0b110)
             try std.fmt.format(writer, "ID_MMFR4_EL1", .{})
+        else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0011 and self.op2 == 0b110)
+            try std.fmt.format(writer, "ID_MMFR5_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0011 and self.op2 == 0b000)
             try std.fmt.format(writer, "MVFR0_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0011 and self.op2 == 0b001)
@@ -1547,6 +1558,8 @@ pub const SysRegMoveInstr = struct {
             try std.fmt.format(writer, "ID_AA64ISAR0_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0110 and self.op2 == 0b001)
             try std.fmt.format(writer, "ID_AA64ISAR1_EL1", .{})
+        else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0110 and self.op2 == 0b010)
+            try std.fmt.format(writer, "ID_AA64ISAR2_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0111 and self.op2 == 0b000)
             try std.fmt.format(writer, "ID_AA64MMFR0_EL1", .{})
         else if (self.o0 == 0b1 and self.op1 == 0b000 and self.crn == 0b0000 and self.crm == 0b0111 and self.op2 == 0b001)
@@ -1959,4 +1972,8 @@ pub const CvtInstr = struct {
     rd: Register,
     rn: Register,
     fbits: ?u6,
+};
+
+pub const HintInstr = struct {
+    imm: u7,
 };

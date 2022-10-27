@@ -19,6 +19,7 @@ const FMovInstr = @import("instruction.zig").FMovInstr;
 const FPCompInstr = @import("instruction.zig").FPCompInstr;
 const FPCondCompInstr = @import("instruction.zig").FPCondCompInstr;
 const FPCondSelInstr = @import("instruction.zig").FPCondSelInstr;
+const HintInstr = @import("instruction.zig").HintInstr;
 const Instruction = @import("instruction.zig").Instruction;
 const LoadStoreInstr = @import("instruction.zig").LoadStoreInstr;
 const LogInstr = @import("instruction.zig").LogInstr;
@@ -357,8 +358,7 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.autibsp)
             else if (crm == 0b0100 and @truncate(u1, o2) == 0b0)
                 @as(Instruction, Instruction.bti)
-            else
-                @as(Instruction, Instruction.hint);
+            else .{ .hint = .{ .imm = @as(u7, crm) << 3 | op2 } };
         } else if (op0 == 0b110 and op1 == 0b01000000110011) {
             const crm = @truncate(u4, op >> 8);
             const opc2 = @truncate(u3, op >> 5);
@@ -398,6 +398,7 @@ pub const Disassembler = struct {
                     .op1 = @truncate(u3, op >> 16),
                     .o0 = @truncate(u1, op >> 19),
                     .o20 = @truncate(u1, op >> 20),
+                    .op = .write,
                 };
                 break :blk Instruction{ .msr = payload };
             } else error.Unallocated;
@@ -412,8 +413,7 @@ pub const Disassembler = struct {
             else if (o1 == 0b011 and crn == 0b0011 and crm == 0b0000 and o2 == 0b011)
                 Instruction{ .ttest = payload }
             else
-                // TODO
-                Instruction{ .adc = undefined };
+                error.Unallocated;
         } else if (op0 == 0b110 and (@truncate(u7, op1 >> 7) == 0b0100001 or @truncate(u7, op1 >> 7) == 0b0100101)) {
             const l = @truncate(u1, op >> 21) == 1;
             const payload = SysInstr{
@@ -425,7 +425,7 @@ pub const Disassembler = struct {
                 .op1 = @truncate(u3, op >> 16),
             };
             return Instruction{ .sys = payload };
-        } else if (op0 == 0b110 and (@truncate(u6, op1 >> 8) == 0b010001 or @truncate(u6, op1 >> 8) == 0b010011)) {
+        } else if (op0 == 0b110 and @truncate(u4, op1 >> 10) == 0b0100 and @truncate(u1, op1 >> 8) == 0b1) {
             const l = @truncate(u1, op >> 21) == 1;
             const payload = SysRegMoveInstr{
                 .rt = Register.from(op, .x, false),
@@ -435,6 +435,7 @@ pub const Disassembler = struct {
                 .op1 = @truncate(u3, op >> 16),
                 .o0 = @truncate(u1, op >> 19),
                 .o20 = @truncate(u1, op >> 20),
+                .op = if (l) .write else .read,
             };
             return if (l)
                 Instruction{ .mrs = payload }
