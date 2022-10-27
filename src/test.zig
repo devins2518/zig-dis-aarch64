@@ -2,7 +2,6 @@ const std = @import("std");
 const Disassembler = @import("decoder.zig").Disassembler;
 
 test "a64 ignored fields" {
-    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         0xe8, 0x23, 0x33, 0x1e,
     },
@@ -2597,7 +2596,6 @@ test "arm64 branch" {
 }
 
 test "arm64 canonical form" {
-    if (true) return error.SkipZigTest;
     try doTheTest(&.{
         0x00, 0x08, 0x00, 0xc8,
         0x00, 0x00, 0x40, 0x9b,
@@ -2605,11 +2603,11 @@ test "arm64 canonical form" {
         0x1f, 0x00, 0x00, 0x11,
         0x00, 0x7c, 0x00, 0x13,
     },
-        \\stxr	w0, x0, [x0]
+        \\stxr w0, x0, [x0]
         \\smulh x0, x0, x0
         \\fcmp s0, #0.0
         \\mov wsp, w0
-        \\asr	w0, w0, #0
+        \\asr w0, w0, #0
         \\
     );
 }
