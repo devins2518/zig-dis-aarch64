@@ -1048,6 +1048,8 @@ pub const LoadStoreInstr = struct {
         a, // Acquire
         ll, // LORelease
         la, // LOAcquire
+        lu, // Release unscaled
+        apu, // Acquire RCpc unscaled
         u, // Unscaled
         t, // Unprivileged
         g, // Tagged

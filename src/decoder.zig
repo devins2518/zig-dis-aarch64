@@ -612,9 +612,43 @@ pub const Disassembler = struct {
                 Instruction{ .st = payload };
         } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b01 and op3 >= 0b100000)
             return error.Unimplemented // Compare and swap
-        else if (@truncate(u2, op0) == 0b01 and op1 == 0 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b00)
-            return error.Unimplemented // LDAPR/STLR (unscaled immediate)
-        else if (@truncate(u2, op0) == 0b01 and op2 <= 0b01) {
+        else if (@truncate(u2, op0) == 0b01 and op1 == 0 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b00) {
+            const reg_size = @truncate(u2, op >> 30);
+            const opc = @truncate(u2, op >> 22);
+            const size = if (reg_size == 0b00)
+                if (opc <= 0b01)
+                    SizeTy.b
+                else
+                    SizeTy.sb
+            else if (reg_size == 0b01)
+                if (opc <= 0b01)
+                    SizeTy.h
+                else
+                    SizeTy.sh
+            else if (reg_size == 0b10 and opc == 0b10)
+                SizeTy.sw
+            else
+                SizeTy.none;
+            const ld_st: LdStPrfm = if (opc == 0b00) .st else .ld;
+            const width = if (opc == 0b10 or reg_size == 0b11) Width.x else Width.w;
+            const ext = if (ld_st == .ld) ExtTy.apu else ExtTy.lu;
+            const payload = LoadStoreInstr{
+                .ld_st_prfm = ld_st,
+                .rn = Register.from(op >> 5, .x, true),
+                .rt = Register.from(op, width, false),
+                // TODO
+                .ext = ext,
+                .op = .r,
+                .size = size,
+                .payload = .{ .simm9 = @truncate(u9, op >> 12) },
+            };
+            return if ((reg_size == 0b10 and opc == 0b11) or (reg_size == 0b11 and opc >= 0b10))
+                error.Unallocated
+            else if (ld_st == .ld)
+                Instruction{ .ld = payload }
+            else
+                Instruction{ .st = payload };
+        } else if (@truncate(u2, op0) == 0b01 and op2 <= 0b01) {
             const opc = @truncate(u2, op >> 30);
             const v = @truncate(u1, op >> 26);
             const width = switch (@as(u3, opc) << 1 | v) {
