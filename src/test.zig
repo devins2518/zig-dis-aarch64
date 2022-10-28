@@ -3424,7 +3424,46 @@ test "armv8.1a atomic" {
 }
 
 test "armv8.1a lor" {
-    if (true) return error.SkipZigTest;
+    try doTheTest(&.{
+        0x20, 0x7c, 0xdf, 0x08,
+        0x20, 0x7c, 0xdf, 0x48,
+        0x20, 0x7c, 0xdf, 0x88,
+        0x20, 0x7c, 0xdf, 0xc8,
+        0x20, 0x7c, 0x9f, 0x08,
+        0x20, 0x7c, 0x9f, 0x48,
+        0x20, 0x7c, 0x9f, 0x88,
+        0x20, 0x7c, 0x9f, 0xc8,
+        0x00, 0xa4, 0x18, 0xd5,
+        0x20, 0xa4, 0x18, 0xd5,
+        0x40, 0xa4, 0x18, 0xd5,
+        0x60, 0xa4, 0x18, 0xd5,
+        0xe0, 0xa4, 0x18, 0xd5,
+        0x00, 0xa4, 0x38, 0xd5,
+        0x20, 0xa4, 0x38, 0xd5,
+        0x40, 0xa4, 0x38, 0xd5,
+        0x60, 0xa4, 0x38, 0xd5,
+        0xe0, 0xa4, 0x38, 0xd5,
+    },
+        \\ldlarb w0, [x1]
+        \\ldlarh w0, [x1]
+        \\ldlar w0, [x1]
+        \\ldlar x0, [x1]
+        \\stllrb w0, [x1]
+        \\stllrh w0, [x1]
+        \\stllr w0, [x1]
+        \\stllr x0, [x1]
+        \\msr LORSA_EL1, x0
+        \\msr LOREA_EL1, x0
+        \\msr LORN_EL1, x0
+        \\msr LORC_EL1, x0
+        \\msr LORID_EL1, x0
+        \\mrs x0, LORSA_EL1
+        \\mrs x0, LOREA_EL1
+        \\mrs x0, LORN_EL1
+        \\mrs x0, LORC_EL1
+        \\mrs x0, LORID_EL1
+        \\
+    );
 }
 
 test "armv8.1a pan" {
@@ -5682,6 +5721,7 @@ test "basic a64 instructions" {
         // Disassembler.next ->
         // Disassembler.decodeBranchExcpSysInstr ->
         // Passes (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100100) to go down system with result branch, fails subtests to become undefined.
+        // TODO: maybe not? armconvertor.com and shell-storm.org successfully disassemble to `mrs xzr, s0_0_c4_c0_0`, but onlinedisassembler.com doesn't. Reading bits seems like it shouldn't pass either.
         // 0x1f, 0x40, 0x20, 0xd5,
         0x0c, 0xf0, 0x18, 0xd5,
         0xe5, 0xbd, 0x1f, 0xd5,
