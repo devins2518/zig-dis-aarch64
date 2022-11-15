@@ -701,7 +701,8 @@ pub const AddSubInstr = struct {
                 if (imm.sh == 1)
                     try std.fmt.format(writer, ", lsl #12", .{});
             },
-            .imm_tag => std.debug.todo("imm tag"),
+            // TODO
+            .imm_tag => {},
             .carry => |rm| try std.fmt.format(writer, "{}", .{rm}),
             .shift_reg => |shift| {
                 try std.fmt.format(writer, "{s}", .{shift.rm});
