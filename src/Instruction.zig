@@ -177,7 +177,41 @@ pub const Instruction = union(enum) {
     sha1: ShaInstr,
     sha256: ShaInstr,
     // Advanced SIMD scalar copy
-    dup,
+    dup: SIMDDataProcInstr,
+    // Advanced SIMD scalar pairwise
+    fmaxnmp,
+    faddp,
+    fmaxp,
+    fminnmp,
+    fminp,
+    // Advanced SIMD scalar three different
+    sqdmlal,
+    sqdmlsl,
+    sqdmull,
+    // Advanced SIMD scalar three same
+    sqadd,
+    sqsub,
+    sshl,
+    sqshl,
+    srshl,
+    sqrshl,
+    cmtst,
+    sqmulh,
+    sqdmulh,
+    fmulh,
+    uqadd,
+    uqsub,
+    cmhi,
+    cmhs,
+    ushl,
+    uqshl,
+    uqrshl,
+    sqrdmulh,
+    // Advanced SIMD copy
+    smov: SIMDDataProcInstr,
+    umov: SIMDDataProcInstr,
+    vector_mov: SIMDDataProcInstr,
+    ins: SIMDDataProcInstr,
     // Advanced SIMD scalar three same FP16
     fmulx,
     fcmeq,
@@ -191,9 +225,91 @@ pub const Instruction = union(enum) {
     // Advanced SIMD two register misc FP16
     // Advanced SIMD three register extension
     // Advanced SIMD two register misc
+    rev64,
+    saddlp,
+    suqadd,
+    cnt,
+    sadalp,
+    sqabs,
+    cmgt,
+    cmeq,
+    cmlt,
+    abs: SIMDDataProcInstr,
+    xtn,
+    sqxtn,
+    fcvtn,
+    fcvtl,
+    fcmlt,
+    urecpe,
+    frecpe,
+    bfcvtn,
+    uaddlp,
+    usqadd,
+    uadalp,
+    sqneg,
+    cmge,
+    cmle,
+    neg,
+    sqxtun,
+    shll,
+    uqxtun,
+    fcvtxn,
+    not,
+    fcmle,
+    ursqrte,
+    frsqrte,
     // Advanced SIMD across lanes
+    saddlv,
+    smaxv,
+    sminv,
+    addv: SIMDDataProcInstr,
+    fmaxnmv,
+    fmaxv,
+    fminnmv,
+    fminv,
+    uaddlv,
+    umaxv,
+    uminv,
     // Advanced SIMD three different
+    saddl,
+    saddw,
+    ssubl,
+    ssubw,
+    addhn: SIMDDataProcInstr,
+    sabal,
+    subhn,
+    sabdl,
+    smlal,
+    smlsl,
+    smull,
+    pmull,
+    uaddl,
+    uaddw,
+    usubl,
+    usubw,
+    raddhn,
+    uabal,
+    rsubhn,
+    uabdl,
+    umlal,
+    umlsl,
+    umull,
     // Advanced SIMD three same
+    vector_add: SIMDDataProcInstr,
+    shadd,
+    srhadd,
+    shsub,
+    smax,
+    smin,
+    sabd,
+    saba,
+    mla,
+    mul,
+    smaxp,
+    sminp,
+    addp: SIMDDataProcInstr,
+    fmla,
+    fmlal,
     // Advanced SIMD modified immediate
     // Advanced SIMD shift by immediate
     // Advanced SIMD vector x indexed element
@@ -638,6 +754,11 @@ pub const Instruction = union(enum) {
                     try std.fmt.format(writer, ", #{}", .{64 - @as(u7, fbits)});
             },
             .hint => |instr| try std.fmt.format(writer, "{s} #{}", .{ @tagName(self.*), instr.imm }),
+            .abs => |instr| try std.fmt.format(writer, "abs.{s} {}, {}", .{ @tagName(instr.arrangement), instr.rd, instr.rn }),
+            .vector_add => |instr| try std.fmt.format(writer, "add{}", .{instr}),
+            .vector_mov, .ins => |instr| try std.fmt.format(writer, "mov{}", .{instr}),
+            .addhn => |instr| try std.fmt.format(writer, "{s}{s}.{s} {}, {}, {}", .{ @tagName(self.*), if (instr.q != null and instr.q.?) "2" else "", @tagName(instr.arrangement), instr.rd, instr.rn, instr.rm.? }),
+            .addp, .addv, .dup, .smov => |instr| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), instr }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -1979,4 +2100,39 @@ pub const CvtInstr = struct {
 
 pub const HintInstr = struct {
     imm: u7,
+};
+
+// This is disgusting
+pub const SIMDDataProcInstr = struct {
+    q: ?bool = null,
+    // Yeah we do a little enum abusing
+    arrangement: enum(u4) {
+        @"8b" = 0b000,
+        @"16b" = 0b001,
+        @"4h" = 0b010,
+        @"8h" = 0b011,
+        @"2s" = 0b100,
+        @"4s" = 0b101,
+        @"2d" = 0b111,
+        b,
+        h,
+        s,
+        d,
+    },
+    rm: ?Register = null,
+    rn: Register,
+    index: ?u4 = null,
+    rd: Register,
+    post_index: ?u4 = null,
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try std.fmt.format(writer, ".{s} {}", .{ @tagName(self.arrangement), self.rd });
+        if (self.index) |idx|
+            try std.fmt.format(writer, "[{}]", .{idx});
+        try std.fmt.format(writer, ", {}", .{self.rn});
+        if (self.rm) |rm|
+            try std.fmt.format(writer, ", {}", .{rm});
+        if (self.post_index) |idx|
+            try std.fmt.format(writer, "[{}]", .{idx});
+    }
 };

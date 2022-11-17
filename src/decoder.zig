@@ -25,6 +25,7 @@ const LoadStoreInstr = @import("instruction.zig").LoadStoreInstr;
 const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
+const SIMDDataProcInstr = @import("instruction.zig").SIMDDataProcInstr;
 const ShaInstr = @import("instruction.zig").ShaInstr;
 const SysInstr = @import("instruction.zig").SysInstr;
 const SysRegMoveInstr = @import("instruction.zig").SysRegMoveInstr;
@@ -1404,6 +1405,7 @@ pub const Disassembler = struct {
         // TODO: stage 1 moment
         const ShaOpTy = Field(ShaInstr, .op);
         const AesOpTy = Field(AesInstr, .op);
+        const ArrangementTy = Field(SIMDDataProcInstr, .arrangement);
         // TODO: should be a top return
         if (op0 == 0b0100 and
             (op1 == 0b00 or op1 == 0b01) and
@@ -1540,22 +1542,134 @@ pub const Disassembler = struct {
             @truncate(u3, op2) == 0b110 and
             @truncate(u2, op3 >> 7) == 0b00 and
             @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD scalar pairwise
+        { // SIMD scalar pairwise
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const opcode = @truncate(u5, op >> 12);
+            const payload = SIMDDataProcInstr{
+                .arrangement = if (size == 0b11)
+                    ArrangementTy.@"2d"
+                else
+                    return error.Unallocated,
+                .rn = Register.from(op >> 5, Width.v, false),
+                .rd = Register.from(op, Width.d, false),
+            };
+            return if (u == 0 and opcode == 0b11011)
+                Instruction{ .addp = payload }
+            else if (u == 0 and size <= 0b01 and opcode == 0b01100)
+                @as(Instruction, Instruction.fmaxnmp)
+            else if (u == 0 and size <= 0b01 and opcode == 0b01101)
+                @as(Instruction, Instruction.faddp)
+            else if (u == 0 and size <= 0b01 and opcode == 0b01111)
+                @as(Instruction, Instruction.fmaxp)
+            else if (u == 0 and size >= 0b10 and opcode == 0b01100)
+                @as(Instruction, Instruction.fminnmp)
+            else if (u == 0 and size >= 0b10 and opcode == 0b01111)
+                @as(Instruction, Instruction.fminp)
+            else if (u == 1 and size <= 0b01 and opcode == 0b01100)
+                @as(Instruction, Instruction.fmaxnmp)
+            else if (u == 1 and size <= 0b01 and opcode == 0b01101)
+                @as(Instruction, Instruction.faddp)
+            else if (u == 1 and size <= 0b01 and opcode == 0b01111)
+                @as(Instruction, Instruction.fmaxp)
+            else if (u == 1 and size >= 0b10 and opcode == 0b01100)
+                @as(Instruction, Instruction.fminnmp)
+            else if (u == 1 and size >= 0b10 and opcode == 0b01111)
+                @as(Instruction, Instruction.fminp)
+            else
+                error.Unallocated;
         } else if (@truncate(u2, op0 >> 2) == 0b01 and
             @truncate(u1, op0) == 1 and
             op1 <= 0b01 and
             @truncate(u1, op2 >> 2) == 0b1 and
             @truncate(u2, op3) == 0b00)
-        {
-            return error.Unimplemented; // SIMD scalar three different
+        { // SIMD scalar three different
+            const u = @truncate(u1, op >> 29);
+            const opcode = @truncate(u4, op >> 12);
+            return if (u == 0 and opcode == 0b1001)
+                @as(Instruction, Instruction.sqdmlal)
+            else if (u == 0 and opcode == 0b1011)
+                @as(Instruction, Instruction.sqdmlsl)
+            else if (u == 0 and opcode == 0b1101)
+                @as(Instruction, Instruction.sqdmull)
+            else
+                error.Unallocated;
         } else if (@truncate(u2, op0 >> 2) == 0b01 and
             @truncate(u1, op0) == 1 and
             op1 <= 0b01 and
             @truncate(u1, op2 >> 2) == 0b1 and
             @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD scalar three same
+        { // SIMD scalar three same
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const opcode = @truncate(u5, op >> 11);
+            return if (u == 0 and opcode == 0b00001)
+                @as(Instruction, Instruction.sqadd)
+            else if (u == 0 and opcode == 0b00101)
+                @as(Instruction, Instruction.sqsub)
+            else if (u == 0 and opcode == 0b00110)
+                @as(Instruction, Instruction.cmgt)
+            else if (u == 0 and opcode == 0b00111)
+                @as(Instruction, Instruction.cmge)
+            else if (u == 0 and opcode == 0b01000)
+                @as(Instruction, Instruction.sshl)
+            else if (u == 0 and opcode == 0b01001)
+                @as(Instruction, Instruction.sqshl)
+            else if (u == 0 and opcode == 0b01010)
+                @as(Instruction, Instruction.srshl)
+            else if (u == 0 and opcode == 0b10000)
+                Instruction{ .add = AddSubInstr{
+                    .s = false,
+                    .op = .add,
+                    .width = Width.d,
+                    .rn = Register.from(op >> 5, Width.d, false),
+                    .rd = Register.from(op, Width.d, false),
+                    .payload = .{ .carry = Register.from(op >> 16, Width.d, false) },
+                } }
+            else if (u == 0 and opcode == 0b10001)
+                @as(Instruction, Instruction.cmtst)
+            else if (u == 0 and opcode == 0b10101)
+                @as(Instruction, Instruction.sqdmulh)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11011)
+                @as(Instruction, Instruction.fmulx)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11100)
+                @as(Instruction, Instruction.fcmeq)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11111)
+                @as(Instruction, Instruction.frecps)
+            else if (u == 0 and size >= 0b10 and opcode == 0b11111)
+                @as(Instruction, Instruction.frsqrts)
+            else if (u == 1 and opcode == 0b00001)
+                @as(Instruction, Instruction.uqadd)
+            else if (u == 1 and opcode == 0b00101)
+                @as(Instruction, Instruction.uqsub)
+            else if (u == 1 and opcode == 0b00110)
+                @as(Instruction, Instruction.cmhi)
+            else if (u == 1 and opcode == 0b00111)
+                @as(Instruction, Instruction.cmhs)
+            else if (u == 1 and opcode == 0b01000)
+                @as(Instruction, Instruction.ushl)
+            else if (u == 1 and opcode == 0b01001)
+                @as(Instruction, Instruction.uqshl)
+            else if (u == 1 and opcode == 0b01011)
+                @as(Instruction, Instruction.uqrshl)
+            else if (u == 1 and opcode == 0b10000)
+                Instruction{ .sub = undefined }
+            else if (u == 1 and opcode == 0b10001)
+                @as(Instruction, Instruction.cmeq)
+            else if (u == 1 and opcode == 0b10110)
+                @as(Instruction, Instruction.sqrdmulh)
+            else if (u == 1 and opcode == 0b11100)
+                @as(Instruction, Instruction.fcmge)
+            else if (u == 1 and opcode == 0b11101)
+                @as(Instruction, Instruction.facge)
+            else if (u == 1 and opcode == 0b11010)
+                @as(Instruction, Instruction.fabd)
+            else if (u == 1 and opcode == 0b11100)
+                @as(Instruction, Instruction.fcmgt)
+            else if (u == 1 and opcode == 0b11101)
+                @as(Instruction, Instruction.facgt)
+            else
+                error.Unallocated;
         } else if (@truncate(u2, op0 >> 2) == 0b01 and
             @truncate(u1, op0) == 1 and
             op1 == 0b10 and
@@ -1598,8 +1712,174 @@ pub const Disassembler = struct {
             @truncate(u2, op2 >> 2) == 0b00 and
             @truncate(u1, op3 >> 5) == 0b0 and
             @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD copy
+        { // SIMD copy
+            const q = @truncate(u1, op >> 30);
+            const u = @truncate(u1, op >> 29);
+            const imm5 = @truncate(u5, op >> 16);
+            const imm4 = @truncate(u4, op >> 11);
+            return if (u == 0b0 and imm4 == 0b0000)
+                Instruction{ .dup = SIMDDataProcInstr{
+                    .arrangement = if (@truncate(u1, imm5) == 0b1 and q == 0b0)
+                        ArrangementTy.@"8b"
+                    else if (@truncate(u1, imm5) == 0b1 and q == 0b1)
+                        ArrangementTy.@"16b"
+                    else if (@truncate(u2, imm5) == 0b10 and q == 0b0)
+                        ArrangementTy.@"4h"
+                    else if (@truncate(u2, imm5) == 0b10 and q == 0b1)
+                        ArrangementTy.@"8h"
+                    else if (@truncate(u3, imm5) == 0b100 and q == 0b0)
+                        ArrangementTy.@"2s"
+                    else if (@truncate(u3, imm5) == 0b100 and q == 0b1)
+                        ArrangementTy.@"4s"
+                    else if (@truncate(u4, imm5) == 0b1000 and q == 0b1)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, Width.v, false),
+                    .rd = Register.from(op, Width.v, false),
+                    .post_index = if (@truncate(u1, imm5) == 0b1)
+                        @truncate(u4, imm5 >> 1)
+                    else if (@truncate(u2, imm5) == 0b10)
+                        @truncate(u3, imm5 >> 2)
+                    else if (@truncate(u3, imm5) == 0b100)
+                        @truncate(u2, imm5 >> 3)
+                    else if (@truncate(u4, imm5) == 0b1000)
+                        @truncate(u1, imm5 >> 4)
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and imm4 == 0b0001) blk: {
+                const width = if (@truncate(u1, imm5) == 0b1 or
+                    @truncate(u2, imm5) == 0b10 or
+                    @truncate(u3, imm5) == 0b100)
+                    Width.w
+                else if (@truncate(u4, imm5) == 0b1000) Width.x else return error.Unallocated;
+                break :blk Instruction{ .dup = SIMDDataProcInstr{
+                    .arrangement = if (@truncate(u1, imm5) == 0b1 and q == 0b0)
+                        ArrangementTy.@"8b"
+                    else if (@truncate(u1, imm5) == 0b1 and q == 0b1)
+                        ArrangementTy.@"16b"
+                    else if (@truncate(u2, imm5) == 0b10 and q == 0b0)
+                        ArrangementTy.@"4h"
+                    else if (@truncate(u2, imm5) == 0b10 and q == 0b1)
+                        ArrangementTy.@"8h"
+                    else if (@truncate(u3, imm5) == 0b100 and q == 0b0)
+                        ArrangementTy.@"2s"
+                    else if (@truncate(u3, imm5) == 0b100 and q == 0b1)
+                        ArrangementTy.@"4s"
+                    else if (@truncate(u4, imm5) == 0b1000 and q == 0b1)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, .v, false),
+                } };
+            } else if (u == 0b0 and imm4 == 0b0101) blk: {
+                const width = if (q == 0b0) Width.w else Width.x;
+                break :blk Instruction{ .smov = SIMDDataProcInstr{
+                    .arrangement = if (@truncate(u1, imm5) == 0b1)
+                        ArrangementTy.b
+                    else if (@truncate(u2, imm5) == 0b10)
+                        ArrangementTy.h
+                    else if (width == .x and @truncate(u3, imm5) == 0b100)
+                        ArrangementTy.s
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, width, false),
+                    .post_index = if (@truncate(u1, imm5) == 0b1)
+                        @truncate(u4, imm5 >> 1)
+                    else if (@truncate(u2, imm5) == 0b10)
+                        @truncate(u3, imm5 >> 2)
+                    else if (width == .x and @truncate(u3, imm5) == 0b100)
+                        @truncate(u2, imm5 >> 3)
+                    else
+                        return error.Unallocated,
+                } };
+            } else if ((q == 0b0 or (q == 0b1 and @truncate(u4, imm5) == 0b1000)) and
+                u == 0b0 and imm4 == 0b0111)
+            blk: {
+                const width = if (q == 0b0) Width.w else Width.x;
+                const payload = SIMDDataProcInstr{
+                    .arrangement = if (width == .w and @truncate(u1, imm5) == 0b1)
+                        ArrangementTy.b
+                    else if (width == .w and @truncate(u2, imm5) == 0b10)
+                        ArrangementTy.h
+                    else if (width == .w and @truncate(u3, imm5) == 0b100)
+                        ArrangementTy.s
+                    else if (width == .x and @truncate(u4, imm5) == 0b1000)
+                        ArrangementTy.d
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, width, false),
+                    .post_index = if (width == .w and @truncate(u1, imm5) == 0b1)
+                        @truncate(u4, imm5 >> 1)
+                    else if (width == .w and @truncate(u2, imm5) == 0b10)
+                        @truncate(u3, imm5 >> 2)
+                    else if (width == .w and @truncate(u3, imm5) == 0b100)
+                        @truncate(u2, imm5 >> 3)
+                    else if (width == .x and @truncate(u4, imm5) == 0b1000)
+                        @truncate(u1, imm5 >> 4)
+                    else
+                        return error.Unallocated,
+                };
+                break :blk if ((width == .w and @truncate(u3, imm5) == 0b100) or
+                    (width == .x and @truncate(u4, imm5) == 0b1000))
+                    Instruction{ .vector_mov = payload }
+                else
+                    Instruction{ .umov = payload };
+            } else if (q == 0b1 and (u == 0b1 or (u == 0b0 and imm4 == 0b0011))) blk: {
+                const width = if (u == 0b1)
+                    Width.v
+                else if (@truncate(u1, imm5) == 0b1)
+                    Width.w
+                else if (@truncate(u2, imm5) == 0b10)
+                    Width.w
+                else if (@truncate(u3, imm5) == 0b100)
+                    Width.w
+                else if (@truncate(u4, imm5) == 0b1000)
+                    Width.x
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .ins = SIMDDataProcInstr{
+                    .arrangement = if (@truncate(u1, imm5) == 0b1)
+                        ArrangementTy.b
+                    else if (@truncate(u2, imm5) == 0b10)
+                        ArrangementTy.h
+                    else if (@truncate(u3, imm5) == 0b100)
+                        ArrangementTy.s
+                    else if (@truncate(u4, imm5) == 0b1000)
+                        ArrangementTy.d
+                    else
+                        undefined,
+                    .index = if (@truncate(u1, imm5) == 0b1)
+                        @truncate(u4, imm5 >> 1)
+                    else if (@truncate(u2, imm5) == 0b10)
+                        @truncate(u3, imm5 >> 2)
+                    else if (@truncate(u3, imm5) == 0b100)
+                        @truncate(u2, imm5 >> 3)
+                    else if (@truncate(u4, imm5) == 0b1000)
+                        @truncate(u1, imm5 >> 4)
+                    else
+                        undefined,
+                    .rn = Register.from(op >> 5, width, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (u == 0b1)
+                        if (@truncate(u1, imm5) == 0b1)
+                            imm4
+                        else if (@truncate(u2, imm5) == 0b10)
+                            @truncate(u3, imm4 >> 1)
+                        else if (@truncate(u3, imm5) == 0b100)
+                            @truncate(u2, imm4 >> 2)
+                        else if (@truncate(u4, imm5) == 0b1000)
+                            @truncate(u1, imm4 >> 3)
+                        else
+                            undefined
+                    else
+                        null,
+                } };
+            } else error.Unallocated;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 <= 0b01 and
@@ -1630,30 +1910,382 @@ pub const Disassembler = struct {
             @truncate(u3, op2) == 0b100 and
             @truncate(u7, op3 >> 7) == 0b00 and
             @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD two reg misc
+        { // SIMD two reg misc
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const opcode = @truncate(u5, op >> 12);
+            return if (u == 0b0 and opcode == 0b00000) // SIMD two reg misc
+                @as(Instruction, Instruction.rev64)
+            else if (u == 0b0 and opcode == 0b00001)
+                Instruction{ .rev16 = undefined }
+            else if (u == 0b0 and opcode == 0b00010)
+                @as(Instruction, Instruction.saddlp)
+            else if (u == 0b0 and opcode == 0b00011)
+                @as(Instruction, Instruction.suqadd)
+            else if (u == 0b0 and opcode == 0b00100)
+                Instruction{ .cls = undefined }
+            else if (u == 0b0 and opcode == 0b00101)
+                @as(Instruction, Instruction.cnt)
+            else if (u == 0b0 and opcode == 0b00110)
+                @as(Instruction, Instruction.sadalp)
+            else if (u == 0b0 and opcode == 0b00111)
+                @as(Instruction, Instruction.sqabs)
+            else if (u == 0b0 and opcode == 0b01000)
+                @as(Instruction, Instruction.cmgt)
+            else if (u == 0b0 and opcode == 0b01001)
+                @as(Instruction, Instruction.cmeq)
+            else if (u == 0b0 and opcode == 0b01010)
+                @as(Instruction, Instruction.cmlt)
+            else if (u == 0b0 and opcode == 0b01011) blk: {
+                const op_size = @truncate(u2, op >> 22);
+                const q = @truncate(u1, op >> 30);
+                const sizeq = @as(u3, op_size) << 1 | q;
+                const payload = SIMDDataProcInstr{
+                    .arrangement = @intToEnum(ArrangementTy, sizeq),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                };
+                break :blk Instruction{ .abs = payload };
+            } else if (u == 0b0 and opcode == 0b10010)
+                @as(Instruction, Instruction.xtn)
+            else if (u == 0b0 and opcode == 0b10100)
+                @as(Instruction, Instruction.sqxtn)
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b10110)
+                @as(Instruction, Instruction.fcvtn)
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b10111)
+                @as(Instruction, Instruction.fcvtl)
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11000)
+                Instruction{ .frintn = undefined }
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11001)
+                Instruction{ .frintm = undefined }
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11010)
+                Instruction{ .fcvtns = undefined }
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11011)
+                Instruction{ .fcvtms = undefined }
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11100)
+                Instruction{ .fcvtas = undefined }
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11101)
+                Instruction{ .scvtf = undefined }
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11110)
+                @as(Instruction, Instruction.frint32z)
+            else if (u == 0b0 and size <= 0b01 and opcode == 0b11111)
+                @as(Instruction, Instruction.frint64z)
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b01100)
+                @as(Instruction, Instruction.fcmgt)
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b01101)
+                @as(Instruction, Instruction.fcmeq)
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b01110)
+                @as(Instruction, Instruction.fcmlt)
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b01111)
+                Instruction{ .fabs = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b11000)
+                Instruction{ .frintp = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b11001)
+                Instruction{ .frintz = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b11010)
+                Instruction{ .fcvtps = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b11011)
+                Instruction{ .fcvtzs = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b11100)
+                @as(Instruction, Instruction.urecpe)
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b11101)
+                @as(Instruction, Instruction.frecpe)
+            else if (u == 0b0 and size == 0b10 and opcode == 0b10110)
+                @as(Instruction, Instruction.bfcvtn)
+            else if (u == 0b1 and opcode == 0b00000)
+                Instruction{ .rev32 = undefined }
+            else if (u == 0b1 and opcode == 0b00010)
+                @as(Instruction, Instruction.uaddlp)
+            else if (u == 0b1 and opcode == 0b00011)
+                @as(Instruction, Instruction.usqadd)
+            else if (u == 0b1 and opcode == 0b00100)
+                Instruction{ .clz = undefined }
+            else if (u == 0b1 and opcode == 0b00110)
+                @as(Instruction, Instruction.uadalp)
+            else if (u == 0b1 and opcode == 0b00111)
+                @as(Instruction, Instruction.sqneg)
+            else if (u == 0b1 and opcode == 0b01000)
+                @as(Instruction, Instruction.cmge)
+            else if (u == 0b1 and opcode == 0b01001)
+                @as(Instruction, Instruction.cmle)
+            else if (u == 0b1 and opcode == 0b01011)
+                @as(Instruction, Instruction.neg)
+            else if (u == 0b1 and opcode == 0b10010)
+                @as(Instruction, Instruction.sqxtun)
+            else if (u == 0b1 and opcode == 0b10011)
+                @as(Instruction, Instruction.shll)
+            else if (u == 0b1 and opcode == 0b10100)
+                @as(Instruction, Instruction.uqxtun)
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b10110)
+                @as(Instruction, Instruction.fcvtxn)
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11000)
+                Instruction{ .frinta = undefined }
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11001)
+                Instruction{ .frintx = undefined }
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11010)
+                Instruction{ .fcvtnu = undefined }
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11011)
+                Instruction{ .fcvtmu = undefined }
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11100)
+                Instruction{ .fcvtau = undefined }
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11101)
+                Instruction{ .ucvtf = undefined }
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11110)
+                @as(Instruction, Instruction.frint32x)
+            else if (u == 0b1 and size <= 0b01 and opcode == 0b11111)
+                @as(Instruction, Instruction.frint64x)
+            else if (u == 0b1 and size == 0b00 and opcode == 0b00101)
+                @as(Instruction, Instruction.not)
+            else if (u == 0b1 and size == 0b01 and opcode == 0b00101)
+                Instruction{ .rbit = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b01100)
+                @as(Instruction, Instruction.fcmge)
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b01101)
+                @as(Instruction, Instruction.fcmle)
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b01111)
+                Instruction{ .fneg = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b11001)
+                Instruction{ .frinti = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b11010)
+                Instruction{ .fcvtpu = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b11011)
+                Instruction{ .fcvtzu = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b11100)
+                @as(Instruction, Instruction.ursqrte)
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b11101)
+                @as(Instruction, Instruction.frsqrte)
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b11111)
+                Instruction{ .fsqrt = undefined }
+            else
+                error.Unallocated;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 <= 0b01 and
             @truncate(u3, op2) == 0b110 and
             @truncate(u7, op3 >> 7) == 0b00 and
             @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD across lanes
+        { // SIMD across lanes
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const opcode = @truncate(u5, op >> 12);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            return if (u == 0 and opcode == 0b00011)
+                @as(Instruction, Instruction.saddlv)
+            else if (u == 0 and opcode == 0b01010)
+                @as(Instruction, Instruction.smaxv)
+            else if (u == 0 and opcode == 0b11010)
+                @as(Instruction, Instruction.sminv)
+            else if (u == 0 and opcode == 0b11011) blk: {
+                const width = if (size == 0b00)
+                    Width.b
+                else if (size == 0b01)
+                    Width.h
+                else if (size == 0b10)
+                    Width.s
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .addv = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b100)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, Width.v, false),
+                    .rd = Register.from(op, width, false),
+                } };
+            } else if (u == 0 and size == 0b00 and opcode == 0b01100)
+                @as(Instruction, Instruction.fmaxnmv)
+            else if (u == 0 and size == 0b00 and opcode == 0b01111)
+                @as(Instruction, Instruction.fmaxv)
+            else if (u == 0 and size == 0b10 and opcode == 0b01100)
+                @as(Instruction, Instruction.fminnmv)
+            else if (u == 0 and size == 0b10 and opcode == 0b01111)
+                @as(Instruction, Instruction.fminv)
+            else if (u == 1 and opcode == 0b00011)
+                @as(Instruction, Instruction.uaddlv)
+            else if (u == 1 and opcode == 0b01010)
+                @as(Instruction, Instruction.umaxv)
+            else if (u == 1 and opcode == 0b11010)
+                @as(Instruction, Instruction.uminv)
+            else if (u == 1 and size <= 0b01 and opcode == 0b01100)
+                @as(Instruction, Instruction.fmaxnmv)
+            else if (u == 1 and size <= 0b01 and opcode == 0b01111)
+                @as(Instruction, Instruction.fmaxv)
+            else if (u == 1 and size >= 0b10 and opcode == 0b01100)
+                @as(Instruction, Instruction.fminnmv)
+            else if (u == 1 and size >= 0b10 and opcode == 0b01111)
+                @as(Instruction, Instruction.fminv)
+            else
+                error.Unimplemented;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 <= 0b01 and
-            @truncate(u1, op2 >> 1) == 0b1 and
+            @truncate(u1, op2 >> 2) == 0b1 and
             @truncate(u2, op3) == 0b00)
-        {
-            return error.Unimplemented; // SIMD three different
+        { // SIMD three different
+            const u = @truncate(u1, op >> 29);
+            const opcode = @truncate(u4, op >> 12);
+            const size = @truncate(u2, op >> 22);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            const payload = SIMDDataProcInstr{
+                .q = @truncate(u1, op >> 30) == 1,
+                .arrangement = if (size != 0b11)
+                    @intToEnum(ArrangementTy, sizeq)
+                else
+                    return error.Unallocated,
+                .rm = Register.from(op >> 16, .v, false),
+                .rn = Register.from(op >> 5, .v, false),
+                .rd = Register.from(op, .v, false),
+            };
+            return if (u == 0 and opcode == 0b0000)
+                @as(Instruction, Instruction.saddl)
+            else if (u == 0 and opcode == 0b0001)
+                @as(Instruction, Instruction.saddw)
+            else if (u == 0 and opcode == 0b0010)
+                @as(Instruction, Instruction.ssubl)
+            else if (u == 0 and opcode == 0b0011)
+                @as(Instruction, Instruction.ssubw)
+            else if (u == 0 and opcode == 0b0100)
+                Instruction{ .addhn = payload }
+            else if (u == 0 and opcode == 0b0101)
+                @as(Instruction, Instruction.sabal)
+            else if (u == 0 and opcode == 0b0110)
+                @as(Instruction, Instruction.subhn)
+            else if (u == 0 and opcode == 0b0111)
+                @as(Instruction, Instruction.sabdl)
+            else if (u == 0 and opcode == 0b1000)
+                @as(Instruction, Instruction.smlal)
+            else if (u == 0 and opcode == 0b1001)
+                @as(Instruction, Instruction.sqdmlal)
+            else if (u == 0 and opcode == 0b1010)
+                @as(Instruction, Instruction.smlsl)
+            else if (u == 0 and opcode == 0b1011)
+                @as(Instruction, Instruction.sqdmlsl)
+            else if (u == 0 and opcode == 0b1100)
+                @as(Instruction, Instruction.smull)
+            else if (u == 0 and opcode == 0b1101)
+                @as(Instruction, Instruction.sqdmull)
+            else if (u == 0 and opcode == 0b1110)
+                @as(Instruction, Instruction.pmull)
+            else if (u == 1 and opcode == 0b0000)
+                @as(Instruction, Instruction.uaddl)
+            else if (u == 1 and opcode == 0b0001)
+                @as(Instruction, Instruction.uaddw)
+            else if (u == 1 and opcode == 0b0010)
+                @as(Instruction, Instruction.usubl)
+            else if (u == 1 and opcode == 0b0011)
+                @as(Instruction, Instruction.usubw)
+            else if (u == 1 and opcode == 0b0100)
+                @as(Instruction, Instruction.raddhn)
+            else if (u == 1 and opcode == 0b0101)
+                @as(Instruction, Instruction.uabal)
+            else if (u == 1 and opcode == 0b0110)
+                @as(Instruction, Instruction.rsubhn)
+            else if (u == 1 and opcode == 0b0111)
+                @as(Instruction, Instruction.uabdl)
+            else if (u == 1 and opcode == 0b1000)
+                @as(Instruction, Instruction.umlal)
+            else if (u == 1 and opcode == 0b1010)
+                @as(Instruction, Instruction.umlsl)
+            else if (u == 1 and opcode == 0b1100)
+                @as(Instruction, Instruction.umull)
+            else
+                error.Unallocated;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 <= 0b01 and
-            @truncate(u1, op2 >> 1) == 0b1 and
+            @truncate(u1, op2 >> 2) == 0b1 and
             @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD three same
+        { // SIMD three same
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const opcode = @truncate(u5, op >> 11);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            const rm = Register.from(op >> 16, .v, false);
+            const rn = Register.from(op >> 5, .v, false);
+            const rd = Register.from(op, .v, false);
+            return if (u == 0 and opcode == 0b00000)
+                @as(Instruction, Instruction.shadd)
+            else if (u == 0 and opcode == 0b00001)
+                @as(Instruction, Instruction.sqadd)
+            else if (u == 0 and opcode == 0b00010)
+                @as(Instruction, Instruction.srhadd)
+            else if (u == 0 and opcode == 0b00100)
+                @as(Instruction, Instruction.shsub)
+            else if (u == 0 and opcode == 0b00101)
+                @as(Instruction, Instruction.sqsub)
+            else if (u == 0 and opcode == 0b00110)
+                @as(Instruction, Instruction.cmgt)
+            else if (u == 0 and opcode == 0b00111)
+                @as(Instruction, Instruction.cmge)
+            else if (u == 0 and opcode == 0b01000)
+                @as(Instruction, Instruction.sshl)
+            else if (u == 0 and opcode == 0b01001)
+                @as(Instruction, Instruction.sqshl)
+            else if (u == 0 and opcode == 0b01010)
+                @as(Instruction, Instruction.srshl)
+            else if (u == 0 and opcode == 0b01011)
+                @as(Instruction, Instruction.sqrshl)
+            else if (u == 0 and opcode == 0b01100)
+                @as(Instruction, Instruction.smax)
+            else if (u == 0 and opcode == 0b01101)
+                @as(Instruction, Instruction.smin)
+            else if (u == 0 and opcode == 0b01110)
+                @as(Instruction, Instruction.sabd)
+            else if (u == 0 and opcode == 0b01111)
+                @as(Instruction, Instruction.saba)
+            else if (u == 0 and opcode == 0b10000)
+                Instruction{ .vector_add = SIMDDataProcInstr{
+                    .arrangement = @intToEnum(ArrangementTy, sizeq),
+                    .rm = rm,
+                    .rn = rn,
+                    .rd = rd,
+                } }
+            else if (u == 0 and opcode == 0b10001)
+                @as(Instruction, Instruction.cmtst)
+            else if (u == 0 and opcode == 0b10010)
+                @as(Instruction, Instruction.mla)
+            else if (u == 0 and opcode == 0b10011)
+                @as(Instruction, Instruction.mul)
+            else if (u == 0 and opcode == 0b10100)
+                @as(Instruction, Instruction.smaxp)
+            else if (u == 0 and opcode == 0b10101)
+                @as(Instruction, Instruction.sminp)
+            else if (u == 0 and opcode == 0b10110)
+                @as(Instruction, Instruction.sqdmulh)
+            else if (u == 0 and opcode == 0b10111)
+                Instruction{ .addp = SIMDDataProcInstr{
+                    .q = @truncate(u1, op >> 30) == 1,
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                } }
+            else if (u == 0 and size <= 0b01 and opcode == 0b11000)
+                Instruction{ .fmaxnm = undefined }
+            else if (u == 0 and size <= 0b01 and opcode == 0b11001)
+                @as(Instruction, Instruction.fmla)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11010)
+                Instruction{ .fadd = undefined }
+            else if (u == 0 and size <= 0b01 and opcode == 0b11011)
+                @as(Instruction, Instruction.fmulx)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11100)
+                @as(Instruction, Instruction.fcmeq)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11110)
+                Instruction{ .fmax = undefined }
+            else if (u == 0 and size <= 0b01 and opcode == 0b11111)
+                @as(Instruction, Instruction.frecps)
+            else if (u == 0 and size == 0b00 and opcode == 0b00011)
+                Instruction{ .@"and" = undefined }
+            else if (u == 0 and size == 0b00 and opcode == 0b11101)
+                @as(Instruction, Instruction.fmlal)
+            else
+                error.Unallocated;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 == 0b10 and
