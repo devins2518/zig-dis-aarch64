@@ -1604,19 +1604,19 @@ pub const Disassembler = struct {
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 11);
             return if (u == 0 and opcode == 0b00001)
-                @as(Instruction, Instruction.sqadd)
+                Instruction{ .sqadd = undefined }
             else if (u == 0 and opcode == 0b00101)
-                @as(Instruction, Instruction.sqsub)
+                Instruction{ .sqsub = undefined }
             else if (u == 0 and opcode == 0b00110)
                 Instruction{ .cmgt = undefined }
             else if (u == 0 and opcode == 0b00111)
                 Instruction{ .cmge = undefined }
             else if (u == 0 and opcode == 0b01000)
-                @as(Instruction, Instruction.sshl)
+                Instruction{ .sshl = undefined }
             else if (u == 0 and opcode == 0b01001)
-                @as(Instruction, Instruction.sqshl)
+                Instruction{ .sqshl = undefined }
             else if (u == 0 and opcode == 0b01010)
-                @as(Instruction, Instruction.srshl)
+                Instruction{ .srshl = undefined }
             else if (u == 0 and opcode == 0b10000)
                 Instruction{ .add = AddSubInstr{
                     .s = false,
@@ -1629,7 +1629,7 @@ pub const Disassembler = struct {
             else if (u == 0 and opcode == 0b10001)
                 Instruction{ .cmtst = undefined }
             else if (u == 0 and opcode == 0b10101)
-                @as(Instruction, Instruction.sqdmulh)
+                Instruction{ .sqdmulh = undefined }
             else if (u == 0 and size <= 0b01 and opcode == 0b11011)
                 Instruction{ .fmulx = undefined }
             else if (u == 0 and size <= 0b01 and opcode == 0b11100)
@@ -1639,25 +1639,25 @@ pub const Disassembler = struct {
             else if (u == 0 and size >= 0b10 and opcode == 0b11111)
                 Instruction{ .frsqrts = undefined }
             else if (u == 1 and opcode == 0b00001)
-                @as(Instruction, Instruction.uqadd)
+                Instruction{ .uqadd = undefined }
             else if (u == 1 and opcode == 0b00101)
-                @as(Instruction, Instruction.uqsub)
+                Instruction{ .uqsub = undefined }
             else if (u == 1 and opcode == 0b00110)
                 Instruction{ .cmhi = undefined }
             else if (u == 1 and opcode == 0b00111)
                 Instruction{ .cmhs = undefined }
             else if (u == 1 and opcode == 0b01000)
-                @as(Instruction, Instruction.ushl)
+                Instruction{ .ushl = undefined }
             else if (u == 1 and opcode == 0b01001)
-                @as(Instruction, Instruction.uqshl)
+                Instruction{ .uqshl = undefined }
             else if (u == 1 and opcode == 0b01011)
-                @as(Instruction, Instruction.uqrshl)
+                Instruction{ .uqrshl = undefined }
             else if (u == 1 and opcode == 0b10000)
                 Instruction{ .sub = undefined }
             else if (u == 1 and opcode == 0b10001)
                 Instruction{ .cmeq = undefined }
             else if (u == 1 and opcode == 0b10110)
-                @as(Instruction, Instruction.sqrdmulh)
+                Instruction{ .sqrdmulh = undefined }
             else if (u == 1 and opcode == 0b11100)
                 Instruction{ .fcmge = undefined }
             else if (u == 1 and opcode == 0b11101)
@@ -2207,15 +2207,15 @@ pub const Disassembler = struct {
             const rn = Register.from(op >> 5, .v, false);
             const rd = Register.from(op, .v, false);
             return if (u == 0 and opcode == 0b00000)
-                @as(Instruction, Instruction.shadd)
+                Instruction{ .shadd = undefined }
             else if (u == 0 and opcode == 0b00001)
-                @as(Instruction, Instruction.sqadd)
+                Instruction{ .sqadd = undefined }
             else if (u == 0 and opcode == 0b00010)
-                @as(Instruction, Instruction.srhadd)
+                Instruction{ .srhadd = undefined }
             else if (u == 0 and opcode == 0b00100)
-                @as(Instruction, Instruction.shsub)
+                Instruction{ .shsub = undefined }
             else if (u == 0 and opcode == 0b00101)
-                @as(Instruction, Instruction.sqsub)
+                Instruction{ .sqsub = undefined }
             else if (u == 0 and opcode == 0b00110)
                 Instruction{ .cmgt = SIMDDataProcInstr{
                     .arrangement = if (sizeq != 0b110)
@@ -2237,21 +2237,21 @@ pub const Disassembler = struct {
                     .rd = rd,
                 } }
             else if (u == 0 and opcode == 0b01000)
-                @as(Instruction, Instruction.sshl)
+                Instruction{ .sshl = undefined }
             else if (u == 0 and opcode == 0b01001)
-                @as(Instruction, Instruction.sqshl)
+                Instruction{ .sqshl = undefined }
             else if (u == 0 and opcode == 0b01010)
-                @as(Instruction, Instruction.srshl)
+                Instruction{ .srshl = undefined }
             else if (u == 0 and opcode == 0b01011)
-                @as(Instruction, Instruction.sqrshl)
+                Instruction{ .sqrshl = undefined }
             else if (u == 0 and opcode == 0b01100)
-                @as(Instruction, Instruction.smax)
+                Instruction{ .smax = undefined }
             else if (u == 0 and opcode == 0b01101)
-                @as(Instruction, Instruction.smin)
+                Instruction{ .smin = undefined }
             else if (u == 0 and opcode == 0b01110)
-                @as(Instruction, Instruction.sabd)
+                Instruction{ .sabd = undefined }
             else if (u == 0 and opcode == 0b01111)
-                @as(Instruction, Instruction.saba)
+                Instruction{ .saba = undefined }
             else if (u == 0 and opcode == 0b10000)
                 Instruction{ .vector_add = SIMDDataProcInstr{
                     .arrangement = if (sizeq != 0b110)
@@ -2273,7 +2273,7 @@ pub const Disassembler = struct {
                     .rd = rd,
                 } }
             else if (u == 0 and opcode == 0b10010)
-                @as(Instruction, Instruction.mla)
+                Instruction{ .mla = undefined }
             else if (u == 0 and opcode == 0b10011)
                 @as(Instruction, Instruction.mul)
             else if (u == 0 and opcode == 0b10100)
@@ -2281,7 +2281,7 @@ pub const Disassembler = struct {
             else if (u == 0 and opcode == 0b10101)
                 @as(Instruction, Instruction.sminp)
             else if (u == 0 and opcode == 0b10110)
-                @as(Instruction, Instruction.sqdmulh)
+                Instruction{ .sqdmulh = undefined }
             else if (u == 0 and opcode == 0b10111)
                 Instruction{ .addp = SIMDDataProcInstr{
                     .q = @truncate(u1, op >> 30) == 1,
@@ -2492,13 +2492,13 @@ pub const Disassembler = struct {
             else if (u == 1 and opcode == 0b00000)
                 @as(Instruction, Instruction.uhadd)
             else if (u == 1 and opcode == 0b00001)
-                @as(Instruction, Instruction.uqadd)
+                Instruction{ .uqadd = undefined }
             else if (u == 1 and opcode == 0b00010)
                 @as(Instruction, Instruction.urhadd)
             else if (u == 1 and opcode == 0b00100)
                 @as(Instruction, Instruction.uhsub)
             else if (u == 1 and opcode == 0b00101)
-                @as(Instruction, Instruction.uqsub)
+                Instruction{ .uqsub = undefined }
             else if (u == 1 and opcode == 0b00110)
                 Instruction{ .cmhi = SIMDDataProcInstr{
                     .arrangement = if (sizeq != 0b110)
@@ -2520,13 +2520,13 @@ pub const Disassembler = struct {
                     .rd = rd,
                 } }
             else if (u == 1 and opcode == 0b01000)
-                @as(Instruction, Instruction.ushl)
+                Instruction{ .ushl = undefined }
             else if (u == 1 and opcode == 0b01001)
-                @as(Instruction, Instruction.uqshl)
+                Instruction{ .uqshl = undefined }
             else if (u == 1 and opcode == 0b01010)
                 @as(Instruction, Instruction.urshl)
             else if (u == 1 and opcode == 0b01011)
-                @as(Instruction, Instruction.uqrshl)
+                Instruction{ .uqrshl = undefined }
             else if (u == 1 and opcode == 0b01100)
                 @as(Instruction, Instruction.umax)
             else if (u == 1 and opcode == 0b01101)
@@ -2556,7 +2556,7 @@ pub const Disassembler = struct {
             else if (u == 1 and opcode == 0b10101)
                 @as(Instruction, Instruction.uminp)
             else if (u == 1 and opcode == 0b10110)
-                @as(Instruction, Instruction.sqrdmulh)
+                Instruction{ .sqrdmulh = undefined }
             else if (u == 1 and size <= 0b01 and opcode == 0b11000)
                 Instruction{ .fmaxnmp = SIMDDataProcInstr{
                     .arrangement = if (sizeq == 0b000)
