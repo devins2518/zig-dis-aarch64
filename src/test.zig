@@ -3716,7 +3716,7 @@ test "armv8.5a ssbs" {
     if (true) return error.SkipZigTest;
 }
 
-test " armv8.6a amvs.s" {
+test "armv8.6a amvs.s" {
     if (true) return error.SkipZigTest;
 }
 
