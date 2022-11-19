@@ -1916,25 +1916,72 @@ pub const Disassembler = struct {
             const opcode = @truncate(u5, op >> 12);
             const q = @truncate(u1, op >> 30);
             const sizeq = @as(u3, size) << 1 | q;
+            const rn = Register.from(op >> 5, .v, false);
+            const rd = Register.from(op, .v, false);
             return if (u == 0b0 and opcode == 0b00000) // SIMD two reg misc
-                @as(Instruction, Instruction.rev64)
+                Instruction{ .rev64 = SIMDDataProcInstr{
+                    .arrangement = if (sizeq < 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b00001)
-                Instruction{ .rev16 = undefined }
+                Instruction{ .vector_rev16 = SIMDDataProcInstr{
+                    .arrangement = if (q == 0b0)
+                        ArrangementTy.@"8b"
+                    else
+                        ArrangementTy.@"16b",
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b00010)
-                @as(Instruction, Instruction.saddlp)
+                Instruction{ .saddlp = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"4h"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"8h"
+                    else if (sizeq == 0b010)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b100)
+                        ArrangementTy.@"1d"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b00011)
-                @as(Instruction, Instruction.suqadd)
+                Instruction{ .suqadd = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b00100)
                 Instruction{ .vector_cls = SIMDDataProcInstr{
                     .arrangement = if (sizeq < 0b110)
                         @intToEnum(ArrangementTy, sizeq)
                     else
                         return error.Unallocated,
-                    .rn = Register.from(op >> 5, .v, false),
-                    .rd = Register.from(op, .v, false),
+                    .rn = rn,
+                    .rd = rd,
                 } }
             else if (u == 0b0 and opcode == 0b00101)
-                @as(Instruction, Instruction.cnt)
+                Instruction{ .cnt = SIMDDataProcInstr{
+                    .arrangement = if (q == 0b0)
+                        ArrangementTy.@"8b"
+                    else
+                        ArrangementTy.@"16b",
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b00110)
                 Instruction{ .sadalp = SIMDDataProcInstr{
                     .arrangement = if (sizeq == 0b000)
@@ -1951,134 +1998,748 @@ pub const Disassembler = struct {
                         ArrangementTy.@"2d"
                     else
                         return error.Unallocated,
-                    .rn = Register.from(op >> 5, .v, false),
-                    .rd = Register.from(op, .v, false),
+                    .rn = rn,
+                    .rd = rd,
                 } }
             else if (u == 0b0 and opcode == 0b00111)
-                @as(Instruction, Instruction.sqabs)
+                Instruction{ .sqabs = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b01000)
-                Instruction{ .cmgt = undefined }
+                Instruction{ .cmgt = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b0 and opcode == 0b01001)
-                Instruction{ .cmeq = undefined }
+                Instruction{ .cmeq = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b0 and opcode == 0b01010)
-                @as(Instruction, Instruction.cmlt)
-            else if (u == 0b0 and opcode == 0b01011) blk: {
-                const payload = SIMDDataProcInstr{
-                    .arrangement = @intToEnum(ArrangementTy, sizeq),
-                    .rn = Register.from(op >> 5, .v, false),
-                    .rd = Register.from(op, .v, false),
-                };
-                break :blk Instruction{ .abs = payload };
-            } else if (u == 0b0 and opcode == 0b10010)
-                @as(Instruction, Instruction.xtn)
+                Instruction{ .cmlt = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
+            else if (u == 0b0 and opcode == 0b01011)
+                Instruction{ .abs = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
+            else if (u == 0b0 and opcode == 0b10010)
+                Instruction{ .xtn = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq <= 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and opcode == 0b10100)
-                @as(Instruction, Instruction.sqxtn)
+                Instruction{ .sqxtn = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq <= 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b10110)
-                @as(Instruction, Instruction.fcvtn)
+                Instruction{ .fcvtn = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"4h"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"8h"
+                    else if (sizeq == 0b010)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b10111)
-                @as(Instruction, Instruction.fcvtl)
+                Instruction{ .fcvtl = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"4h"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"8h"
+                    else if (sizeq == 0b010)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11000)
-                Instruction{ .frintn = undefined }
+                Instruction{ .vector_frintn = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11001)
-                Instruction{ .frintm = undefined }
+                Instruction{ .vector_frintm = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11010)
-                Instruction{ .fcvtns = undefined }
+                Instruction{ .vector_fcvtns = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11011)
-                Instruction{ .fcvtms = undefined }
+                Instruction{ .vector_fcvtms = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11100)
-                Instruction{ .fcvtas = undefined }
+                Instruction{ .vector_fcvtas = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11101)
-                Instruction{ .scvtf = undefined }
+                Instruction{ .vector_scvtf = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11110)
-                @as(Instruction, Instruction.frint32z)
+                Instruction{ .vector_frint32z = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11111)
-                @as(Instruction, Instruction.frint64z)
+                Instruction{ .vector_frint64z = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01100)
-                Instruction{ .fcmgt = undefined }
+                Instruction{ .fcmgt = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01101)
-                Instruction{ .fcmeq = undefined }
+                Instruction{ .fcmeq = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01110)
-                @as(Instruction, Instruction.fcmlt)
+                Instruction{ .fcmlt = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01111)
-                Instruction{ .fabs = undefined }
+                Instruction{ .vector_fabs = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11000)
-                Instruction{ .frintp = undefined }
+                Instruction{ .vector_frintp = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11001)
-                Instruction{ .frintz = undefined }
+                Instruction{ .vector_frintz = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11010)
-                Instruction{ .fcvtps = undefined }
+                Instruction{ .vector_fcvtps = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11011)
-                Instruction{ .fcvtzs = undefined }
+                Instruction{ .vector_fcvtzs = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11100)
-                @as(Instruction, Instruction.urecpe)
+                Instruction{ .urecpe = SIMDDataProcInstr{
+                    .arrangement = if (q == 0b0)
+                        ArrangementTy.@"2s"
+                    else
+                        ArrangementTy.@"4s",
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11101)
-                @as(Instruction, Instruction.frecpe)
+                Instruction{ .frecpe = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b0 and size == 0b10 and opcode == 0b10110)
-                @as(Instruction, Instruction.bfcvtn)
+                Instruction{ .bfcvtn = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (q == 0b0)
+                        ArrangementTy.@"4h"
+                    else
+                        ArrangementTy.@"8h",
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b00000)
-                Instruction{ .rev32 = undefined }
+                Instruction{ .vector_rev32 = SIMDDataProcInstr{
+                    .arrangement = if (sizeq < 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b00010)
-                @as(Instruction, Instruction.uaddlp)
+                Instruction{ .uaddlp = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"4h"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"8h"
+                    else if (sizeq == 0b010)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b100)
+                        ArrangementTy.@"1d"
+                    else if (sizeq == 0b100)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b00011)
-                @as(Instruction, Instruction.usqadd)
+                Instruction{ .usqadd = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b00100)
-                Instruction{ .clz = undefined }
+                Instruction{ .vector_clz = SIMDDataProcInstr{
+                    .arrangement = if (sizeq < 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b00110)
-                @as(Instruction, Instruction.uadalp)
+                Instruction{ .uadalp = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"4h"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"8h"
+                    else if (sizeq == 0b010)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b100)
+                        ArrangementTy.@"1d"
+                    else if (sizeq == 0b100)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b00111)
-                @as(Instruction, Instruction.sqneg)
+                Instruction{ .sqneg = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b01000)
-                Instruction{ .cmge = undefined }
+                Instruction{ .cmge = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b1 and opcode == 0b01001)
-                @as(Instruction, Instruction.cmle)
+                Instruction{ .cmle = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b1 and opcode == 0b01011)
-                @as(Instruction, Instruction.neg)
+                Instruction{ .neg = SIMDDataProcInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b10010)
-                @as(Instruction, Instruction.sqxtun)
+                Instruction{ .sqxtun = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq < 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and opcode == 0b10011)
-                @as(Instruction, Instruction.shll)
+                Instruction{ .shll = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (size == 0b00)
+                        ArrangementTy.@"8h"
+                    else if (size == 0b01)
+                        ArrangementTy.@"4s"
+                    else if (size == 0b10)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{
+                        .shift = if (size == 0b00)
+                            8
+                        else if (size == 0b01)
+                            16
+                        else if (size == 0b10)
+                            32
+                        else
+                            return error.Unallocated,
+                    },
+                } }
             else if (u == 0b1 and opcode == 0b10100)
-                @as(Instruction, Instruction.uqxtun)
+                Instruction{ .uqxtn = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq < 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b10110)
-                @as(Instruction, Instruction.fcvtxn)
+                Instruction{ .fcvtxn = SIMDDataProcInstr{
+                    .q = q == 0b1,
+                    .arrangement = if (sizeq < 0b110)
+                        @intToEnum(ArrangementTy, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11000)
-                Instruction{ .frinta = undefined }
+                Instruction{ .vector_frinta = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11001)
-                Instruction{ .frintx = undefined }
+                Instruction{ .vector_frintx = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11010)
-                Instruction{ .fcvtnu = undefined }
+                Instruction{ .vector_fcvtnu = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11011)
-                Instruction{ .fcvtmu = undefined }
+                Instruction{ .vector_fcvtmu = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11100)
-                Instruction{ .fcvtau = undefined }
+                Instruction{ .vector_fcvtau = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11101)
-                Instruction{ .ucvtf = undefined }
+                Instruction{ .vector_ucvtf = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11110)
-                @as(Instruction, Instruction.frint32x)
+                Instruction{ .vector_frint32x = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11111)
-                @as(Instruction, Instruction.frint64x)
+                Instruction{ .vector_frint64x = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b000)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b001)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b011)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size == 0b00 and opcode == 0b00101)
-                @as(Instruction, Instruction.not)
+                Instruction{ .not = SIMDDataProcInstr{
+                    .arrangement = if (q == 0b0)
+                        ArrangementTy.@"8b"
+                    else
+                        ArrangementTy.@"16b",
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size == 0b01 and opcode == 0b00101)
-                Instruction{ .rbit = undefined }
+                Instruction{ .vector_rbit = SIMDDataProcInstr{
+                    .arrangement = if (q == 0b0)
+                        ArrangementTy.@"8b"
+                    else
+                        ArrangementTy.@"16b",
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b01100)
-                Instruction{ .fcmge = undefined }
+                Instruction{ .fcmge = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b01101)
-                @as(Instruction, Instruction.fcmle)
+                Instruction{ .fcmle = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                    .payload = .{ .shift = 0 },
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b01111)
-                Instruction{ .fneg = undefined }
+                Instruction{ .vector_fneg = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11001)
-                Instruction{ .frinti = undefined }
+                Instruction{ .vector_frinti = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11010)
-                Instruction{ .fcvtpu = undefined }
+                Instruction{ .vector_fcvtpu = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11011)
-                Instruction{ .fcvtzu = undefined }
+                Instruction{ .vector_fcvtzu = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11100)
-                @as(Instruction, Instruction.ursqrte)
+                Instruction{ .ursqrte = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11101)
-                @as(Instruction, Instruction.frsqrte)
+                Instruction{ .frsqrte = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11111)
-                Instruction{ .fsqrt = undefined }
+                Instruction{ .vector_fsqrt = SIMDDataProcInstr{
+                    .arrangement = if (sizeq == 0b100)
+                        ArrangementTy.@"2s"
+                    else if (sizeq == 0b101)
+                        ArrangementTy.@"4s"
+                    else if (sizeq == 0b111)
+                        ArrangementTy.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rd = rd,
+                } }
             else
                 error.Unallocated;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
