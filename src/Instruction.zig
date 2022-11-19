@@ -866,8 +866,6 @@ pub const Instruction = union(enum) {
             .not => |instr| try std.fmt.format(writer, "mvn{}", .{instr}),
             .xtn,
             .sqxtn,
-            .fcvtn,
-            .fcvtl,
             .addhn,
             .bfcvtn,
             .sqxtun,
@@ -956,13 +954,16 @@ pub const Instruction = union(enum) {
             .usqadd,
             .uadalp,
             .sqneg,
-            .fcvtxn,
             .neg,
             .fcmle,
             .ursqrte,
             .frsqrte,
             .cmle,
             => |instr| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), instr }),
+            .fcvtl,
+            .fcvtn,
+            .fcvtxn,
+            => |instr| try std.fmt.format(writer, "{s}{s}{b}", .{ @tagName(self.*), if (instr.q != null and instr.q.?) "2" else "", instr }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -2306,24 +2307,27 @@ pub const HintInstr = struct {
     imm: u7,
 };
 
+pub const SIMDArrangement = enum(u4) {
+    @"8b" = 0b000,
+    @"16b" = 0b001,
+    @"4h" = 0b010,
+    @"8h" = 0b011,
+    @"2s" = 0b100,
+    @"4s" = 0b101,
+    @"2d" = 0b111,
+    @"1d" = 0b1000,
+    b,
+    h,
+    s,
+    d,
+};
+
 // This is disgusting
 pub const SIMDDataProcInstr = struct {
     q: ?bool = null,
     // Yeah we do a little enum abusing
-    arrangement: enum(u4) {
-        @"8b" = 0b000,
-        @"16b" = 0b001,
-        @"4h" = 0b010,
-        @"8h" = 0b011,
-        @"2s" = 0b100,
-        @"4s" = 0b101,
-        @"2d" = 0b111,
-        @"1d" = 0b1000,
-        b,
-        h,
-        s,
-        d,
-    },
+    arrangement_a: SIMDArrangement,
+    arrangement_b: ?SIMDArrangement = null,
     rm: ?Register = null,
     rn: Register,
     index: ?u4 = null,
@@ -2333,11 +2337,18 @@ pub const SIMDDataProcInstr = struct {
         shift: u8,
     } = null,
 
-    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        try std.fmt.format(writer, ".{s} {}", .{ @tagName(self.arrangement), self.rd });
-        if (self.index) |idx|
-            try std.fmt.format(writer, "[{}]", .{idx});
-        try std.fmt.format(writer, ", {}", .{self.rn});
+    pub fn format(self: *const @This(), comptime fmt_opt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        if (std.mem.eql(u8, fmt_opt, "b")) {
+            try std.fmt.format(writer, " {}.{s}", .{ self.rd, @tagName(self.arrangement_a) });
+            if (self.index) |idx|
+                try std.fmt.format(writer, "[{}]", .{idx});
+            try std.fmt.format(writer, ", {}.{s}", .{ self.rn, @tagName(self.arrangement_b.?) });
+        } else {
+            try std.fmt.format(writer, ".{s} {}", .{ @tagName(self.arrangement_a), self.rd });
+            if (self.index) |idx|
+                try std.fmt.format(writer, "[{}]", .{idx});
+            try std.fmt.format(writer, ", {}", .{self.rn});
+        }
         if (self.rm) |rm|
             try std.fmt.format(writer, ", {}", .{rm});
         if (self.post_index) |idx|

@@ -3,6 +3,7 @@ const Register = @import("utils.zig").Register;
 const Width = @import("utils.zig").Width;
 const Field = @import("utils.zig").Field;
 
+const SIMDArrangement = @import("instruction.zig").SIMDArrangement;
 const AddSubInstr = @import("instruction.zig").AddSubInstr;
 const AesInstr = @import("instruction.zig").AesInstr;
 const BitfieldInstr = @import("instruction.zig").BitfieldInstr;
@@ -1405,7 +1406,6 @@ pub const Disassembler = struct {
         // TODO: stage 1 moment
         const ShaOpTy = Field(ShaInstr, .op);
         const AesOpTy = Field(AesInstr, .op);
-        const ArrangementTy = Field(SIMDDataProcInstr, .arrangement);
         // TODO: should be a top return
         if (op0 == 0b0100 and
             (op1 == 0b00 or op1 == 0b01) and
@@ -1547,8 +1547,8 @@ pub const Disassembler = struct {
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 12);
             const payload = SIMDDataProcInstr{
-                .arrangement = if (size == 0b11)
-                    ArrangementTy.@"2d"
+                .arrangement_a = if (size == 0b11)
+                    SIMDArrangement.@"2d"
                 else
                     return error.Unallocated,
                 .rn = Register.from(op >> 5, Width.v, false),
@@ -1719,20 +1719,20 @@ pub const Disassembler = struct {
             const imm4 = @truncate(u4, op >> 11);
             return if (u == 0b0 and imm4 == 0b0000)
                 Instruction{ .dup = SIMDDataProcInstr{
-                    .arrangement = if (@truncate(u1, imm5) == 0b1 and q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (@truncate(u1, imm5) == 0b1 and q == 0b0)
+                        SIMDArrangement.@"8b"
                     else if (@truncate(u1, imm5) == 0b1 and q == 0b1)
-                        ArrangementTy.@"16b"
+                        SIMDArrangement.@"16b"
                     else if (@truncate(u2, imm5) == 0b10 and q == 0b0)
-                        ArrangementTy.@"4h"
+                        SIMDArrangement.@"4h"
                     else if (@truncate(u2, imm5) == 0b10 and q == 0b1)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (@truncate(u3, imm5) == 0b100 and q == 0b0)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (@truncate(u3, imm5) == 0b100 and q == 0b1)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (@truncate(u4, imm5) == 0b1000 and q == 0b1)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = Register.from(op >> 5, Width.v, false),
@@ -1755,20 +1755,20 @@ pub const Disassembler = struct {
                     Width.w
                 else if (@truncate(u4, imm5) == 0b1000) Width.x else return error.Unallocated;
                 break :blk Instruction{ .dup = SIMDDataProcInstr{
-                    .arrangement = if (@truncate(u1, imm5) == 0b1 and q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (@truncate(u1, imm5) == 0b1 and q == 0b0)
+                        SIMDArrangement.@"8b"
                     else if (@truncate(u1, imm5) == 0b1 and q == 0b1)
-                        ArrangementTy.@"16b"
+                        SIMDArrangement.@"16b"
                     else if (@truncate(u2, imm5) == 0b10 and q == 0b0)
-                        ArrangementTy.@"4h"
+                        SIMDArrangement.@"4h"
                     else if (@truncate(u2, imm5) == 0b10 and q == 0b1)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (@truncate(u3, imm5) == 0b100 and q == 0b0)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (@truncate(u3, imm5) == 0b100 and q == 0b1)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (@truncate(u4, imm5) == 0b1000 and q == 0b1)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = Register.from(op >> 5, width, false),
@@ -1777,12 +1777,12 @@ pub const Disassembler = struct {
             } else if (u == 0b0 and imm4 == 0b0101) blk: {
                 const width = if (q == 0b0) Width.w else Width.x;
                 break :blk Instruction{ .smov = SIMDDataProcInstr{
-                    .arrangement = if (@truncate(u1, imm5) == 0b1)
-                        ArrangementTy.b
+                    .arrangement_a = if (@truncate(u1, imm5) == 0b1)
+                        SIMDArrangement.b
                     else if (@truncate(u2, imm5) == 0b10)
-                        ArrangementTy.h
+                        SIMDArrangement.h
                     else if (width == .x and @truncate(u3, imm5) == 0b100)
-                        ArrangementTy.s
+                        SIMDArrangement.s
                     else
                         return error.Unallocated,
                     .rn = Register.from(op >> 5, .v, false),
@@ -1801,14 +1801,14 @@ pub const Disassembler = struct {
             blk: {
                 const width = if (q == 0b0) Width.w else Width.x;
                 const payload = SIMDDataProcInstr{
-                    .arrangement = if (width == .w and @truncate(u1, imm5) == 0b1)
-                        ArrangementTy.b
+                    .arrangement_a = if (width == .w and @truncate(u1, imm5) == 0b1)
+                        SIMDArrangement.b
                     else if (width == .w and @truncate(u2, imm5) == 0b10)
-                        ArrangementTy.h
+                        SIMDArrangement.h
                     else if (width == .w and @truncate(u3, imm5) == 0b100)
-                        ArrangementTy.s
+                        SIMDArrangement.s
                     else if (width == .x and @truncate(u4, imm5) == 0b1000)
-                        ArrangementTy.d
+                        SIMDArrangement.d
                     else
                         return error.Unallocated,
                     .rn = Register.from(op >> 5, .v, false),
@@ -1843,14 +1843,14 @@ pub const Disassembler = struct {
                 else
                     return error.Unallocated;
                 break :blk Instruction{ .ins = SIMDDataProcInstr{
-                    .arrangement = if (@truncate(u1, imm5) == 0b1)
-                        ArrangementTy.b
+                    .arrangement_a = if (@truncate(u1, imm5) == 0b1)
+                        SIMDArrangement.b
                     else if (@truncate(u2, imm5) == 0b10)
-                        ArrangementTy.h
+                        SIMDArrangement.h
                     else if (@truncate(u3, imm5) == 0b100)
-                        ArrangementTy.s
+                        SIMDArrangement.s
                     else if (@truncate(u4, imm5) == 0b1000)
-                        ArrangementTy.d
+                        SIMDArrangement.d
                     else
                         undefined,
                     .index = if (@truncate(u1, imm5) == 0b1)
@@ -1920,8 +1920,8 @@ pub const Disassembler = struct {
             const rd = Register.from(op, .v, false);
             return if (u == 0b0 and opcode == 0b00000) // SIMD two reg misc
                 Instruction{ .rev64 = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -1929,27 +1929,27 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b00001)
                 Instruction{ .vector_rev16 = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b0 and opcode == 0b00010)
                 Instruction{ .saddlp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"4h"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (sizeq == 0b010)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b100)
-                        ArrangementTy.@"1d"
+                        SIMDArrangement.@"1d"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -1957,8 +1957,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b00011)
                 Instruction{ .suqadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -1966,8 +1966,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b00100)
                 Instruction{ .vector_cls = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -1975,27 +1975,27 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b00101)
                 Instruction{ .cnt = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b0 and opcode == 0b00110)
                 Instruction{ .sadalp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"4h"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (sizeq == 0b010)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b100)
-                        ArrangementTy.@"1d"
+                        SIMDArrangement.@"1d"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2003,8 +2003,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b00111)
                 Instruction{ .sqabs = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2012,8 +2012,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b01000)
                 Instruction{ .cmgt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2022,8 +2022,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b01001)
                 Instruction{ .cmeq = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2032,8 +2032,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b01010)
                 Instruction{ .cmlt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2042,8 +2042,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and opcode == 0b01011)
                 Instruction{ .abs = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2052,8 +2052,8 @@ pub const Disassembler = struct {
             else if (u == 0b0 and opcode == 0b10010)
                 Instruction{ .xtn = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq <= 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq <= 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2062,8 +2062,8 @@ pub const Disassembler = struct {
             else if (u == 0b0 and opcode == 0b10100)
                 Instruction{ .sqxtn = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq <= 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq <= 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2072,30 +2072,38 @@ pub const Disassembler = struct {
             else if (u == 0b0 and size <= 0b01 and opcode == 0b10110)
                 Instruction{ .fcvtn = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"4h"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (sizeq == 0b010)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else
                         return error.Unallocated,
+                    .arrangement_b = if (size == 0b00)
+                        SIMDArrangement.@"4s"
+                    else
+                        SIMDArrangement.@"2d",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b10111)
                 Instruction{ .fcvtl = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (size == 0b00)
+                        SIMDArrangement.@"4s"
+                    else
+                        SIMDArrangement.@"2d",
+                    .arrangement_b = if (sizeq == 0b000)
+                        SIMDArrangement.@"4h"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (sizeq == 0b010)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2103,12 +2111,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11000)
                 Instruction{ .vector_frintn = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2116,12 +2124,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11001)
                 Instruction{ .vector_frintm = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2129,12 +2137,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11010)
                 Instruction{ .vector_fcvtns = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2142,12 +2150,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11011)
                 Instruction{ .vector_fcvtms = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2155,12 +2163,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11100)
                 Instruction{ .vector_fcvtas = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2168,12 +2176,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11101)
                 Instruction{ .vector_scvtf = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2181,12 +2189,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11110)
                 Instruction{ .vector_frint32z = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2194,12 +2202,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size <= 0b01 and opcode == 0b11111)
                 Instruction{ .vector_frint64z = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2207,12 +2215,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01100)
                 Instruction{ .fcmgt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2221,12 +2229,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01101)
                 Instruction{ .fcmeq = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2235,12 +2243,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01110)
                 Instruction{ .fcmlt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2249,12 +2257,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b01111)
                 Instruction{ .vector_fabs = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2262,12 +2270,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11000)
                 Instruction{ .vector_frintp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2275,12 +2283,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11001)
                 Instruction{ .vector_frintz = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2288,12 +2296,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11010)
                 Instruction{ .vector_fcvtps = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2301,12 +2309,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11011)
                 Instruction{ .vector_fcvtzs = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2314,21 +2322,21 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11100)
                 Instruction{ .urecpe = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"2s"
                     else
-                        ArrangementTy.@"4s",
+                        SIMDArrangement.@"4s",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b0 and size >= 0b10 and opcode == 0b11101)
                 Instruction{ .frecpe = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2337,17 +2345,17 @@ pub const Disassembler = struct {
             else if (u == 0b0 and size == 0b10 and opcode == 0b10110)
                 Instruction{ .bfcvtn = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
                     else
-                        ArrangementTy.@"8h",
+                        SIMDArrangement.@"8h",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b1 and opcode == 0b00000)
                 Instruction{ .vector_rev32 = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2355,18 +2363,18 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b00010)
                 Instruction{ .uaddlp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"4h"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (sizeq == 0b010)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b100)
-                        ArrangementTy.@"1d"
+                        SIMDArrangement.@"1d"
                     else if (sizeq == 0b100)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2374,8 +2382,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b00011)
                 Instruction{ .usqadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2383,8 +2391,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b00100)
                 Instruction{ .vector_clz = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2392,18 +2400,18 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b00110)
                 Instruction{ .uadalp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"4h"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"4h"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"8h"
+                        SIMDArrangement.@"8h"
                     else if (sizeq == 0b010)
-                        ArrangementTy.@"2s"
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b100)
-                        ArrangementTy.@"1d"
+                        SIMDArrangement.@"1d"
                     else if (sizeq == 0b100)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2411,8 +2419,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b00111)
                 Instruction{ .sqneg = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2420,8 +2428,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b01000)
                 Instruction{ .cmge = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2430,8 +2438,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b01001)
                 Instruction{ .cmle = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2440,8 +2448,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and opcode == 0b01011)
                 Instruction{ .neg = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2450,8 +2458,8 @@ pub const Disassembler = struct {
             else if (u == 0b1 and opcode == 0b10010)
                 Instruction{ .sqxtun = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2460,12 +2468,12 @@ pub const Disassembler = struct {
             else if (u == 0b1 and opcode == 0b10011)
                 Instruction{ .shll = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (size == 0b00)
-                        ArrangementTy.@"8h"
+                    .arrangement_a = if (size == 0b00)
+                        SIMDArrangement.@"8h"
                     else if (size == 0b01)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (size == 0b10)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2484,8 +2492,8 @@ pub const Disassembler = struct {
             else if (u == 0b1 and opcode == 0b10100)
                 Instruction{ .uqxtn = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2494,8 +2502,14 @@ pub const Disassembler = struct {
             else if (u == 0b1 and size <= 0b01 and opcode == 0b10110)
                 Instruction{ .fcvtxn = SIMDDataProcInstr{
                     .q = q == 0b1,
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq == 0b010)
+                        SIMDArrangement.@"2s"
+                    else if (sizeq == 0b011)
+                        SIMDArrangement.@"4s"
+                    else
+                        return error.Unallocated,
+                    .arrangement_b = if (size == 0b01)
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2503,12 +2517,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11000)
                 Instruction{ .vector_frinta = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2516,12 +2530,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11001)
                 Instruction{ .vector_frintx = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2529,12 +2543,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11010)
                 Instruction{ .vector_fcvtnu = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2542,12 +2556,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11011)
                 Instruction{ .vector_fcvtmu = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2555,12 +2569,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11100)
                 Instruction{ .vector_fcvtau = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2568,12 +2582,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11101)
                 Instruction{ .vector_ucvtf = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2581,12 +2595,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11110)
                 Instruction{ .vector_frint32x = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2594,12 +2608,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size <= 0b01 and opcode == 0b11111)
                 Instruction{ .vector_frint64x = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2607,30 +2621,30 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size == 0b00 and opcode == 0b00101)
                 Instruction{ .not = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b1 and size == 0b01 and opcode == 0b00101)
                 Instruction{ .vector_rbit = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b01100)
                 Instruction{ .fcmge = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2639,12 +2653,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b01101)
                 Instruction{ .fcmle = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2653,12 +2667,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b01111)
                 Instruction{ .vector_fneg = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2666,12 +2680,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11001)
                 Instruction{ .vector_frinti = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2679,12 +2693,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11010)
                 Instruction{ .vector_fcvtpu = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2692,12 +2706,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11011)
                 Instruction{ .vector_fcvtzu = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2705,10 +2719,10 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11100)
                 Instruction{ .ursqrte = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2716,12 +2730,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11101)
                 Instruction{ .frsqrte = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2729,12 +2743,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0b1 and size >= 0b10 and opcode == 0b11111)
                 Instruction{ .vector_fsqrt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rn = rn,
@@ -2770,8 +2784,8 @@ pub const Disassembler = struct {
                 else
                     return error.Unallocated;
                 break :blk Instruction{ .addv = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b100)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b100)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rn = Register.from(op >> 5, Width.v, false),
@@ -2814,8 +2828,8 @@ pub const Disassembler = struct {
             const sizeq = @as(u3, size) << 1 | q;
             const payload = SIMDDataProcInstr{
                 .q = @truncate(u1, op >> 30) == 1,
-                .arrangement = if (size != 0b11)
-                    @intToEnum(ArrangementTy, sizeq)
+                .arrangement_a = if (size != 0b11)
+                    @intToEnum(SIMDArrangement, sizeq)
                 else
                     return error.Unallocated,
                 .rm = Register.from(op >> 16, .v, false),
@@ -2892,8 +2906,8 @@ pub const Disassembler = struct {
             const rd = Register.from(op, .v, false);
             return if (u == 0 and opcode == 0b00000)
                 Instruction{ .shadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2902,8 +2916,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b00001)
                 Instruction{ .sqadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2912,8 +2926,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b00010)
                 Instruction{ .srhadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2922,8 +2936,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b00100)
                 Instruction{ .shsub = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2932,8 +2946,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b00101)
                 Instruction{ .sqsub = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2942,8 +2956,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b00110)
                 Instruction{ .cmgt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2952,8 +2966,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b00111)
                 Instruction{ .cmge = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2962,8 +2976,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01000)
                 Instruction{ .sshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2972,8 +2986,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01001)
                 Instruction{ .sqshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2982,8 +2996,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01010)
                 Instruction{ .srshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -2992,8 +3006,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01011)
                 Instruction{ .sqrshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3002,8 +3016,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01100)
                 Instruction{ .smax = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3012,8 +3026,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01101)
                 Instruction{ .smin = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3022,8 +3036,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01110)
                 Instruction{ .sabd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3032,8 +3046,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b01111)
                 Instruction{ .saba = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3042,8 +3056,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10000)
                 Instruction{ .vector_add = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3052,8 +3066,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10001)
                 Instruction{ .cmtst = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3062,8 +3076,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10010)
                 Instruction{ .mla = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3072,8 +3086,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10011)
                 Instruction{ .mul = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3082,8 +3096,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10100)
                 Instruction{ .smaxp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3092,8 +3106,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10101)
                 Instruction{ .sminp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3102,8 +3116,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and opcode == 0b10110)
                 Instruction{ .sqdmulh = SIMDDataProcInstr{
-                    .arrangement = if (sizeq > 0b001 and sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq > 0b001 and sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3113,8 +3127,8 @@ pub const Disassembler = struct {
             else if (u == 0 and opcode == 0b10111)
                 Instruction{ .addp = SIMDDataProcInstr{
                     .q = @truncate(u1, op >> 30) == 1,
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3123,12 +3137,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11000)
                 Instruction{ .vector_fmaxnm = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3137,12 +3151,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11001)
                 Instruction{ .fmla = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3151,12 +3165,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11010)
                 Instruction{ .vector_fadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3165,12 +3179,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11011)
                 Instruction{ .fmulx = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3179,12 +3193,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11100)
                 Instruction{ .fcmeq = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3193,12 +3207,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11110)
                 Instruction{ .vector_fmax = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3207,12 +3221,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size <= 0b01 and opcode == 0b11111)
                 Instruction{ .frecps = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3221,10 +3235,10 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size == 0b00 and opcode == 0b00011)
                 Instruction{ .vector_and = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
@@ -3233,22 +3247,22 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.fmlal)
             else if (u == 0 and size == 0b01 and opcode == 0b00011)
                 Instruction{ .vector_bic = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 0 and size >= 0b10 and opcode == 0b11000)
                 Instruction{ .vector_fminnm = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3257,12 +3271,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size >= 0b10 and opcode == 0b11001)
                 Instruction{ .fmls = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3271,12 +3285,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size >= 0b10 and opcode == 0b11010)
                 Instruction{ .vector_fsub = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3285,12 +3299,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size >= 0b10 and opcode == 0b11110)
                 Instruction{ .vector_fmin = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3299,12 +3313,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size >= 0b10 and opcode == 0b11111)
                 Instruction{ .frsqrts = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3313,10 +3327,10 @@ pub const Disassembler = struct {
                 } }
             else if (u == 0 and size == 0b10 and opcode == 0b00011) blk: {
                 const payload = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
@@ -3329,18 +3343,18 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.fmlsl)
             else if (u == 0 and size == 0b11 and opcode == 0b00011)
                 Instruction{ .vector_orn = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 1 and opcode == 0b00000)
                 Instruction{ .uhadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3349,8 +3363,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b00001)
                 Instruction{ .uqadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3359,8 +3373,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b00010)
                 Instruction{ .urhadd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3369,8 +3383,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b00100)
                 Instruction{ .uhsub = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3379,8 +3393,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b00101)
                 Instruction{ .uqsub = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3389,8 +3403,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b00110)
                 Instruction{ .cmhi = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3399,8 +3413,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b00111)
                 Instruction{ .cmhs = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3409,8 +3423,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01000)
                 Instruction{ .ushl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3419,8 +3433,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01001)
                 Instruction{ .uqshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3429,8 +3443,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01010)
                 Instruction{ .urshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3439,8 +3453,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01011)
                 Instruction{ .uqrshl = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3449,8 +3463,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01100)
                 Instruction{ .umax = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3459,8 +3473,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01101)
                 Instruction{ .umin = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3469,8 +3483,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01110)
                 Instruction{ .uabd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3479,8 +3493,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b01111)
                 Instruction{ .uaba = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3489,8 +3503,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b10000)
                 Instruction{ .vector_sub = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3499,8 +3513,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b10001)
                 Instruction{ .cmeq = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3509,8 +3523,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b10010)
                 Instruction{ .mls = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3519,18 +3533,18 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b10011)
                 Instruction{ .pmul = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 1 and opcode == 0b10100)
                 Instruction{ .umaxp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3539,8 +3553,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b10101)
                 Instruction{ .uminp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3549,8 +3563,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and opcode == 0b10110)
                 Instruction{ .sqrdmulh = SIMDDataProcInstr{
-                    .arrangement = if (sizeq > 0b001 and sizeq < 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq > 0b001 and sizeq < 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3559,12 +3573,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11000)
                 Instruction{ .fmaxnmp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3573,12 +3587,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11010)
                 Instruction{ .faddp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3587,12 +3601,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11011)
                 Instruction{ .vector_fmul = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3601,12 +3615,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11100)
                 Instruction{ .fcmge = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3615,12 +3629,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11101)
                 Instruction{ .facge = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3629,12 +3643,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11110)
                 Instruction{ .fmaxp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3643,12 +3657,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size <= 0b01 and opcode == 0b11111)
                 Instruction{ .vector_fdiv = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b000)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b000)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b001)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b011)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3657,10 +3671,10 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size == 0b00 and opcode == 0b00011)
                 Instruction{ .vector_eor = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
@@ -3669,22 +3683,22 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.fmlal)
             else if (u == 1 and size == 0b01 and opcode == 0b00011)
                 Instruction{ .bsl = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
                 } }
             else if (u == 1 and size >= 0b10 and opcode == 0b11000)
                 Instruction{ .fminnmp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3693,8 +3707,8 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size >= 0b10 and opcode == 0b11010)
                 Instruction{ .fabd = SIMDDataProcInstr{
-                    .arrangement = if (sizeq != 0b110)
-                        @intToEnum(ArrangementTy, sizeq)
+                    .arrangement_a = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3703,12 +3717,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size >= 0b10 and opcode == 0b11100)
                 Instruction{ .fcmgt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3717,12 +3731,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size >= 0b10 and opcode == 0b11101)
                 Instruction{ .facgt = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3731,12 +3745,12 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size >= 0b10 and opcode == 0b11110)
                 Instruction{ .fminp = SIMDDataProcInstr{
-                    .arrangement = if (sizeq == 0b100)
-                        ArrangementTy.@"2s"
+                    .arrangement_a = if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
                     else if (sizeq == 0b101)
-                        ArrangementTy.@"4s"
+                        SIMDArrangement.@"4s"
                     else if (sizeq == 0b111)
-                        ArrangementTy.@"2d"
+                        SIMDArrangement.@"2d"
                     else
                         return error.Unallocated,
                     .rm = rm,
@@ -3745,10 +3759,10 @@ pub const Disassembler = struct {
                 } }
             else if (u == 1 and size == 0b10 and opcode == 0b00011)
                 Instruction{ .bit = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
@@ -3757,10 +3771,10 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.fmlsl)
             else if (u == 1 and size == 0b11 and opcode == 0b00011)
                 Instruction{ .bif = SIMDDataProcInstr{
-                    .arrangement = if (q == 0b0)
-                        ArrangementTy.@"8b"
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
                     else
-                        ArrangementTy.@"16b",
+                        SIMDArrangement.@"16b",
                     .rm = rm,
                     .rn = rn,
                     .rd = rd,
