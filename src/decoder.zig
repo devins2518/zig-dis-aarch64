@@ -3995,7 +3995,7 @@ pub const Disassembler = struct {
                     .payload = .{ .fp_imm = toFloatingPointConst(f64, a, b, c, d, e, f, g, h) },
                 } }
             else
-                error.Unimplemented;
+                error.Unallocated;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 == 0b10 and
