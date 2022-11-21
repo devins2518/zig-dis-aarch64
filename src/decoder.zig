@@ -3786,8 +3786,216 @@ pub const Disassembler = struct {
             op1 == 0b10 and
             op2 == 0b0000 and
             @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD modified immediate
+        { // SIMD modified immediate
+            const q = @truncate(u1, op >> 30);
+            const o1 = @truncate(u1, op >> 29);
+            const cmode = @truncate(u4, op >> 12);
+            const o2 = @truncate(u1, op >> 11);
+            const rd = Register.from(op, .v, false);
+            const a = @truncate(u1, op >> 18);
+            const b = @truncate(u1, op >> 17);
+            const c = @truncate(u1, op >> 16);
+            const d = @truncate(u1, op >> 9);
+            const e = @truncate(u1, op >> 8);
+            const f = @truncate(u1, op >> 7);
+            const g = @truncate(u1, op >> 6);
+            const h = @truncate(u1, op >> 5);
+            const imm8 = @as(u8, a) << 7 | @as(u8, b) << 6 |
+                @as(u8, c) << 5 | @as(u8, d) << 4 |
+                @as(u8, e) << 3 | @as(u8, f) << 2 |
+                @as(u8, g) << 1 | @as(u8, h);
+            const imm = @as(u64, a) * 0xF0000000 | @as(u64, b) * 0x0F000000 |
+                @as(u64, c) * 0x00F00000 | @as(u64, d) * 0x000F0000 |
+                @as(u64, e) * 0x0000F000 | @as(u64, f) * 0x00000F00 |
+                @as(u64, g) * 0x000000F0 | @as(u64, h) * 0x0000000F;
+            return if (o1 == 0b0 and @truncate(u1, cmode >> 3) == 0b0 and
+                @truncate(u1, cmode) == 0b0 and o2 == 0b0)
+                Instruction{ .movi = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
+                    else
+                        SIMDArrangement.@"8h",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u2, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b0 and @truncate(u1, cmode >> 3) == 0b0 and
+                @truncate(u1, cmode) == 0b1 and o2 == 0b0)
+                Instruction{ .vector_orr = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"2s"
+                    else
+                        SIMDArrangement.@"4s",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u2, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b0 and @truncate(u2, cmode >> 2) == 0b10 and
+                @truncate(u1, cmode) == 0b0 and o2 == 0b0)
+                Instruction{ .movi = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
+                    else
+                        SIMDArrangement.@"16b",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u1, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b0 and @truncate(u2, cmode >> 2) == 0b10 and
+                @truncate(u1, cmode) == 0b1 and o2 == 0b0)
+                Instruction{ .vector_orr = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
+                    else
+                        SIMDArrangement.@"8h",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u1, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b0 and @truncate(u3, cmode >> 1) == 0b110 and o2 == 0b0)
+                Instruction{ .movi = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
+                    else
+                        SIMDArrangement.@"8h",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = (@as(u6, @truncate(u1, cmode)) + 1) * 8,
+                        .shift_ty = .msl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b0 and cmode == 0b1110 and o2 == 0b0)
+                Instruction{ .movi = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"8b"
+                    else
+                        SIMDArrangement.@"16b",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = 0,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b0 and cmode == 0b1111 and o2 == 0b0)
+                Instruction{ .vector_fmov = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"2s"
+                    else
+                        SIMDArrangement.@"4s",
+                    .rd = rd,
+                    .payload = .{ .fp_imm = @floatCast(f64, toFloatingPointConst(f32, a, b, c, d, e, f, g, h)) },
+                } }
+            else if (o1 == 0b0 and cmode == 0b1111 and o2 == 0b1)
+                Instruction{ .vector_fmov = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
+                    else
+                        SIMDArrangement.@"8h",
+                    .rd = rd,
+                    .payload = .{ .fp_imm = @floatCast(f64, toFloatingPointConst(f16, a, b, c, d, e, f, g, h)) },
+                } }
+            else if (o1 == 0b1 and @truncate(u1, cmode >> 3) == 0b0 and
+                @truncate(u1, cmode) == 0b0 and o2 == 0b0)
+                Instruction{ .mvni = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"2s"
+                    else
+                        SIMDArrangement.@"4s",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u2, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b1 and @truncate(u1, cmode >> 3) == 0b0 and
+                @truncate(u1, cmode) == 0b1 and o2 == 0b0)
+                Instruction{ .vector_bic = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"2s"
+                    else
+                        SIMDArrangement.@"4s",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u2, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b1 and @truncate(u2, cmode >> 2) == 0b10 and
+                @truncate(u1, cmode) == 0b0 and o2 == 0b0)
+                Instruction{ .mvni = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
+                    else
+                        SIMDArrangement.@"8h",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u1, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b1 and @truncate(u2, cmode >> 2) == 0b10 and
+                @truncate(u1, cmode) == 0b1 and o2 == 0b0)
+                Instruction{ .vector_bic = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"4h"
+                    else
+                        SIMDArrangement.@"8h",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = @as(u6, @truncate(u1, cmode >> 1)) * 8,
+                        .shift_ty = .lsl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (o1 == 0b1 and @truncate(u3, cmode >> 1) == 0b110 and o2 == 0b0)
+                Instruction{ .mvni = SIMDDataProcInstr{
+                    .arrangement_a = if (q == 0b0)
+                        SIMDArrangement.@"2s"
+                    else
+                        SIMDArrangement.@"4s",
+                    .rd = rd,
+                    .payload = .{ .shifted_imm = .{
+                        .shift = (@as(u6, @truncate(u1, cmode)) + 1) * 8,
+                        .shift_ty = .msl,
+                        .imm = imm8,
+                    } },
+                } }
+            else if (q == 0b0 and o1 == 0b1 and cmode == 0b1110 and o2 == 0b0)
+                Instruction{ .movi = SIMDDataProcInstr{
+                    .rd = rd,
+                    .payload = .{ .imm = imm },
+                } }
+            else if (q == 0b1 and o1 == 0b1 and cmode == 0b1110 and o2 == 0b0)
+                Instruction{ .movi = SIMDDataProcInstr{
+                    .arrangement_a = SIMDArrangement.@"2d",
+                    .rd = rd,
+                    .payload = .{ .imm = imm },
+                } }
+            else if (q == 0b1 and o1 == 0b1 and cmode == 0b1111 and o2 == 0b0)
+                Instruction{ .vector_fmov = SIMDDataProcInstr{
+                    .arrangement_a = SIMDArrangement.@"2d",
+                    .rd = rd,
+                    .payload = .{ .fp_imm = toFloatingPointConst(f64, a, b, c, d, e, f, g, h) },
+                } }
+            else
+                error.Unimplemented;
         } else if (@truncate(u1, op0 >> 3) == 0b0 and
             @truncate(u1, op0) == 0b0 and
             op1 == 0b10 and
@@ -4144,48 +4352,9 @@ pub const Disassembler = struct {
                 else => unreachable,
             };
             const fp_const = switch (rd_width) {
-                .h => @floatCast(f64, @bitCast(f16, 0 |
-                    @as(u16, a) << 15 |
-                    @as(u16, ~b) << 14 |
-                    @as(u16, b) << 13 |
-                    @as(u16, b) << 12 |
-                    @as(u16, c) << 11 |
-                    @as(u16, d) << 10 |
-                    @as(u16, e) << 9 |
-                    @as(u16, f) << 8 |
-                    @as(u16, g) << 7 |
-                    @as(u16, h) << 6)),
-                .s => @floatCast(f64, @bitCast(f32, 0 |
-                    @as(u32, a) << 31 |
-                    @as(u32, ~b) << 30 |
-                    @as(u32, b) << 29 |
-                    @as(u32, b) << 28 |
-                    @as(u32, b) << 27 |
-                    @as(u32, b) << 26 |
-                    @as(u32, b) << 25 |
-                    @as(u32, c) << 24 |
-                    @as(u32, d) << 23 |
-                    @as(u32, e) << 22 |
-                    @as(u32, f) << 21 |
-                    @as(u32, g) << 20 |
-                    @as(u32, h) << 19)),
-                .d => @bitCast(f64, 0 |
-                    @as(u64, a) << 63 |
-                    @as(u64, ~b) << 62 |
-                    @as(u64, b) << 61 |
-                    @as(u64, b) << 60 |
-                    @as(u64, b) << 59 |
-                    @as(u64, b) << 58 |
-                    @as(u64, b) << 57 |
-                    @as(u64, b) << 56 |
-                    @as(u64, b) << 55 |
-                    @as(u64, b) << 54 |
-                    @as(u64, c) << 53 |
-                    @as(u64, d) << 52 |
-                    @as(u64, e) << 51 |
-                    @as(u64, f) << 50 |
-                    @as(u64, g) << 49 |
-                    @as(u64, h) << 48),
+                .h => @floatCast(f64, toFloatingPointConst(f16, a, b, c, d, e, f, g, h)),
+                .s => @floatCast(f64, toFloatingPointConst(f32, a, b, c, d, e, f, g, h)),
+                .d => toFloatingPointConst(f64, a, b, c, d, e, f, g, h),
                 else => unreachable,
             };
             const payload = FMovInstr{
@@ -4328,3 +4497,51 @@ pub const Disassembler = struct {
         } else return error.Unallocated;
     }
 };
+
+fn toFloatingPointConst(comptime T: type, a: u1, b: u1, c: u1, d: u1, e: u1, f: u1, g: u1, h: u1) T {
+    return switch (T) {
+        f16 => @bitCast(f16, 0 |
+            @as(u16, a) << 15 |
+            @as(u16, ~b) << 14 |
+            @as(u16, b) << 13 |
+            @as(u16, b) << 12 |
+            @as(u16, c) << 11 |
+            @as(u16, d) << 10 |
+            @as(u16, e) << 9 |
+            @as(u16, f) << 8 |
+            @as(u16, g) << 7 |
+            @as(u16, h) << 6),
+        f32 => @bitCast(f32, 0 |
+            @as(u32, a) << 31 |
+            @as(u32, ~b) << 30 |
+            @as(u32, b) << 29 |
+            @as(u32, b) << 28 |
+            @as(u32, b) << 27 |
+            @as(u32, b) << 26 |
+            @as(u32, b) << 25 |
+            @as(u32, c) << 24 |
+            @as(u32, d) << 23 |
+            @as(u32, e) << 22 |
+            @as(u32, f) << 21 |
+            @as(u32, g) << 20 |
+            @as(u32, h) << 19),
+        f64 => @bitCast(f64, 0 |
+            @as(u64, a) << 63 |
+            @as(u64, ~b) << 62 |
+            @as(u64, b) << 61 |
+            @as(u64, b) << 60 |
+            @as(u64, b) << 59 |
+            @as(u64, b) << 58 |
+            @as(u64, b) << 57 |
+            @as(u64, b) << 56 |
+            @as(u64, b) << 55 |
+            @as(u64, b) << 54 |
+            @as(u64, c) << 53 |
+            @as(u64, d) << 52 |
+            @as(u64, e) << 51 |
+            @as(u64, f) << 50 |
+            @as(u64, g) << 49 |
+            @as(u64, h) << 48),
+        else => @compileError("Invalid return type passed to toFloatingPointConst"),
+    };
+}

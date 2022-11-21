@@ -373,6 +373,9 @@ pub const Instruction = union(enum) {
     fmla: SIMDDataProcInstr,
     fmlal,
     // Advanced SIMD modified immediate
+    movi: SIMDDataProcInstr,
+    vector_fmov: SIMDDataProcInstr,
+    mvni: SIMDDataProcInstr,
     // Advanced SIMD shift by immediate
     // Advanced SIMD vector x indexed element
     // Crypto three register, imm2
@@ -863,6 +866,7 @@ pub const Instruction = union(enum) {
             .vector_frinti => |instr| try std.fmt.format(writer, "frinti{}", .{instr}),
             .vector_fcvtzu => |instr| try std.fmt.format(writer, "fcvtzu{}", .{instr}),
             .vector_fsqrt => |instr| try std.fmt.format(writer, "fsqrt{}", .{instr}),
+            .vector_fmov => |instr| try std.fmt.format(writer, "fmov{}", .{instr}),
             .not => |instr| try std.fmt.format(writer, "mvn{}", .{instr}),
             .xtn,
             .sqxtn,
@@ -959,6 +963,7 @@ pub const Instruction = union(enum) {
             .ursqrte,
             .frsqrte,
             .cmle,
+            .movi,
             => |instr| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), instr }),
             .fcvtl,
             .fcvtn,
@@ -2326,28 +2331,42 @@ pub const SIMDArrangement = enum(u4) {
 pub const SIMDDataProcInstr = struct {
     q: ?bool = null,
     // Yeah we do a little enum abusing
-    arrangement_a: SIMDArrangement,
+    arrangement_a: ?SIMDArrangement = null,
     arrangement_b: ?SIMDArrangement = null,
     rm: ?Register = null,
-    rn: Register,
+    rn: ?Register = null,
     index: ?u4 = null,
     rd: Register,
     post_index: ?u4 = null,
     payload: ?union(enum) {
         shift: u8,
+        shifted_imm: struct {
+            shift: u6,
+            shift_ty: enum {
+                lsl,
+                msl,
+            },
+            imm: u64,
+        },
+        imm: u64,
+        fp_imm: f64,
     } = null,
 
     pub fn format(self: *const @This(), comptime fmt_opt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         if (std.mem.eql(u8, fmt_opt, "b")) {
-            try std.fmt.format(writer, " {}.{s}", .{ self.rd, @tagName(self.arrangement_a) });
+            try std.fmt.format(writer, " {}.{s}", .{ self.rd, @tagName(self.arrangement_a.?) });
             if (self.index) |idx|
                 try std.fmt.format(writer, "[{}]", .{idx});
-            try std.fmt.format(writer, ", {}.{s}", .{ self.rn, @tagName(self.arrangement_b.?) });
+            if (self.rn) |rn|
+                try std.fmt.format(writer, ", {}.{s}", .{ rn, @tagName(self.arrangement_b.?) });
         } else {
-            try std.fmt.format(writer, ".{s} {}", .{ @tagName(self.arrangement_a), self.rd });
+            if (self.arrangement_a) |arrangement|
+                try std.fmt.format(writer, ".{s}", .{@tagName(arrangement)});
+            try std.fmt.format(writer, " {}", .{self.rd});
             if (self.index) |idx|
                 try std.fmt.format(writer, "[{}]", .{idx});
-            try std.fmt.format(writer, ", {}", .{self.rn});
+            if (self.rn) |rn|
+                try std.fmt.format(writer, ", {}", .{rn});
         }
         if (self.rm) |rm|
             try std.fmt.format(writer, ", {}", .{rm});
@@ -2356,6 +2375,13 @@ pub const SIMDDataProcInstr = struct {
         if (self.payload) |payload| {
             switch (payload) {
                 .shift => |shift| try std.fmt.format(writer, ", #{}", .{shift}),
+                .shifted_imm => |shifted_imm| {
+                    try std.fmt.format(writer, ", #{}", .{shifted_imm.imm});
+                    if (shifted_imm.shift > 0)
+                        try std.fmt.format(writer, ", {s} #{}", .{ @tagName(shifted_imm.shift_ty), shifted_imm.shift });
+                },
+                .imm => |imm| try std.fmt.format(writer, ", #{}", .{imm}),
+                .fp_imm => |fp_imm| try std.fmt.format(writer, ", #{d:.8}", .{fp_imm}),
             }
         }
     }
