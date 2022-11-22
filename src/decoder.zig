@@ -27,6 +27,7 @@ const LogInstr = @import("instruction.zig").LogInstr;
 const MovInstr = @import("instruction.zig").MovInstr;
 const PCRelAddrInstr = @import("instruction.zig").PCRelAddrInstr;
 const SIMDDataProcInstr = @import("instruction.zig").SIMDDataProcInstr;
+const SIMDLoadStoreInstr = @import("instruction.zig").SIMDLoadStoreInstr;
 const ShaInstr = @import("instruction.zig").ShaInstr;
 const SysInstr = @import("instruction.zig").SysInstr;
 const SysRegMoveInstr = @import("instruction.zig").SysRegMoveInstr;
@@ -509,21 +510,979 @@ pub const Disassembler = struct {
         const LdStPayloadTy = Field(LoadStoreInstr, .payload);
         const IndexTy = @typeInfo(Field(LoadStoreInstr, .index)).Optional.child;
         const LdStPrfm = Field(LoadStoreInstr, .ld_st_prfm);
-        if (op0 == 0b0000 and op1 == 1 and op2 <= 0b01 and op3 >= 0b100000 or
-            // TODO reduce
-            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 5) == 1) or
-            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 4) == 1) or
-            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 3) == 1) or
-            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 2) == 1) or
-            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3 >> 1) == 1) or
-            (op0 == 0b0000 and op1 == 1 and (op2 == 0b00 or op2 == 0b10) and @truncate(u1, op3) == 1) or
-            ((op0 == 0b1000 or op0 == 0b1100) and op1 == 1))
-            return error.Unallocated
-        else if (op0 == 0b0000 and op1 == 1 and op2 == 0b10 and @truncate(u5, op3) == 0b11111)
-            return error.Unimplemented // Advanced SIMD load/store single structure
-        else if (op0 == 0b0000 and op1 == 1 and op2 == 0b11)
-            return error.Unimplemented // Advanced SIMD load/store single structure (post-indexed)
-        else if (op0 == 0b1101 and op1 == 0 and op2 >= 0b10 and op3 >= 0b100000)
+        if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 0b0 and op2 == 0b00 and @truncate(u1, op3 >> 5) == 0b1)
+            return error.Unimplemented // Compare and swap pair
+        else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b00 and op3 == 0b00000) { // Advanced SIMD load/store multiple structures
+            const l = @truncate(u1, op >> 22);
+            const opcode = @truncate(u4, op >> 12);
+            const t = @truncate(u5, op);
+            const rn = Register.from(op >> 5, .x, true);
+            const rt = Register.from(t, .v, false);
+            const rt2 = Register.from((t + 1) % 31, .v, false);
+            const rt3 = Register.from((t + 2) % 31, .v, false);
+            const rt4 = Register.from((t + 3) % 31, .v, false);
+            const size = @truncate(u2, op >> 10);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            return if (l == 0b0 and opcode == 0b0000)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                } }
+            else if (l == 0b0 and opcode == 0b0010)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                } }
+            else if (l == 0b0 and opcode == 0b0100)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                } }
+            else if (l == 0b0 and opcode == 0b0110)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                } }
+            else if (l == 0b0 and opcode == 0b0111)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                } }
+            else if (l == 0b0 and opcode == 0b1000)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                } }
+            else if (l == 0b0 and opcode == 0b1010)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                } }
+            else if (l == 0b1 and opcode == 0b0000)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                } }
+            else if (l == 0b1 and opcode == 0b0010)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                } }
+            else if (l == 0b1 and opcode == 0b0100)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                } }
+            else if (l == 0b1 and opcode == 0b0110)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                } }
+            else if (l == 0b1 and opcode == 0b0111)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                } }
+            else if (l == 0b1 and opcode == 0b1000)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                } }
+            else if (l == 0b1 and opcode == 0b1010)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                } }
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b01 and @truncate(u1, op3 >> 5) == 0b0) { // Advanced SIMD load/store multiple structures (post-indexed)
+            const l = @truncate(u1, op >> 22);
+            const m = @truncate(u5, op >> 16);
+            const t = @truncate(u5, op);
+            const opcode = @truncate(u4, op >> 12);
+            const rn = Register.from(op >> 5, .x, true);
+            const rt = Register.from(t, .v, false);
+            const rt2 = Register.from((t + 1) % 31, .v, false);
+            const rt3 = Register.from((t + 2) % 31, .v, false);
+            const rt4 = Register.from((t + 3) % 31, .v, false);
+            const rm = Register.from(m, .x, false);
+            const size = @truncate(u2, op >> 10);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            return if (l == 0b0 and opcode == 0b0000)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 32 },
+                } }
+            else if (l == 0b0 and opcode == 0b0010)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 32 },
+                } }
+            else if (l == 0b0 and opcode == 0b0100)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 24 },
+                } }
+            else if (l == 0b0 and opcode == 0b0110)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 24 },
+                } }
+            else if (l == 0b0 and opcode == 0b0111)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 8 },
+                } }
+            else if (l == 0b0 and opcode == 0b1000)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 16 },
+                } }
+            else if (l == 0b0 and opcode == 0b1010)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 16 },
+                } }
+            else if (l == 0b1 and opcode == 0b0000)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 32 },
+                } }
+            else if (l == 0b1 and opcode == 0b0010)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 32 },
+                } }
+            else if (l == 0b1 and opcode == 0b0100)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 24 },
+                } }
+            else if (l == 0b1 and opcode == 0b0110)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 24 },
+                } }
+            else if (l == 0b1 and opcode == 0b0111)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 8 },
+                } }
+            else if (l == 0b1 and opcode == 0b1000)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = if (sizeq != 0b110)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 16 },
+                } }
+            else if (l == 0b1 and opcode == 0b1010)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = (@as(u7, q) + 1) * 16 },
+                } }
+            else
+                error.Unimplemented;
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b10 and @truncate(u5, op3) == 0b00000) { // Advanced SIMD load/store single structure (post-indexed)
+            const l = @truncate(u1, op >> 22);
+            const r = @truncate(u1, op >> 21);
+            const opcode = @truncate(u3, op >> 13);
+            const s = @truncate(u1, op >> 12);
+            const size = @truncate(u2, op >> 10);
+            const t = @truncate(u5, op);
+            const rn = Register.from(op >> 5, .x, true);
+            const rt = Register.from(t, .v, false);
+            const rt2 = Register.from((t + 1) % 31, .v, false);
+            const rt3 = Register.from((t + 2) % 31, .v, false);
+            const rt4 = Register.from((t + 3) % 31, .v, false);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            return if (l == 0b0 and r == 0b0 and opcode == 0b000)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b001)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b100 and size == 0b00)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = q,
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b101 and size == 0b00)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = q,
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b000)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b001)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b100 and size == 0b00)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = q,
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b101 and size == 0b00)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = q,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b000)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b001)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b100 and size == 0b00)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = q,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b101 and size == 0b00)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = q,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b110 and s == 0b0)
+                Instruction{ .ld1r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b111 and s == 0b0)
+                Instruction{ .ld3r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b000)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b001)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b100 and size == 0b00)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = q,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b101 and size == 0b00)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u2, q) << 1 | s,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = q,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b110 and s == 0b0)
+                Instruction{ .ld2r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b111 and s == 0b0)
+                Instruction{ .ld4r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                } }
+            else
+                error.Unallocated;
+        } else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b11) { // Advanced SIMD load/store single structure (post-indexed)
+            const l = @truncate(u1, op >> 22);
+            const r = @truncate(u1, op >> 21);
+            const s = @truncate(u1, op >> 12);
+            const size = @truncate(u2, op >> 10);
+            const m = @truncate(u5, op >> 16);
+            const t = @truncate(u5, op);
+            const opcode = @truncate(u3, op >> 13);
+            const rn = Register.from(op >> 5, .x, true);
+            const rt = Register.from(t, .v, false);
+            const rt2 = Register.from((t + 1) % 31, .v, false);
+            const rt3 = Register.from((t + 2) % 31, .v, false);
+            const rt4 = Register.from((t + 3) % 31, .v, false);
+            const rm = Register.from(m, .x, false);
+            const q = @truncate(u1, op >> 30);
+            const sizeq = @as(u3, size) << 1 | q;
+            return if (l == 0b0 and r == 0b0 and opcode == 0b000)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 1 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b001)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 3 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 2 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 6 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b100 and size == 0b00)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 4 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .st1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 8 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b101 and size == 0b00)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 12 },
+                } }
+            else if (l == 0b0 and r == 0b0 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .st3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 24 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b000)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 2 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b001)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 4 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 4 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 8 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b100 and size == 0b00)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 8 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .st2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 16 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b101 and size == 0b00)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 16 },
+                } }
+            else if (l == 0b0 and r == 0b1 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .st4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 32 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b000)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 1 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b001)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 3 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 2 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 6 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b100 and size == 0b00)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 4 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .ld1 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 8 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b101 and size == 0b00)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 12 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .ld3 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 24 },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b110 and s == 0b0)
+                Instruction{ .ld1r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = @as(u7, 0b1) << size },
+                } }
+            else if (l == 0b1 and r == 0b0 and opcode == 0b111 and s == 0b0)
+                Instruction{ .ld3r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = @as(u7, 0b11) << size },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b000)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 2 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b001)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.b,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u4, q) << 3 | @as(u4, s) << 2 | size,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 4 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b010 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 4 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b011 and @truncate(u1, size) == 0b0)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.h,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u3, q) << 2 | @as(u3, s) << 1 | @truncate(u1, size >> 1),
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 8 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b100 and size == 0b00)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 8 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b100 and s == 0b0 and size == 0b01)
+                Instruction{ .ld2 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 16 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b101 and size == 0b00)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.s,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = @as(u2, q) << 1 | s,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 16 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b101 and s == 0b0 and size == 0b01)
+                Instruction{ .ld4 = SIMDLoadStoreInstr{
+                    .arrangement = SIMDArrangement.d,
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .index = q,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = 32 },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b110 and s == 0b0)
+                Instruction{ .ld2r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = @as(u7, 0b10) << size },
+                } }
+            else if (l == 0b1 and r == 0b1 and opcode == 0b111 and s == 0b0)
+                Instruction{ .ld4r = SIMDLoadStoreInstr{
+                    .arrangement = @intToEnum(SIMDArrangement, sizeq),
+                    .rn = rn,
+                    .rt = rt,
+                    .rt2 = rt2,
+                    .rt3 = rt3,
+                    .rt4 = rt4,
+                    .payload = if (m != 0b11111) .{ .rm = rm } else .{ .imm = @as(u7, 0b100) << size },
+                } }
+            else
+                error.Unallocated;
+        } else if (op0 == 0b1101 and op1 == 0 and op2 >= 0b10 and op3 >= 0b100000)
             return error.Unimplemented // Load/store memory tags
         else if ((op0 == 0b1000 or op0 == 0b1100) and op1 == 0 and op2 == 0b00 and op3 >= 0b100000) { // Load/store exclusive pair
             const width = Width.from(op >> 30);

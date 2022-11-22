@@ -442,6 +442,18 @@ pub const Instruction = union(enum) {
     // Loads and Stores
     // Compare and swap pair
     // Advanced SIMD load/store multiple structures
+    st1: SIMDLoadStoreInstr,
+    st2: SIMDLoadStoreInstr,
+    st3: SIMDLoadStoreInstr,
+    st4: SIMDLoadStoreInstr,
+    ld1: SIMDLoadStoreInstr,
+    ld2: SIMDLoadStoreInstr,
+    ld3: SIMDLoadStoreInstr,
+    ld4: SIMDLoadStoreInstr,
+    ld1r: SIMDLoadStoreInstr,
+    ld2r: SIMDLoadStoreInstr,
+    ld3r: SIMDLoadStoreInstr,
+    ld4r: SIMDLoadStoreInstr,
     // Advanced SIMD load/store multiple structures (post indexed)
     // Advanced SIMD load/store single structures
     // Advanced SIMD load/store single structures (post indexed)
@@ -969,6 +981,19 @@ pub const Instruction = union(enum) {
             .fcvtn,
             .fcvtxn,
             => |instr| try std.fmt.format(writer, "{s}{s}{b}", .{ @tagName(self.*), if (instr.q != null and instr.q.?) "2" else "", instr }),
+            .st1,
+            .st2,
+            .st3,
+            .st4,
+            .ld1,
+            .ld2,
+            .ld3,
+            .ld4,
+            .ld1r,
+            .ld2r,
+            .ld3r,
+            .ld4r,
+            => |instr| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), instr }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
     }
@@ -2319,8 +2344,8 @@ pub const SIMDArrangement = enum(u4) {
     @"8h" = 0b011,
     @"2s" = 0b100,
     @"4s" = 0b101,
+    @"1d" = 0b110,
     @"2d" = 0b111,
-    @"1d" = 0b1000,
     b,
     h,
     s,
@@ -2384,5 +2409,38 @@ pub const SIMDDataProcInstr = struct {
                 .fp_imm => |fp_imm| try std.fmt.format(writer, ", #{d:.8}", .{fp_imm}),
             }
         }
+    }
+};
+
+pub const SIMDLoadStoreInstr = struct {
+    arrangement: SIMDArrangement,
+    rn: Register,
+    rt: Register,
+    rt2: ?Register = null,
+    rt3: ?Register = null,
+    rt4: ?Register = null,
+    index: ?u4 = null,
+    payload: ?union(enum) {
+        imm: u7,
+        rm: Register,
+    } = null,
+
+    pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try std.fmt.format(writer, ".{s} {{ {}", .{ @tagName(self.arrangement), self.rt });
+        if (self.rt2) |rt2|
+            try std.fmt.format(writer, ", {}", .{rt2});
+        if (self.rt3) |rt3|
+            try std.fmt.format(writer, ", {}", .{rt3});
+        if (self.rt4) |rt4|
+            try std.fmt.format(writer, ", {}", .{rt4});
+        try std.fmt.format(writer, " }}", .{});
+        if (self.index) |idx|
+            try std.fmt.format(writer, "[{}]", .{idx});
+        try std.fmt.format(writer, ", [{}]", .{self.rn});
+        if (self.payload) |payload|
+            switch (payload) {
+                .imm => |imm| try std.fmt.format(writer, ", #{}", .{imm}),
+                .rm => |rm| try std.fmt.format(writer, ", {}", .{rm}),
+            };
     }
 };
