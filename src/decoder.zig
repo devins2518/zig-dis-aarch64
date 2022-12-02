@@ -1,7 +1,9 @@
 const std = @import("std");
-const Register = @import("utils.zig").Register;
-const Width = @import("utils.zig").Width;
-const Field = @import("utils.zig").Field;
+const utils = @import("utils.zig");
+const Register = utils.Register;
+const Width = utils.Width;
+const Field = utils.Field;
+const matches = utils.matches;
 
 const SIMDArrangement = @import("instruction.zig").SIMDArrangement;
 const AddSubInstr = @import("instruction.zig").AddSubInstr;
@@ -258,7 +260,7 @@ pub const Disassembler = struct {
         const op1 = @truncate(u14, op >> 12);
         const op2 = @truncate(u5, op);
 
-        if (op0 == 0b010 and op1 <= 0b01111111111111) {
+        if (op0 == 0b010 and matches(op1, "0b0xxxxxxxxxxxxx")) {
             const o0 = @truncate(u1, op >> 4);
             const o1 = @truncate(u1, op >> 24);
             const payload = BranchCondInstr{
@@ -271,7 +273,7 @@ pub const Disassembler = struct {
                 Instruction{ .bccond = payload }
             else
                 error.Unallocated;
-        } else if (op0 == 0b110 and op1 <= 0b00111111111111) {
+        } else if (op0 == 0b110 and matches(op1, "0b00xxxxxxxxxxxx")) {
             const opc = @truncate(u3, op >> 21);
             const opc2 = @truncate(u3, op >> 2);
             const ll = @truncate(u2, op);
@@ -382,7 +384,7 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.tcommit)
             else
                 error.Unallocated;
-        } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100000 and @truncate(u4, op1) == 0b0100) {
+        } else if (op0 == 0b110 and matches(op1, "0b0100000xxx0100")) {
             const instr1 = @truncate(u3, op >> 16);
             const instr2 = @truncate(u3, op >> 5);
             const rt = @truncate(u5, op);
@@ -405,7 +407,7 @@ pub const Disassembler = struct {
                 };
                 break :blk Instruction{ .msr = payload };
             } else error.Unallocated;
-        } else if (op0 == 0b110 and @truncate(u7, op1 >> 7) == 0b0100100) {
+        } else if (op0 == 0b110 and matches(op1, "0b0100100xxxxxxx")) {
             const o1 = @truncate(u3, op >> 16);
             const crn = @truncate(u4, op >> 12);
             const crm = @truncate(u4, op >> 8);
@@ -417,7 +419,7 @@ pub const Disassembler = struct {
                 Instruction{ .ttest = payload }
             else
                 error.Unallocated;
-        } else if (op0 == 0b110 and (@truncate(u7, op1 >> 7) == 0b0100001 or @truncate(u7, op1 >> 7) == 0b0100101)) {
+        } else if (op0 == 0b110 and matches(op1, "0b0100x01xxxxxxx")) {
             const l = @truncate(u1, op >> 21) == 1;
             const payload = SysInstr{
                 .l = l,
@@ -428,7 +430,7 @@ pub const Disassembler = struct {
                 .op1 = @truncate(u3, op >> 16),
             };
             return Instruction{ .sys = payload };
-        } else if (op0 == 0b110 and @truncate(u4, op1 >> 10) == 0b0100 and @truncate(u1, op1 >> 8) == 0b1) {
+        } else if (op0 == 0b110 and matches(op1, "0b0100x1xxxxxxxx")) {
             const l = @truncate(u1, op >> 21) == 1;
             const payload = SysRegMoveInstr{
                 .rt = Register.from(op, .x, false),
@@ -444,7 +446,7 @@ pub const Disassembler = struct {
                 Instruction{ .mrs = payload }
             else
                 Instruction{ .msr = payload };
-        } else if (op0 == 0b110 and op1 >= 0b10000000000000) {
+        } else if (op0 == 0b110 and matches(op1, "0b1xxxxxxxxxxxxx")) {
             const opc = @truncate(u4, op >> 21);
             const o2 = @truncate(u5, op >> 16);
             const o3 = @truncate(u6, op >> 10);
@@ -472,7 +474,7 @@ pub const Disassembler = struct {
                 Instruction{ .b = payload }
             else
                 Instruction{ .bl = payload };
-        } else if ((op0 == 0b001 or op0 == 0b101) and op1 <= 0b01111111111111) {
+        } else if (matches(op0, "0bx01") and matches(op1, "0b0xxxxxxxxxxxxx")) {
             const width = Width.from(op >> 31);
             const neg = @truncate(u1, op >> 24) == 1;
             const payload = CompBranchInstr{
@@ -483,7 +485,7 @@ pub const Disassembler = struct {
                 Instruction{ .cbnz = payload }
             else
                 Instruction{ .cbz = payload };
-        } else if ((op0 == 0b001 or op0 == 0b101) and op1 >= 0b10000000000000) {
+        } else if (matches(op0, "0bx01") and matches(op1, "0b1xxxxxxxxxxxxx")) {
             const o = @truncate(u1, op >> 24);
             const payload = TestInstr{
                 .b5 = @truncate(u1, op >> 31),
@@ -510,9 +512,9 @@ pub const Disassembler = struct {
         const LdStPayloadTy = Field(LoadStoreInstr, .payload);
         const IndexTy = @typeInfo(Field(LoadStoreInstr, .index)).Optional.child;
         const LdStPrfm = Field(LoadStoreInstr, .ld_st_prfm);
-        if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 0b0 and op2 == 0b00 and @truncate(u1, op3 >> 5) == 0b1)
+        if (matches(op0, "0b0x00") and op1 == 0b1 and op2 == 0b00 and matches(op3, "0b1xxxxx"))
             return error.Unimplemented // Compare and swap pair
-        else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b00 and op3 == 0b00000) { // Advanced SIMD load/store multiple structures
+        else if (matches(op0, "0b0x00") and op1 == 1 and op2 == 0b00 and op3 == 0b00000) { // Advanced SIMD load/store multiple structures
             const l = @truncate(u1, op >> 22);
             const opcode = @truncate(u4, op >> 12);
             const t = @truncate(u5, op);
@@ -652,7 +654,7 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b01 and @truncate(u1, op3 >> 5) == 0b0) { // Advanced SIMD load/store multiple structures (post-indexed)
+        } else if (matches(op0, "0b0x00") and op1 == 1 and op2 == 0b01 and matches(op3, "0b0xxxxx")) { // Advanced SIMD load/store multiple structures (post-indexed)
             const l = @truncate(u1, op >> 22);
             const m = @truncate(u5, op >> 16);
             const t = @truncate(u5, op);
@@ -808,7 +810,7 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unimplemented;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b10 and @truncate(u5, op3) == 0b00000) { // Advanced SIMD load/store single structure (post-indexed)
+        } else if (matches(op0, "0b0x00") and op1 == 1 and op2 == 0b10 and matches(op3, "0bx00000")) { // Advanced SIMD load/store single structure (post-indexed)
             const l = @truncate(u1, op >> 22);
             const r = @truncate(u1, op >> 21);
             const opcode = @truncate(u3, op >> 13);
@@ -1126,7 +1128,7 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and @truncate(u2, op0) == 0b00 and op1 == 1 and op2 == 0b11) { // Advanced SIMD load/store single structure (post-indexed)
+        } else if (matches(op0, "0b0x00") and op1 == 1 and op2 == 0b11) { // Advanced SIMD load/store single structure (post-indexed)
             const l = @truncate(u1, op >> 22);
             const r = @truncate(u1, op >> 21);
             const s = @truncate(u1, op >> 12);
@@ -1482,9 +1484,9 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unallocated;
-        } else if (op0 == 0b1101 and op1 == 0 and op2 >= 0b10 and op3 >= 0b100000)
-            return error.Unimplemented // Load/store memory tags
-        else if ((op0 == 0b1000 or op0 == 0b1100) and op1 == 0 and op2 == 0b00 and op3 >= 0b100000) { // Load/store exclusive pair
+        } else if (op0 == 0b1101 and op1 == 0 and matches(op2, "0b1x") and matches(op3, "0b1xxxxx")) // Load/store memory tags
+            return error.Unimplemented
+        else if (matches(op0, "0b1x00") and op1 == 0 and op2 == 0b00 and matches(op3, "0b1xxxxx")) { // Load/store exclusive pair
             const width = Width.from(op >> 30);
             const load = @truncate(u1, op >> 22) == 1;
             const o0 = @truncate(u1, op >> 15) == 1;
@@ -1513,7 +1515,7 @@ pub const Disassembler = struct {
                 return Instruction{ .ld = payload }
             else
                 return Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b00 and op3 <= 0b011111) { // Load/store exclusive register
+        } else if (matches(op0, "0bxx00") and op1 == 0 and op2 == 0b00 and matches(op3, "0b0xxxxx")) { // Load/store exclusive register
             const reg_size = @truncate(u2, op >> 30);
             const load = @truncate(u1, op >> 22) == 1;
             const o0 = @truncate(u1, op >> 15) == 1;
@@ -1541,7 +1543,7 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b01 and op3 <= 0b011111) { // Load/store ordered
+        } else if (matches(op0, "0bxx00") and op1 == 0 and op2 == 0b01 and matches(op3, "0b0xxxxx")) { // Load/store ordered
             const reg_size = @truncate(u2, op >> 30);
             const load = @truncate(u1, op >> 22) == 1;
             const o0 = @truncate(u1, op >> 15) == 1;
@@ -1571,9 +1573,9 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b00 and op1 == 0 and op2 == 0b01 and op3 >= 0b100000)
-            return error.Unimplemented // Compare and swap
-        else if (@truncate(u2, op0) == 0b01 and op1 == 0 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b00) {
+        } else if (matches(op0, "0bxx00") and op1 == 0 and op2 == 0b01 and matches(op3, "0b1xxxxx")) // Compare and swap
+            return error.Unimplemented
+        else if (matches(op0, "0bxx01") and op1 == 0 and matches(op2, "0b1x") and matches(op3, "0b0xxxxx") and op4 == 0b00) {
             const reg_size = @truncate(u2, op >> 30);
             const opc = @truncate(u2, op >> 22);
             const size = if (reg_size == 0b00)
@@ -1609,7 +1611,7 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b01 and op2 <= 0b01) {
+        } else if (matches(op0, "0bxx01") and matches(op2, "0b0x")) { // Load register (literal)
             const opc = @truncate(u2, op >> 30);
             const v = @truncate(u1, op >> 26);
             const width = switch (@as(u3, opc) << 1 | v) {
@@ -1635,9 +1637,9 @@ pub const Disassembler = struct {
                 Instruction{ .prfm = payload }
             else
                 Instruction{ .ld = payload };
-        } else if (@truncate(u2, op0) == 0b01 and op2 >= 0b10 and op3 <= 0b011111 and op4 == 0b01)
-            return error.Unimplemented // Memory Copy and Memory Set
-        else if (@truncate(u2, op0) == 0b10 and op2 == 0b00) { // Load/store no-allocate pair (offset)
+        } else if (matches(op0, "0bxx01") and matches(op2, "0b1x") and matches(op3, "0b0xxxxx") and op4 == 0b01) // Memory Copy and Memory Set
+            return error.Unimplemented
+        else if (matches(op0, "0bxx10") and op2 == 0b00) { // Load/store no-allocate pair (offset)
             const opc = @truncate(u2, op >> 30);
             const v = @truncate(u1, op >> 26);
             const load = @truncate(u1, op >> 22) == 1;
@@ -1674,7 +1676,7 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b10 and op2 != 0b00) { // Load/store register pair
+        } else if (matches(op0, "0bxx10") and op2 != 0b00) { // Load/store register pair
             const opc = @truncate(u2, op >> 30);
             const v = @truncate(u1, op >> 26);
             const load = @truncate(u1, op >> 22) == 1;
@@ -1729,7 +1731,7 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 <= 0b011111) { // Load/store register
+        } else if (matches(op0, "0bxx11") and matches(op2, "0b0x") and matches(op3, "0b0xxxxx")) { // Load/store register
             const size = @truncate(u2, op >> 30);
             const v = @truncate(u1, op >> 26);
             const opc = @truncate(u2, op >> 22);
@@ -1818,9 +1820,9 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and op4 == 0b00) { // Atomic memory operations
+        } else if (matches(op0, "0bxx11") and matches(op2, "0b0x") and matches(op3, "0b1xxxxx") and op4 == 0b00) { // Atomic memory operations
             return error.Unimplemented;
-        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and op4 == 0b10) { // Load/store register (register offset)
+        } else if (matches(op0, "0bxx11") and matches(op2, "0b0x") and matches(op3, "0b1xxxxx") and op4 == 0b10) { // Load/store register (register offset)
             const size = @truncate(u2, op >> 30);
             const v = @truncate(u1, op >> 26);
             const opc = @truncate(u2, op >> 22);
@@ -1936,7 +1938,7 @@ pub const Disassembler = struct {
                 .st => Instruction{ .st = payload },
                 .prfm => Instruction{ .prfm = payload },
             };
-        } else if (@truncate(u2, op0) == 0b11 and op2 <= 0b01 and op3 >= 0b100000 and @truncate(u1, op4) == 0b1) { // Load/store register (pac)
+        } else if (matches(op0, "0bxx11") and matches(op2, "0b0x") and matches(op3, "0b1xxxxx") and matches(op4, "0bx1")) { // Load/store register (pac)
             // TODO
             const load = true;
             const payload = undefined;
@@ -1944,7 +1946,7 @@ pub const Disassembler = struct {
                 Instruction{ .ld = payload }
             else
                 Instruction{ .st = payload };
-        } else if (@truncate(u2, op0) == 0b11 and op2 >= 0b10) { // Load/store register (unsigned immediate)
+        } else if (matches(op0, "0bxx11") and matches(op2, "0b1x")) { // Load/store register (unsigned immediate)
             const v = @truncate(u1, op >> 26);
             const opc = @truncate(u2, op >> 22);
             const size = @truncate(u2, op >> 30);
@@ -2041,7 +2043,7 @@ pub const Disassembler = struct {
 
         // TODO: refactor to use return on top if (fixed in stage2)
         // https://github.com/ziglang/zig/issues/10601
-        if (op1 == 0) return switch (op2) {
+        return if (op1 == 0) switch (op2) {
             0b0000...0b0111 => blk: { // logical shifted reg
                 const imm6 = @truncate(u6, op >> 10);
                 const opc = @truncate(u2, op >> 29);
@@ -2130,7 +2132,7 @@ pub const Disassembler = struct {
                 else
                     Instruction{ .sub = payload };
             },
-        } else return switch (op2) {
+        } else switch (op2) {
             0b0000 => switch (op3) {
                 0b000000 => {
                     const adc = @truncate(u1, op >> 30) == 0;
@@ -2366,12 +2368,7 @@ pub const Disassembler = struct {
         const ShaOpTy = Field(ShaInstr, .op);
         const AesOpTy = Field(AesInstr, .op);
         // TODO: should be a top return
-        if (op0 == 0b0100 and
-            (op1 == 0b00 or op1 == 0b01) and
-            @truncate(u3, op2) == 0b101 and
-            @truncate(u2, op3) == 0b10 and
-            @truncate(u2, op3 >> 8) == 0b00)
-        {
+        if (op0 == 0b0100 and matches(op1, "0b0x") and matches(op2, "0bx101") and matches(op3, "0b00xxxxx10")) {
             const aes_op = switch (@truncate(u5, op >> 12)) {
                 0b00100 => AesOpTy.e,
                 0b00101 => AesOpTy.d,
@@ -2388,12 +2385,7 @@ pub const Disassembler = struct {
                 error.Unimplemented
             else
                 Instruction{ .aes = payload };
-        } else if (op0 == 0b0101 and
-            (op1 == 0b00 or op1 == 0b01) and
-            @truncate(u1, op2 >> 2) == 0b0 and
-            @truncate(u2, op3) == 0b00 and
-            @truncate(u1, op3 >> 5) == 0b0)
-        {
+        } else if (op0 == 0b0101 and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxx00")) {
             const sha_op = switch (@as(u5, @truncate(u2, op >> 22)) << 3 | @truncate(u3, op >> 12)) {
                 0b00000 => ShaOpTy.c,
                 0b00001 => ShaOpTy.p,
@@ -2423,12 +2415,7 @@ pub const Disassembler = struct {
                 .c, .p, .m, .su0 => Instruction{ .sha1 = payload },
                 .h, .h2, .su1 => Instruction{ .sha256 = payload },
             };
-        } else if (op0 == 0b0101 and
-            (op1 == 0b00 or op1 == 0b01) and
-            @truncate(u3, op2) == 0b101 and
-            @truncate(u2, op3) == 0b10 and
-            @truncate(u2, op3 >> 8) == 0b00)
-        {
+        } else if (op0 == 0b0101 and matches(op1, "0b0x") and matches(op2, "0bx101") and matches(op3, "0b00xxxxx10")) {
             const sha_op = switch (@as(u7, @truncate(u2, op >> 22)) << 3 | @truncate(u5, op >> 12)) {
                 0b0000000 => ShaOpTy.h,
                 0b0000001 => ShaOpTy.su1,
@@ -2455,53 +2442,18 @@ pub const Disassembler = struct {
                 .h, .su1 => Instruction{ .sha1 = payload },
                 else => Instruction{ .sha256 = payload },
             };
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 == 0b00 and
-            @truncate(u2, op2 >> 2) == 0b00 and
-            @truncate(u1, op3 >> 5) == 0 and
-            @truncate(u1, op3) == 1)
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b00") and matches(op2, "0b00xx") and matches(op3, "0bxxx0xxxx1")) { // SIMD scalar copy
+            return error.Unimplemented;
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0b10xx") and matches(op3, "0bxxx00xxx1")) // SIMD three same fp16
         {
-            return error.Unimplemented; // SIMD scalar copy
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            @truncate(u2, op2 >> 2) == 0b10 and
-            @truncate(u2, op3 >> 4) == 0b00 and
-            @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD three same fp16
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            op2 == 0b1111 and
-            @truncate(u2, op3 >> 7) == 0b00 and
-            @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD scalar two reg misc fp16
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            @truncate(u3, op2 >> 2) == 0b0 and
-            @truncate(u1, op3 >> 5) == 0b1 and
-            @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD scalar three same extra
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            @truncate(u3, op2) == 0b100 and
-            @truncate(u2, op3 >> 7) == 0b00 and
-            @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD scalar two reg misc
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            @truncate(u3, op2) == 0b110 and
-            @truncate(u2, op3 >> 7) == 0b00 and
-            @truncate(u2, op3) == 0b10)
-        { // SIMD scalar pairwise
+            return error.Unimplemented;
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0b1111") and matches(op3, "0b00xxxxx10")) { // SIMD scalar two reg misc fp16
+            return error.Unimplemented;
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx1xxxx1")) { // SIMD scalar three same extra
+            return error.Unimplemented;
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx100") and matches(op3, "0b00xxxxx10")) { // SIMD scalar two reg misc
+            return error.Unimplemented;
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx110") and matches(op3, "0b00xxxxx10")) { // SIMD scalar pairwise
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 12);
@@ -2537,12 +2489,7 @@ pub const Disassembler = struct {
                 Instruction{ .fminp = undefined }
             else
                 error.Unallocated;
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u2, op3) == 0b00)
-        { // SIMD scalar three different
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxx00")) { // SIMD scalar three different
             const u = @truncate(u1, op >> 29);
             const opcode = @truncate(u4, op >> 12);
             return if (u == 0 and opcode == 0b1001)
@@ -2553,12 +2500,7 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.sqdmull)
             else
                 error.Unallocated;
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u1, op3) == 0b1)
-        { // SIMD scalar three same
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxxx1")) { // SIMD scalar three same
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 11);
@@ -2629,49 +2571,18 @@ pub const Disassembler = struct {
                 Instruction{ .facgt = undefined }
             else
                 error.Unallocated;
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 == 0b10 and
-            @truncate(u1, op3) == 0b1)
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b10") and matches(op3, "0bxxxxxxxx1")) { // SIMD scalar shift by immediate
+            return error.Unimplemented;
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b1x") and matches(op3, "0bxxxxxxxx0")) { // SIMD scalar x indexed element
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0x00") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxx00")) { // SIMD table lookup
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0x00") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxx10")) { // SIMD permute
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0x10") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxxx0")) { // SIMD extract
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b00") and matches(op2, "0b00xx") and matches(op3, "0bxxx0xxxx1")) // SIMD copy
         {
-            return error.Unimplemented; // SIMD scalar shift by immediate
-        } else if (@truncate(u2, op0 >> 2) == 0b01 and
-            @truncate(u1, op0) == 1 and
-            op1 >= 0b10 and
-            @truncate(u1, op3) == 0b0)
-        {
-            return error.Unimplemented; // SIMD scalar x indexed element
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u2, op0) == 0b00 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b0 and
-            @truncate(u1, op3 >> 5) == 0b0 and
-            @truncate(u2, op3) == 0b00)
-        {
-            return error.Unimplemented; // SIMD table lookup
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u2, op0) == 0b00 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b0 and
-            @truncate(u1, op3 >> 5) == 0b0 and
-            @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD permute
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u2, op0) == 0b10 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b0 and
-            @truncate(u1, op3 >> 5) == 0b0 and
-            @truncate(u1, op3) == 0b0)
-        {
-            return error.Unimplemented; // SIMD extract
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 == 0b00 and
-            @truncate(u2, op2 >> 2) == 0b00 and
-            @truncate(u1, op3 >> 5) == 0b0 and
-            @truncate(u1, op3) == 0b1)
-        { // SIMD copy
             const q = @truncate(u1, op >> 30);
             const u = @truncate(u1, op >> 29);
             const imm5 = @truncate(u5, op >> 16);
@@ -2839,37 +2750,13 @@ pub const Disassembler = struct {
                         null,
                 } };
             } else error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            @truncate(u2, op2 >> 2) == 0b10 and
-            @truncate(u2, op3 >> 4) == 0b00 and
-            @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD three same (fp16)
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            op2 == 0b1111 and
-            @truncate(u2, op3 >> 7) == 0b00 and
-            @truncate(u2, op3) == 0b10)
-        {
-            return error.Unimplemented; // SIMD two reg misc (fp16)
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b0 and
-            @truncate(u1, op3 >> 5) == 0b1 and
-            @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD three reg extension
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            @truncate(u3, op2) == 0b100 and
-            @truncate(u7, op3 >> 7) == 0b00 and
-            @truncate(u2, op3) == 0b10)
-        { // SIMD two reg misc
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0b10xx") and matches(op3, "0bxxx00xxx1")) { // SIMD three same (fp16)
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0b1111") and matches(op3, "0b00xxxxx10")) { // SIMD two reg misc (fp16)
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx1xxxx1")) { // SIMD three reg extension
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0bx100") and matches(op3, "0b00xxxxx10")) { // SIMD two reg misc
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 12);
@@ -3715,13 +3602,7 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            @truncate(u3, op2) == 0b110 and
-            @truncate(u7, op3 >> 7) == 0b00 and
-            @truncate(u2, op3) == 0b10)
-        { // SIMD across lanes
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0bx110") and matches(op3, "0b00xxxxx10")) { // SIMD across lanes
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 12);
@@ -3774,12 +3655,7 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.fminv)
             else
                 error.Unimplemented;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u2, op3) == 0b00)
-        { // SIMD three different
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxx00")) { // SIMD three different
             const u = @truncate(u1, op >> 29);
             const opcode = @truncate(u4, op >> 12);
             const size = @truncate(u2, op >> 22);
@@ -3849,12 +3725,7 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.umull)
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u1, op3) == 0b1)
-        { // SIMD three same
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxxx1")) { // SIMD three same
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 11);
@@ -4740,12 +4611,7 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 == 0b10 and
-            op2 == 0b0000 and
-            @truncate(u1, op3) == 0b1)
-        { // SIMD modified immediate
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b10") and matches(op2, "0b0000") and matches(op3, "0bxxxxxxxx1")) { // SIMD modified immediate
             const q = @truncate(u1, op >> 30);
             const o1 = @truncate(u1, op >> 29);
             const cmode = @truncate(u4, op >> 12);
@@ -4955,53 +4821,21 @@ pub const Disassembler = struct {
                 } }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 == 0b10 and
-            op2 != 0b0000 and
-            @truncate(u1, op3) == 0b1)
-        {
-            return error.Unimplemented; // SIMD shift by immediate
-        } else if (@truncate(u1, op0 >> 3) == 0b0 and
-            @truncate(u1, op0) == 0b0 and
-            op1 >= 0b10 and
-            @truncate(u1, op3) == 0b0)
-        {
-            return error.Unimplemented; // SIMD vector x indexed element
-        } else if (op0 == 0b1100 and
-            op1 == 0b00 and
-            @truncate(u2, op2 >> 2) == 0b10 and
-            @truncate(u2, op3 >> 4) == 0b10)
-        {
-            return error.Unimplemented; // Crypto three reg, imm2
-        } else if (op0 == 0b1100 and
-            op1 == 0b00 and
-            @truncate(u2, op2 >> 2) == 0b11 and
-            @truncate(u1, op3 >> 5) == 0b1 and
-            @truncate(u2, op3 >> 2) == 0b00)
-        {
-            return error.Unimplemented; // Crypto three reg, sha512
-        } else if (op0 == 0b1100 and
-            op1 == 0b00 and
-            @truncate(u1, op3 >> 5) == 0b1)
-        {
-            return error.Unimplemented; // Crypto four reg
-        } else if (op0 == 0b1100 and
-            op1 == 0b01 and
-            @truncate(u2, op2 >> 2) == 0b00)
-        {
-            return error.Unimplemented; // Xar
-        } else if (op0 == 0b1100 and
-            op1 == 0b01 and
-            op2 == 0b1000 and
-            @truncate(u7, op3 >> 2) == 0b0001000)
-        {
-            return error.Unimplemented; // Crypto two reg, sha512
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b0)
-        {
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b10") and !matches(op2, "0b0000") and matches(op3, "0bxxxxxxxx1")) { // SIMD shift by immediate
+            return error.Unimplemented;
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b1x") and matches(op3, "0bxxxxxxxx0")) { // SIMD vector x indexed element
+            return error.Unimplemented;
+        } else if (matches(op0, "0b1100") and matches(op1, "0b00") and matches(op2, "0b10xx") and matches(op3, "0bxxx10xxxx")) { // Crypto three reg, imm2
+            return error.Unimplemented;
+        } else if (matches(op0, "0b1100") and matches(op1, "0b00") and matches(op2, "0b11xx") and matches(op3, "0bxxx1x00xx")) { // Crypto three reg, sha512
+            return error.Unimplemented;
+        } else if (matches(op0, "0b1100") and matches(op1, "0b00") and matches(op3, "0bxxx0xxxxx")) { // Crypto four reg
+            return error.Unimplemented;
+        } else if (matches(op0, "0b1100") and matches(op1, "0b01") and matches(op2, "0b00xx")) { // Xar
+            return error.Unimplemented;
+        } else if (matches(op0, "0b1100") and matches(op1, "0b01") and matches(op2, "0b1000") and matches(op3, "0b0001000xx")) { // Crypto two reg, sha512
+            return error.Unimplemented;
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx0xx")) { // Conversion between floating-point and fixed-point
             const sf = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
@@ -5042,12 +4876,7 @@ pub const Disassembler = struct {
                 Instruction{ .scvtf = to_float_payload }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u6, op3) == 0b000000)
-        {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxx000000")) { // Conversion between floating point and integer
             const sf = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
@@ -5171,12 +5000,7 @@ pub const Disassembler = struct {
                 else
                     error.Unallocated;
             };
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u5, op3) == 0b10000)
-        {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxx10000")) { // Floating-point data processing (1 source)
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
@@ -5249,11 +5073,7 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.bfcvt)
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u4, op3) == 0b1000)
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxx1000")) // Floating-point compare
         {
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
@@ -5285,12 +5105,7 @@ pub const Disassembler = struct {
                 error.Unallocated
             else
                 Instruction{ .fcmp = payload };
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u3, op3) == 0b100)
-        {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxx100")) { // Floating-point immediate
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
@@ -5324,12 +5139,7 @@ pub const Disassembler = struct {
                 Instruction{ .fmov = payload }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u2, op3) == 0b01)
-        {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxx01")) { // Floating-point conditional compare
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ftype = @truncate(u2, op >> 22);
@@ -5353,12 +5163,7 @@ pub const Disassembler = struct {
                 error.Unallocated
             else
                 Instruction{ .fccmp = payload };
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u2, op3) == 0b10)
-        {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxx10")) { // Floating-point data processing (2 source)
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);
@@ -5396,12 +5201,7 @@ pub const Disassembler = struct {
                 Instruction{ .fnmul = payload }
             else
                 error.Unallocated;
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and
-            @truncate(u1, op0) == 0b1 and
-            op1 <= 0b01 and
-            @truncate(u1, op2 >> 2) == 0b1 and
-            @truncate(u2, op3) == 0b11)
-        {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxx11")) { // Floating-point conditional select
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ftype = @truncate(u2, op >> 22);
@@ -5423,7 +5223,7 @@ pub const Disassembler = struct {
                 error.Unallocated
             else
                 Instruction{ .fcsel = payload };
-        } else if (@truncate(u1, op0 >> 2) == 0b0 and @truncate(u1, op0) == 0b1 and op1 >= 0b10) {
+        } else if (matches(op0, "0bx0x1") and matches(op1, "0b1x")) {
             const m = @truncate(u1, op >> 31);
             const s = @truncate(u1, op >> 29);
             const ptype = @truncate(u2, op >> 22);

@@ -8021,3 +8021,7 @@ fn doTheTest(bytes: []const u8, expected: []const u8) !void {
 
     try std.testing.expectEqualStrings(expected, text.items);
 }
+
+test "static analysis" {
+    std.testing.refAllDeclsRecursive(@This());
+}
