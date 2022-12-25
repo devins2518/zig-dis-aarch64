@@ -88,7 +88,7 @@ pub fn matches(imm: anytype, comptime _match: []const u8) bool {
 }
 
 pub fn Field(comptime ty: type, comptime mem: anytype) type {
-    return comptime std.meta.fieldInfo(ty, mem).field_type;
+    return comptime std.meta.fieldInfo(ty, mem).type;
 }
 
 test "matches" {
