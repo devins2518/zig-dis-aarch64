@@ -6,7 +6,7 @@ Using [LLVM's disassembly tests](https://github.com/llvm/llvm-project/tree/relea
 
 ## Usage
 
-Disassembly:
+Programmatic Disassembly:
 
 ```zig
 const std = @import("std");
@@ -30,4 +30,19 @@ try std.testing.expectEqualStrings(
     \\adc x1, x2, x3
     \\
 , text.items);
+```
+
+Command line interface:
+
+```sh
+❯ zig build run -- 4100031a4100039a8500033a850003ba4100035a410003da4100037a410003fa
+disassembled:
+0x0000000000000000: 41 00 03 1A	adc w1, w2, w3
+0x0000000000000004: 41 00 03 9A	adc x1, x2, x3
+0x0000000000000008: 85 00 03 3A	adcs w5, w4, w3
+0x000000000000000c: 85 00 03 BA	adcs x5, x4, x3
+0x0000000000000010: 41 00 03 5A	sbc w1, w2, w3
+0x0000000000000014: 41 00 03 DA	sbc x1, x2, x3
+0x0000000000000018: 41 00 03 7A	sbcs w1, w2, w3
+0x000000000000001c: 41 00 03 FA	sbcs x1, x2, x3
 ```
