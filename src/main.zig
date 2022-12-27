@@ -30,12 +30,21 @@ pub fn main() anyerror!void {
     defer buf.deinit();
 
     var disassembler = Disassembler.init(bytes.items);
+    i = 0;
     while (try disassembler.next()) |inst| {
+        try std.fmt.format(buf.writer(), "0x{x:0>16}: {X:0>2} {X:0>2} {X:0>2} {X:0>2}\t", .{
+            i * 4,
+            bytes.items[i * 4],
+            bytes.items[(i * 4) + 1],
+            bytes.items[(i * 4) + 2],
+            bytes.items[(i * 4) + 3],
+        });
         try inst.fmtPrint(buf.writer());
         try buf.append('\n');
+        i += 1;
     }
 
     const stdout = std.io.getStdOut().writer();
     try stdout.writeAll("disassembled:\n");
-    try stdout.print("  {s}  {s}", .{ input_hex, buf.items });
+    try stdout.print("{s}", .{buf.items});
 }
