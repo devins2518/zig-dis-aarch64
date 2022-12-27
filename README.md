@@ -35,7 +35,7 @@ try std.testing.expectEqualStrings(
 Command line interface:
 
 ```sh
-❯ zig build run -- 4100031a4100039a8500033a850003ba4100035a410003da4100037a410003fa
+❯ ./zig-out/bin/zig-dis-aarch64 4100031a4100039a8500033a850003ba4100035a410003da4100037a410003fa
 disassembled:
 0x0000000000000000: 41 00 03 1A	adc w1, w2, w3
 0x0000000000000004: 41 00 03 9A	adc x1, x2, x3
