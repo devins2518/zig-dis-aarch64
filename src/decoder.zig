@@ -2444,29 +2444,109 @@ pub const Disassembler = struct {
             };
         } else if (matches(op0, "0b01x1") and matches(op1, "0b00") and matches(op2, "0b00xx") and matches(op3, "0bxxx0xxxx1")) { // SIMD scalar copy
             return error.Unimplemented;
-        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0b10xx") and matches(op3, "0bxxx00xxx1")) // SIMD three same fp16
-        {
+        } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0b10xx") and matches(op3, "0bxxx00xxx1")) { // SIMD three same fp16
             return error.Unimplemented;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0b1111") and matches(op3, "0b00xxxxx10")) { // SIMD scalar two reg misc fp16
             return error.Unimplemented;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx1xxxx1")) { // SIMD scalar three same extra
             return error.Unimplemented;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx100") and matches(op3, "0b00xxxxx10")) { // SIMD scalar two reg misc
-            return error.Unimplemented;
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const opcode = @truncate(u5, op >> 12);
+            const sz = @truncate(u1, size);
+            return if (u == 0b0 and opcode == 0b00011)
+                Instruction{ .suqadd = undefined }
+            else if (u == 0b0 and opcode == 0b00111)
+                Instruction{ .sqabs = undefined }
+            else if (u == 0b0 and opcode == 0b01000)
+                Instruction{ .cmgt = undefined }
+            else if (u == 0b0 and opcode == 0b01001)
+                Instruction{ .cmeq = undefined }
+            else if (u == 0b0 and opcode == 0b01010)
+                Instruction{ .cmlt = undefined }
+            else if (u == 0b0 and opcode == 0b01011)
+                Instruction{ .abs = undefined }
+            else if (u == 0b0 and opcode == 0b10100)
+                Instruction{ .sqxtn = undefined }
+            else if (u == 0b0 and matches(size, "0b0x") and opcode == 0b11010)
+                Instruction{ .fcvtns = undefined }
+            else if (u == 0b0 and matches(size, "0b0x") and opcode == 0b11011)
+                Instruction{ .fcvtms = undefined }
+            else if (u == 0b0 and matches(size, "0b0x") and opcode == 0b11100)
+                Instruction{ .fcvtas = undefined }
+            else if (u == 0b0 and matches(size, "0b0x") and opcode == 0b11101)
+                Instruction{ .scvtf = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b01100)
+                Instruction{ .fcmgt = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b01101)
+                Instruction{ .fcmeq = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b01110)
+                Instruction{ .fcmlt = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b11010)
+                Instruction{ .fcvtps = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b11011)
+                Instruction{ .fcvtzs = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b11101)
+                Instruction{ .frecpe = undefined }
+            else if (u == 0b0 and matches(size, "0b1x") and opcode == 0b11111)
+                Instruction{ .frecpx = undefined }
+            else if (u == 0b1 and opcode == 0b00011)
+                Instruction{ .usqadd = undefined }
+            else if (u == 0b1 and opcode == 0b00111)
+                Instruction{ .sqneg = undefined }
+            else if (u == 0b1 and opcode == 0b01000)
+                Instruction{ .cmge = undefined }
+            else if (u == 0b1 and opcode == 0b01001)
+                Instruction{ .cmle = undefined }
+            else if (u == 0b1 and opcode == 0b01011)
+                Instruction{ .neg = undefined }
+            else if (u == 0b1 and opcode == 0b10010)
+                Instruction{ .sqxtun = undefined }
+            else if (u == 0b1 and opcode == 0b10100)
+                Instruction{ .uqxtun = undefined }
+            else if (u == 0b1 and matches(size, "0b0x") and opcode == 0b10110)
+                Instruction{ .fcvtxn = undefined }
+            else if (u == 0b1 and matches(size, "0b0x") and opcode == 0b11010)
+                Instruction{ .fcvtnu = undefined }
+            else if (u == 0b1 and matches(size, "0b0x") and opcode == 0b11011)
+                Instruction{ .fcvtmu = undefined }
+            else if (u == 0b1 and matches(size, "0b0x") and opcode == 0b11100)
+                Instruction{ .fcvtau = undefined }
+            else if (u == 0b1 and matches(size, "0b0x") and opcode == 0b11101)
+                Instruction{ .ucvtf = undefined }
+            else if (u == 0b1 and matches(size, "0b1x") and opcode == 0b01100)
+                Instruction{ .fcmge = undefined }
+            else if (u == 0b1 and matches(size, "0b1x") and opcode == 0b01101)
+                Instruction{ .fcmle = undefined }
+            else if (u == 0b1 and matches(size, "0b1x") and opcode == 0b11010)
+                Instruction{ .fcvtpu = undefined }
+            else if (u == 0b1 and matches(size, "0b1x") and opcode == 0b11011)
+                Instruction{ .fcvtzu = undefined }
+            else if (u == 0b1 and matches(size, "0b1x") and opcode == 0b11101) blk: {
+                const v = if (sz == 0b0)
+                    Width.s
+                else
+                    Width.d;
+                break :blk Instruction{ .frsqrte = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                } };
+            } else error.Unallocated;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx110") and matches(op3, "0b00xxxxx10")) { // SIMD scalar pairwise
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 12);
-            const payload = SIMDDataProcInstr{
-                .arrangement_a = if (size == 0b11)
-                    SIMDArrangement.@"2d"
-                else
-                    return error.Unallocated,
-                .rn = Register.from(op >> 5, Width.v, false),
-                .rd = Register.from(op, Width.d, false),
-            };
+            const sz = @truncate(u1, size);
             return if (u == 0 and opcode == 0b11011)
-                Instruction{ .addp = payload }
+                Instruction{ .addp = SIMDDataProcInstr{
+                    .arrangement_a = if (size == 0b11)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, Width.v, false),
+                    .rd = Register.from(op, Width.d, false),
+                } }
             else if (u == 0 and size <= 0b01 and opcode == 0b01100)
                 Instruction{ .fmaxnmp = undefined }
             else if (u == 0 and size <= 0b01 and opcode == 0b01101)
@@ -2479,9 +2559,21 @@ pub const Disassembler = struct {
                 Instruction{ .fminp = undefined }
             else if (u == 1 and size <= 0b01 and opcode == 0b01100)
                 Instruction{ .fmaxnmp = undefined }
-            else if (u == 1 and size <= 0b01 and opcode == 0b01101)
-                Instruction{ .faddp = undefined }
-            else if (u == 1 and size <= 0b01 and opcode == 0b01111)
+            else if (u == 1 and size <= 0b01 and opcode == 0b01101) blk: {
+                const v = if (sz == 0b0)
+                    Width.s
+                else
+                    Width.d;
+                const t = if (sz == 0b0)
+                    SIMDArrangement.@"2s"
+                else
+                    SIMDArrangement.@"2d";
+                break :blk Instruction{ .faddp = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, v, false),
+                } };
+            } else if (u == 1 and size <= 0b01 and opcode == 0b01111)
                 Instruction{ .fmaxp = undefined }
             else if (u == 1 and size >= 0b10 and opcode == 0b01100)
                 Instruction{ .fminnmp = undefined }
@@ -2491,19 +2583,38 @@ pub const Disassembler = struct {
                 error.Unallocated;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxx00")) { // SIMD scalar three different
             const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u4, op >> 12);
+            const va = if (size == 0b01)
+                Width.s
+            else if (size == 0b10)
+                Width.d
+            else
+                return error.Unallocated;
+            const vb = if (size == 0b01)
+                Width.h
+            else if (size == 0b10)
+                Width.s
+            else
+                return error.Unallocated;
+            const payload = SIMDDataProcInstr{
+                .rm = Register.from(op >> 16, vb, false),
+                .rn = Register.from(op >> 5, vb, false),
+                .rd = Register.from(op, va, false),
+            };
             return if (u == 0 and opcode == 0b1001)
-                @as(Instruction, Instruction.sqdmlal)
+                Instruction{ .sqdmlal = payload }
             else if (u == 0 and opcode == 0b1011)
-                @as(Instruction, Instruction.sqdmlsl)
+                Instruction{ .sqdmlsl = payload }
             else if (u == 0 and opcode == 0b1101)
-                @as(Instruction, Instruction.sqdmull)
+                Instruction{ .sqdmull = payload }
             else
                 error.Unallocated;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxxx1")) { // SIMD scalar three same
             const u = @truncate(u1, op >> 29);
             const size = @truncate(u2, op >> 22);
             const opcode = @truncate(u5, op >> 11);
+            const sz = @truncate(u1, size);
             return if (u == 0 and opcode == 0b00001)
                 Instruction{ .sqadd = undefined }
             else if (u == 0 and opcode == 0b00101)
@@ -2531,9 +2642,17 @@ pub const Disassembler = struct {
                 Instruction{ .cmtst = undefined }
             else if (u == 0 and opcode == 0b10101)
                 Instruction{ .sqdmulh = undefined }
-            else if (u == 0 and size <= 0b01 and opcode == 0b11011)
-                Instruction{ .fmulx = undefined }
-            else if (u == 0 and size <= 0b01 and opcode == 0b11100)
+            else if (u == 0 and size <= 0b01 and opcode == 0b11011) blk: {
+                const v = if (sz == 0b0)
+                    Width.s
+                else
+                    Width.d;
+                break :blk Instruction{ .fmulx = SIMDDataProcInstr{
+                    .rm = Register.from(op >> 16, v, false),
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                } };
+            } else if (u == 0 and size <= 0b01 and opcode == 0b11100)
                 Instruction{ .fcmeq = undefined }
             else if (u == 0 and size <= 0b01 and opcode == 0b11111)
                 Instruction{ .frecps = undefined }
@@ -2572,17 +2691,726 @@ pub const Disassembler = struct {
             else
                 error.Unallocated;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b10") and matches(op3, "0bxxxxxxxx1")) { // SIMD scalar shift by immediate
-            return error.Unimplemented;
+            const u = @truncate(u1, op >> 29);
+            const immh = @truncate(u4, op >> 19);
+            const immb = @truncate(u3, op >> 16);
+            const immhimmb = @as(u8, immh) << 3 | immb;
+            const opcode = @truncate(u5, op >> 11);
+            return if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b00000")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sshr = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b00010")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .ssra = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b00100")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .srshr = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b00110")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .srsra = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b01010")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    (@as(u7, immh) << 3 | immb) - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .shl = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b01110")) blk: {
+                const v = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqshl = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b10010")) blk: {
+                const va = if (matches(immh, "0b0001"))
+                    Width.h
+                else if (matches(immh, "0b001x"))
+                    Width.s
+                else if (matches(immh, "0b01xx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqshrn = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, vb, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b10011")) blk: {
+                const va = if (matches(immh, "0b0001"))
+                    Width.h
+                else if (matches(immh, "0b001x"))
+                    Width.s
+                else if (matches(immh, "0b01xx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqrshrn = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, vb, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b11100"))
+                Instruction{ .vector_scvtf = undefined }
+            else if (u == 0 and !matches(immh, "0b0000") and matches(opcode, "0b11111"))
+                Instruction{ .vector_fcvtzs = undefined }
+            else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b00000")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .ushr = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b00010")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .usra = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b00100")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .urshr = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b00110")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .ursra = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b01000")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sri = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b01010")) blk: {
+                const v = if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sli = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b01100")) blk: {
+                const v = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqshlu = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b01110")) blk: {
+                const v = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .uqshl = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b10000")) blk: {
+                const va = if (matches(immh, "0b0001"))
+                    Width.h
+                else if (matches(immh, "0b001x"))
+                    Width.s
+                else if (matches(immh, "0b01xx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqshrun = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, vb, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b10001")) blk: {
+                const va = if (matches(immh, "0b0001"))
+                    Width.h
+                else if (matches(immh, "0b001x"))
+                    Width.s
+                else if (matches(immh, "0b01xx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqrshrun = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, vb, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b10010")) blk: {
+                const va = if (matches(immh, "0b0001"))
+                    Width.h
+                else if (matches(immh, "0b001x"))
+                    Width.s
+                else if (matches(immh, "0b01xx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .uqshrn = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, vb, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b10010"))
+                Instruction{ .uqshrn = undefined }
+            else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b10011")) blk: {
+                const va = if (matches(immh, "0b0001"))
+                    Width.h
+                else if (matches(immh, "0b001x"))
+                    Width.s
+                else if (matches(immh, "0b01xx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (matches(immh, "0b0001"))
+                    Width.b
+                else if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .uqrshrn = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, vb, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b11100")) blk: {
+                const v = if (matches(immh, "0b001x"))
+                    Width.h
+                else if (matches(immh, "0b01xx"))
+                    Width.s
+                else if (matches(immh, "0b1xxx"))
+                    Width.d
+                else
+                    return error.Unallocated;
+                const fbits = if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .vector_ucvtf = SIMDDataProcInstr{
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .payload = .{ .imm = fbits },
+                } };
+            } else if (u == 1 and !matches(immh, "0b0000") and matches(opcode, "0b11111"))
+                Instruction{ .vector_fcvtzu = undefined }
+            else
+                error.Unallocated;
         } else if (matches(op0, "0b01x1") and matches(op1, "0b1x") and matches(op3, "0bxxxxxxxx0")) { // SIMD scalar x indexed element
-            return error.Unimplemented;
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const l = @truncate(u1, op >> 21);
+            const m = @truncate(u1, op >> 20);
+            const h = @truncate(u1, op >> 11);
+            const sz = @truncate(u1, size);
+            const v = if (sz == 0b0) Width.s else Width.d;
+            const opcode = @truncate(u4, op >> 12);
+            return if (u == 0b0 and opcode == 0b0011) blk: {
+                const va = if (size == 0b01)
+                    Width.s
+                else if (size == 0b10)
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (size == 0b01)
+                    Width.h
+                else if (size == 0b10)
+                    Width.s
+                else
+                    return error.Unallocated;
+                const vm = if (size == 0b01)
+                    @truncate(u4, op >> 16)
+                else if (size == 0b10)
+                    @as(u5, m) << 4 | @truncate(u4, op >> 16)
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqdmlal = SIMDDataProcInstr{
+                    .arrangement_a = if (size == 0b01)
+                        .h
+                    else if (size == 0b10)
+                        .s
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(vm, .v, false),
+                    .rn = Register.from(op >> 5, vb, false),
+                    .rd = Register.from(op, va, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u2, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } };
+            } else if (u == 0b0 and opcode == 0b0111) blk: {
+                const va = if (size == 0b01)
+                    Width.s
+                else if (size == 0b10)
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (size == 0b01)
+                    Width.h
+                else if (size == 0b10)
+                    Width.s
+                else
+                    return error.Unallocated;
+                const vm = if (size == 0b01)
+                    @truncate(u4, op >> 16)
+                else if (size == 0b10)
+                    @as(u5, m) << 4 | @truncate(u4, op >> 16)
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqdmlsl = SIMDDataProcInstr{
+                    .arrangement_a = if (size == 0b01)
+                        .h
+                    else if (size == 0b10)
+                        .s
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(vm, .v, false),
+                    .rn = Register.from(op >> 5, vb, false),
+                    .rd = Register.from(op, va, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u2, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } };
+            } else if (u == 0b0 and opcode == 0b1011) blk: {
+                const va = if (size == 0b01)
+                    Width.s
+                else if (size == 0b10)
+                    Width.d
+                else
+                    return error.Unallocated;
+                const vb = if (size == 0b01)
+                    Width.h
+                else if (size == 0b10)
+                    Width.s
+                else
+                    return error.Unallocated;
+                const vm = if (size == 0b01)
+                    @truncate(u4, op >> 16)
+                else if (size == 0b10)
+                    @as(u5, m) << 4 | @truncate(u4, op >> 16)
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqdmull = SIMDDataProcInstr{
+                    .arrangement_a = if (size == 0b01)
+                        .h
+                    else if (size == 0b10)
+                        .s
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(vm, .v, false),
+                    .rn = Register.from(op >> 5, vb, false),
+                    .rd = Register.from(op, va, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u2, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } };
+            } else if (u == 0b0 and opcode == 0b1100) blk: {
+                const va = if (size == 0b01) Width.h else if (size == 0b10)
+                    Width.s
+                else
+                    return error.Unallocated;
+                const vm = if (size == 0b01)
+                    @truncate(u4, op >> 16)
+                else if (size == 0b10)
+                    @as(u5, m) << 4 | @truncate(u4, op >> 16)
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqdmulh = SIMDDataProcInstr{
+                    .arrangement_a = if (size == 0b01)
+                        .h
+                    else if (size == 0b10)
+                        .s
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(vm, .v, false),
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, va, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u2, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } };
+            } else if (u == 0b0 and opcode == 0b1101) blk: {
+                const va = if (size == 0b01) Width.h else if (size == 0b10)
+                    Width.s
+                else
+                    return error.Unallocated;
+                const vm = if (size == 0b01)
+                    @truncate(u4, op >> 16)
+                else if (size == 0b10)
+                    @as(u5, m) << 4 | @truncate(u4, op >> 16)
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqrdmulh = SIMDDataProcInstr{
+                    .arrangement_a = if (size == 0b01)
+                        .h
+                    else if (size == 0b10)
+                        .s
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(vm, .v, false),
+                    .rn = Register.from(op >> 5, va, false),
+                    .rd = Register.from(op, va, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u2, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } };
+            } else if (u == 0b0 and size == 0b00 and opcode == 0b0001)
+                Instruction{ .fmla = undefined }
+            else if (u == 0b0 and size == 0b00 and opcode == 0b0101)
+                Instruction{ .fmls = undefined }
+            else if (u == 0b0 and size == 0b00 and opcode == 0b1001)
+                Instruction{ .vector_fmul = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b0001)
+                Instruction{ .fmla = SIMDDataProcInstr{
+                    .arrangement_a = if (sz == 0b0) .s else .d,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .post_index = if (sz == 0b0)
+                        @as(u2, h) << 1 | l
+                    else if (l == 0)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b0101)
+                Instruction{ .fmls = SIMDDataProcInstr{
+                    .arrangement_a = if (sz == 0b0) .s else .d,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .post_index = if (sz == 0b0)
+                        @as(u2, h) << 1 | l
+                    else if (l == 0)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b1001)
+                Instruction{ .vector_fmul = SIMDDataProcInstr{
+                    .arrangement_a = if (sz == 0b0) .s else .d,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .post_index = if (sz == 0b0)
+                        @as(u2, h) << 1 | l
+                    else if (l == 0)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and opcode == 0b1101)
+                Instruction{ .sqrdmlah = undefined }
+            else if (u == 0b1 and opcode == 0b1111)
+                Instruction{ .sqrdmlsh = undefined }
+            else if (u == 0b1 and size == 0b00 and opcode == 0b1001)
+                Instruction{ .fmulx = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b1001)
+                Instruction{ .fmulx = SIMDDataProcInstr{
+                    .arrangement_a = if (sz == 0b0) .s else .d,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, v, false),
+                    .rd = Register.from(op, v, false),
+                    .post_index = if (sz == 0b0)
+                        @as(u2, h) << 1 | l
+                    else if (l == 0)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else
+                error.Unallocated;
         } else if (matches(op0, "0b0x00") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxx00")) { // SIMD table lookup
-            return error.Unimplemented;
+            const q = @truncate(u1, op >> 30);
+            const o2 = @truncate(u2, op >> 22);
+            const len = @truncate(u2, op >> 13);
+            const o = @truncate(u1, op >> 12);
+            const t = @truncate(u5, op >> 5);
+            const rt = Register.from(t, .v, false);
+            const rt2 = Register.from((t + 1) % 31, .v, false);
+            const rt3 = Register.from((t + 2) % 31, .v, false);
+            const rt4 = Register.from((t + 3) % 31, .v, false);
+            if (o2 != 0b00) return error.Unallocated;
+            const payload = SIMDLoadStoreInstr{
+                .arrangement = if (q == 0b0)
+                    SIMDArrangement.@"8b"
+                else
+                    SIMDArrangement.@"16b",
+                .rd = Register.from(op, .v, false),
+                .rt = rt,
+                .rt2 = if (len >= 0b01) rt2 else null,
+                .rt3 = if (len >= 0b10) rt3 else null,
+                .rt4 = if (len >= 0b11) rt4 else null,
+                .payload = .{ .rm = Register.from(op >> 16, .v, false) },
+            };
+            return if (o == 0b0)
+                Instruction{ .tbl = payload }
+            else
+                Instruction{ .tbx = payload };
         } else if (matches(op0, "0b0x00") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxx10")) { // SIMD permute
             return error.Unimplemented;
         } else if (matches(op0, "0b0x10") and matches(op1, "0b0x") and matches(op2, "0bx0xx") and matches(op3, "0bxxx0xxxx0")) { // SIMD extract
             return error.Unimplemented;
-        } else if (matches(op0, "0b0xx0") and matches(op1, "0b00") and matches(op2, "0b00xx") and matches(op3, "0bxxx0xxxx1")) // SIMD copy
-        {
+        } else if (matches(op0, "0b0xx0") and matches(op1, "0b00") and matches(op2, "0b00xx") and matches(op3, "0bxxx0xxxx1")) { // SIMD copy
             const q = @truncate(u1, op >> 30);
             const u = @truncate(u1, op >> 29);
             const imm5 = @truncate(u5, op >> 16);
@@ -3661,16 +4489,6 @@ pub const Disassembler = struct {
             const size = @truncate(u2, op >> 22);
             const q = @truncate(u1, op >> 30);
             const sizeq = @as(u3, size) << 1 | q;
-            const payload = SIMDDataProcInstr{
-                .q = @truncate(u1, op >> 30) == 1,
-                .arrangement_a = if (size != 0b11)
-                    @intToEnum(SIMDArrangement, sizeq)
-                else
-                    return error.Unallocated,
-                .rm = Register.from(op >> 16, .v, false),
-                .rn = Register.from(op >> 5, .v, false),
-                .rd = Register.from(op, .v, false),
-            };
             return if (u == 0 and opcode == 0b0000)
                 @as(Instruction, Instruction.saddl)
             else if (u == 0 and opcode == 0b0001)
@@ -3680,27 +4498,75 @@ pub const Disassembler = struct {
             else if (u == 0 and opcode == 0b0011)
                 @as(Instruction, Instruction.ssubw)
             else if (u == 0 and opcode == 0b0100)
-                Instruction{ .addhn = payload }
+                Instruction{ .addhn = SIMDDataProcInstr{
+                    .q = @truncate(u1, op >> 30) == 1,
+                    .arrangement_a = if (size != 0b11)
+                        @intToEnum(SIMDArrangement, sizeq)
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                } }
             else if (u == 0 and opcode == 0b0101)
                 @as(Instruction, Instruction.sabal)
             else if (u == 0 and opcode == 0b0110)
                 @as(Instruction, Instruction.subhn)
             else if (u == 0 and opcode == 0b0111)
                 @as(Instruction, Instruction.sabdl)
-            else if (u == 0 and opcode == 0b1000)
-                @as(Instruction, Instruction.smlal)
-            else if (u == 0 and opcode == 0b1001)
-                @as(Instruction, Instruction.sqdmlal)
+            else if (opcode == 0b1000) blk: {
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b00)
+                        SIMDArrangement.@"8h"
+                    else if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .smlal = payload }
+                else
+                    Instruction{ .umlal = payload };
+            } else if (u == 0 and opcode == 0b1001)
+                Instruction{ .sqdmlal = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                } }
             else if (u == 0 and opcode == 0b1010)
-                @as(Instruction, Instruction.smlsl)
+                Instruction{ .smlsl = undefined }
             else if (u == 0 and opcode == 0b1011)
-                @as(Instruction, Instruction.sqdmlsl)
+                Instruction{ .sqdmlsl = undefined }
             else if (u == 0 and opcode == 0b1100)
-                @as(Instruction, Instruction.smull)
+                Instruction{ .smull = undefined }
             else if (u == 0 and opcode == 0b1101)
-                @as(Instruction, Instruction.sqdmull)
+                Instruction{ .sqdmull = undefined }
             else if (u == 0 and opcode == 0b1110)
-                @as(Instruction, Instruction.pmull)
+                Instruction{ .pmull = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b00)
+                        SIMDArrangement.@"8h"
+                    else if (size == 0b11)
+                        SIMDArrangement.@"1q"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(op >> 16, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                } }
             else if (u == 1 and opcode == 0b0000)
                 @as(Instruction, Instruction.uaddl)
             else if (u == 1 and opcode == 0b0001)
@@ -3717,12 +4583,10 @@ pub const Disassembler = struct {
                 @as(Instruction, Instruction.rsubhn)
             else if (u == 1 and opcode == 0b0111)
                 @as(Instruction, Instruction.uabdl)
-            else if (u == 1 and opcode == 0b1000)
-                @as(Instruction, Instruction.umlal)
             else if (u == 1 and opcode == 0b1010)
-                @as(Instruction, Instruction.umlsl)
+                Instruction{ .umlsl = undefined }
             else if (u == 1 and opcode == 0b1100)
-                @as(Instruction, Instruction.umull)
+                Instruction{ .umull = undefined }
             else
                 error.Unallocated;
         } else if (matches(op0, "0b0xx0") and matches(op1, "0b0x") and matches(op2, "0bx1xx") and matches(op3, "0bxxxxxxxx1")) { // SIMD three same
@@ -4637,9 +5501,9 @@ pub const Disassembler = struct {
                 @truncate(u1, cmode) == 0b0 and o2 == 0b0)
                 Instruction{ .movi = SIMDDataProcInstr{
                     .arrangement_a = if (q == 0b0)
-                        SIMDArrangement.@"4h"
+                        SIMDArrangement.@"2s"
                     else
-                        SIMDArrangement.@"8h",
+                        SIMDArrangement.@"4s",
                     .rd = rd,
                     .payload = .{ .shifted_imm = .{
                         .shift = @as(u6, @truncate(u2, cmode >> 1)) * 8,
@@ -4665,9 +5529,9 @@ pub const Disassembler = struct {
                 @truncate(u1, cmode) == 0b0 and o2 == 0b0)
                 Instruction{ .movi = SIMDDataProcInstr{
                     .arrangement_a = if (q == 0b0)
-                        SIMDArrangement.@"8b"
+                        SIMDArrangement.@"4h"
                     else
-                        SIMDArrangement.@"16b",
+                        SIMDArrangement.@"8h",
                     .rd = rd,
                     .payload = .{ .shifted_imm = .{
                         .shift = @as(u6, @truncate(u1, cmode >> 1)) * 8,
@@ -4692,9 +5556,9 @@ pub const Disassembler = struct {
             else if (o1 == 0b0 and @truncate(u3, cmode >> 1) == 0b110 and o2 == 0b0)
                 Instruction{ .movi = SIMDDataProcInstr{
                     .arrangement_a = if (q == 0b0)
-                        SIMDArrangement.@"4h"
+                        SIMDArrangement.@"8b"
                     else
-                        SIMDArrangement.@"8h",
+                        SIMDArrangement.@"16b",
                     .rd = rd,
                     .payload = .{ .shifted_imm = .{
                         .shift = (@as(u6, @truncate(u1, cmode)) + 1) * 8,
@@ -4804,7 +5668,7 @@ pub const Disassembler = struct {
                 } }
             else if (q == 0b0 and o1 == 0b1 and cmode == 0b1110 and o2 == 0b0)
                 Instruction{ .movi = SIMDDataProcInstr{
-                    .rd = rd,
+                    .rd = Register.from(op, .d, false),
                     .payload = .{ .imm = imm },
                 } }
             else if (q == 0b1 and o1 == 0b1 and cmode == 0b1110 and o2 == 0b0)
@@ -4822,9 +5686,1062 @@ pub const Disassembler = struct {
             else
                 error.Unallocated;
         } else if (matches(op0, "0b0xx0") and matches(op1, "0b10") and !matches(op2, "0b0000") and matches(op3, "0bxxxxxxxx1")) { // SIMD shift by immediate
-            return error.Unimplemented;
+            const q = @truncate(u1, op >> 30);
+            const u = @truncate(u1, op >> 29);
+            const opcode = @truncate(u5, op >> 11);
+            const immh = @truncate(u4, op >> 19);
+            const immb = @truncate(u3, op >> 16);
+            const immhimmb = @as(u8, immh) << 3 | immb;
+            return if (opcode == 0b00000) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .sshr = payload }
+                else
+                    Instruction{ .ushr = payload };
+            } else if (opcode == 0b00010) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .ssra = payload }
+                else
+                    Instruction{ .usra = payload };
+            } else if (opcode == 0b00100) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .srshr = payload }
+                else
+                    Instruction{ .urshr = payload };
+            } else if (opcode == 0b00110) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .srsra = payload }
+                else
+                    Instruction{ .ursra = payload };
+            } else if (u == 0b0 and opcode == 0b01010) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .shl = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (opcode == 0b01110) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .sqshl = payload }
+                else
+                    Instruction{ .uqshl = payload };
+            } else if (opcode == 0b10000) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .shrn = payload }
+                else
+                    Instruction{ .sqshrun = payload };
+            } else if (u == 0b0 and opcode == 0b10001) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .rshrn = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (opcode == 0b10010) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .sqshrn = payload }
+                else
+                    Instruction{ .uqshrn = payload };
+            } else if (opcode == 0b10011) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .sqrshrn = payload }
+                else
+                    Instruction{ .uqrshrn = payload };
+            } else if (opcode == 0b10100) blk: {
+                const t = if (matches(immh, "0b0001"))
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b001x"))
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b01xx"))
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .sshll = payload }
+                else
+                    Instruction{ .ushll = payload };
+            } else if (opcode == 0b11100) blk: {
+                const t = if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const fbits = if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .imm = fbits },
+                };
+                break :blk if (u == 0)
+                    Instruction{ .vector_scvtf = payload }
+                else
+                    Instruction{ .vector_ucvtf = payload };
+            } else if (opcode == 0b11111) blk: {
+                const t = if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const fbits = if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                const payload = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .imm = fbits },
+                };
+                break :blk if (u == 0b0)
+                    Instruction{ .vector_fcvtzs = payload }
+                else
+                    Instruction{ .vector_fcvtzu = payload };
+            } else if (u == 0b1 and opcode == 0b01000) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else if (matches(immh, "0b1xxx"))
+                    128 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sri = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0b1 and opcode == 0b01010) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sli = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0b1 and opcode == 0b01100) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else if (matches(immh, "0b1xxx") and q == 0b1)
+                    SIMDArrangement.@"2d"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    immhimmb - 8
+                else if (matches(immh, "0b001x"))
+                    immhimmb - 16
+                else if (matches(immh, "0b01xx"))
+                    immhimmb - 32
+                else if (matches(immh, "0b1xxx"))
+                    immhimmb - 64
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqshlu = SIMDDataProcInstr{
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0b1 and opcode == 0b10001) blk: {
+                const t = if (matches(immh, "0b0001") and q == 0b0)
+                    SIMDArrangement.@"8b"
+                else if (matches(immh, "0b0001") and q == 0b1)
+                    SIMDArrangement.@"16b"
+                else if (matches(immh, "0b001x") and q == 0b0)
+                    SIMDArrangement.@"4h"
+                else if (matches(immh, "0b001x") and q == 0b1)
+                    SIMDArrangement.@"8h"
+                else if (matches(immh, "0b01xx") and q == 0b0)
+                    SIMDArrangement.@"2s"
+                else if (matches(immh, "0b01xx") and q == 0b1)
+                    SIMDArrangement.@"4s"
+                else
+                    return error.Unallocated;
+                const shift = if (matches(immh, "0b0001"))
+                    16 - immhimmb
+                else if (matches(immh, "0b001x"))
+                    32 - immhimmb
+                else if (matches(immh, "0b01xx"))
+                    64 - immhimmb
+                else
+                    return error.Unallocated;
+                break :blk Instruction{ .sqrshrun = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = t,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .payload = .{ .shift = shift },
+                } };
+            } else if (u == 0b1 and opcode == 0b10011)
+                Instruction{ .uqrshrn = undefined }
+            else
+                error.Unallocated;
         } else if (matches(op0, "0b0xx0") and matches(op1, "0b1x") and matches(op3, "0bxxxxxxxx0")) { // SIMD vector x indexed element
-            return error.Unimplemented;
+            const q = @truncate(u1, op >> 30);
+            const u = @truncate(u1, op >> 29);
+            const size = @truncate(u2, op >> 22);
+            const l = @truncate(u1, op >> 21);
+            const m = @truncate(u1, op >> 20);
+            const rm = @truncate(u4, op >> 16);
+            const h = @truncate(u1, op >> 11);
+            const sizeq = @as(u3, size) << 1 | q;
+            const mrm = @as(u5, m) << 4 | rm;
+            const sz = @truncate(u1, size);
+            const qsz = @as(u2, q) << 1 | sz;
+            const szl = @as(u2, sz) << 1 | l;
+            const opcode = @truncate(u4, op >> 12);
+            return if (u == 0b0 and opcode == 0b0010)
+                Instruction{ .smlal = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b0011)
+                Instruction{ .sqdmlal = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b0110)
+                Instruction{ .smlsl = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b0111)
+                Instruction{ .sqdmlsl = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b1000)
+                Instruction{ .mul = SIMDDataProcInstr{
+                    .arrangement_a = if (sizeq == 0b010)
+                        SIMDArrangement.@"4h"
+                    else if (sizeq == 0b011)
+                        SIMDArrangement.@"8h"
+                    else if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
+                    else if (sizeq == 0b101)
+                        SIMDArrangement.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b1010)
+                Instruction{ .smull = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b1011)
+                Instruction{ .sqdmull = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b1100)
+                Instruction{ .sqdmulh = SIMDDataProcInstr{
+                    .arrangement_a = if (sizeq == 0b010)
+                        SIMDArrangement.@"4h"
+                    else if (sizeq == 0b011)
+                        SIMDArrangement.@"8h"
+                    else if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
+                    else if (sizeq == 0b101)
+                        SIMDArrangement.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b1101)
+                Instruction{ .sqrdmulh = SIMDDataProcInstr{
+                    .arrangement_a = if (sizeq == 0b010)
+                        SIMDArrangement.@"4h"
+                    else if (sizeq == 0b011)
+                        SIMDArrangement.@"8h"
+                    else if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
+                    else if (sizeq == 0b101)
+                        SIMDArrangement.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and opcode == 0b1111)
+                Instruction{ .sudot = undefined }
+            else if (u == 0b0 and size == 0b01 and opcode == 0b1111)
+                Instruction{ .bfdot = undefined }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b0001)
+                Instruction{ .fmla = SIMDDataProcInstr{
+                    .arrangement_a = if (qsz == 0b00)
+                        SIMDArrangement.@"2s"
+                    else if (qsz == 0b10)
+                        SIMDArrangement.@"4s"
+                    else if (qsz == 0b11)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(mrm, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (matches(szl, "0b0x"))
+                        @as(u2, h) << 1 | l
+                    else if (szl == 0b10)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b0101)
+                Instruction{ .fmls = SIMDDataProcInstr{
+                    .arrangement_a = if (qsz == 0b00)
+                        SIMDArrangement.@"2s"
+                    else if (qsz == 0b10)
+                        SIMDArrangement.@"4s"
+                    else if (qsz == 0b11)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(mrm, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (matches(szl, "0b0x"))
+                        @as(u2, h) << 1 | l
+                    else if (szl == 0b10)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and size >= 0b10 and opcode == 0b1001)
+                Instruction{ .vector_fmul = SIMDDataProcInstr{
+                    .arrangement_a = if (qsz == 0b00)
+                        SIMDArrangement.@"2s"
+                    else if (qsz == 0b10)
+                        SIMDArrangement.@"4s"
+                    else if (qsz == 0b11)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(mrm, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (matches(szl, "0b0x"))
+                        @as(u2, h) << 1 | l
+                    else if (szl == 0b10)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b0 and size == 0b10 and opcode == 0b0000)
+                Instruction{ .fmlal = undefined }
+            else if (u == 0b0 and size == 0b10 and opcode == 0b0100)
+                Instruction{ .fmlsl = undefined }
+            else if (u == 0b0 and size == 0b10 and opcode == 0b1111)
+                Instruction{ .usdot = undefined }
+            else if (u == 0b0 and size == 0b11 and opcode == 0b1111)
+                Instruction{ .bfmlalb = undefined }
+            else if (u == 0b1 and opcode == 0b0000)
+                Instruction{ .mla = SIMDDataProcInstr{
+                    .arrangement_a = if (sizeq == 0b010)
+                        SIMDArrangement.@"4h"
+                    else if (sizeq == 0b011)
+                        SIMDArrangement.@"8h"
+                    else if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
+                    else if (sizeq == 0b101)
+                        SIMDArrangement.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and opcode == 0b0010)
+                Instruction{ .umlal = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and opcode == 0b0100)
+                Instruction{ .mls = SIMDDataProcInstr{
+                    .arrangement_a = if (sizeq == 0b010)
+                        SIMDArrangement.@"4h"
+                    else if (sizeq == 0b011)
+                        SIMDArrangement.@"8h"
+                    else if (sizeq == 0b100)
+                        SIMDArrangement.@"2s"
+                    else if (sizeq == 0b101)
+                        SIMDArrangement.@"4s"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and opcode == 0b0110)
+                Instruction{ .umlsl = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and opcode == 0b1010)
+                Instruction{ .umull = SIMDDataProcInstr{
+                    .q = q == 1,
+                    .arrangement_a = if (size == 0b01)
+                        SIMDArrangement.@"4s"
+                    else if (size == 0b10)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = if (size == 0b01)
+                        Register.from(@as(u5, rm), .v, false)
+                    else if (size == 0b10)
+                        Register.from(mrm, .v, false)
+                    else
+                        return error.Unallocated,
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (size == 0b01)
+                        @as(u3, h) << 2 | @as(u3, l) << 1 | m
+                    else if (size == 0b10)
+                        @as(u2, h) << 1 | l
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and opcode == 0b1101)
+                Instruction{ .sqrdmlah = undefined }
+            else if (u == 0b1 and opcode == 0b1110)
+                Instruction{ .udot = undefined }
+            else if (u == 0b1 and opcode == 0b1111)
+                Instruction{ .sqrdmlsh = undefined }
+            else if (u == 0b1 and size == 0b00 and opcode == 0b1001)
+                Instruction{ .fmulx = undefined }
+            else if (u == 0b1 and size == 0b01 and @truncate(u1, opcode >> 3) == 0b0 and @truncate(u1, opcode) == 0b1)
+                Instruction{ .fcmla = undefined }
+            else if (u == 0b1 and size >= 0b10 and opcode == 0b1001)
+                Instruction{ .fmulx = SIMDDataProcInstr{
+                    .arrangement_a = if (qsz == 0b00)
+                        SIMDArrangement.@"2s"
+                    else if (qsz == 0b10)
+                        SIMDArrangement.@"4s"
+                    else if (qsz == 0b11)
+                        SIMDArrangement.@"2d"
+                    else
+                        return error.Unallocated,
+                    .rm = Register.from(mrm, .v, false),
+                    .rn = Register.from(op >> 5, .v, false),
+                    .rd = Register.from(op, .v, false),
+                    .post_index = if (matches(szl, "0b0x"))
+                        @as(u2, h) << 1 | l
+                    else if (szl == 0b10)
+                        h
+                    else
+                        return error.Unallocated,
+                } }
+            else if (u == 0b1 and size == 0b10 and @truncate(u1, opcode >> 3) == 0b0 and @truncate(u1, opcode) == 0b1)
+                Instruction{ .fcmla = undefined }
+            else if (u == 0b1 and size == 0b10 and opcode == 0b1000)
+                Instruction{ .fmlal = undefined }
+            else if (u == 0b1 and size == 0b10 and opcode == 0b1100)
+                Instruction{ .fmlsl = undefined }
+            else
+                error.Unallocated;
         } else if (matches(op0, "0b1100") and matches(op1, "0b00") and matches(op2, "0b10xx") and matches(op3, "0bxxx10xxxx")) { // Crypto three reg, imm2
             return error.Unimplemented;
         } else if (matches(op0, "0b1100") and matches(op1, "0b00") and matches(op2, "0b11xx") and matches(op3, "0bxxx1x00xx")) { // Crypto three reg, sha512

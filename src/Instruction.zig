@@ -178,6 +178,9 @@ pub const Instruction = union(enum) {
     sha256: ShaInstr,
     // Advanced SIMD scalar copy
     dup: SIMDDataProcInstr,
+    // Advanced SIMD scalar two register misc
+    frecpx,
+    uqxtun,
     // Advanced SIMD scalar pairwise
     fmaxnmp: SIMDDataProcInstr,
     faddp: SIMDDataProcInstr,
@@ -185,9 +188,9 @@ pub const Instruction = union(enum) {
     fminnmp: SIMDDataProcInstr,
     fminp: SIMDDataProcInstr,
     // Advanced SIMD scalar three different
-    sqdmlal,
-    sqdmlsl,
-    sqdmull,
+    sqdmlal: SIMDDataProcInstr,
+    sqdmlsl: SIMDDataProcInstr,
+    sqdmull: SIMDDataProcInstr,
     // Advanced SIMD scalar three same
     sqadd: SIMDDataProcInstr,
     sqsub: SIMDDataProcInstr,
@@ -215,6 +218,12 @@ pub const Instruction = union(enum) {
     vector_fmin: SIMDDataProcInstr,
     vector_fmul: SIMDDataProcInstr,
     vector_fsub: SIMDDataProcInstr,
+    // Advanced SIMD scalar x indexed element
+    sqrdmlah,
+    sqrdmlsh,
+    // Advanced SIMD table lookup
+    tbl: SIMDLoadStoreInstr,
+    tbx: SIMDLoadStoreInstr,
     // Advanced SIMD copy
     smov: SIMDDataProcInstr,
     umov: SIMDDataProcInstr,
@@ -340,10 +349,10 @@ pub const Instruction = union(enum) {
     sabal,
     subhn,
     sabdl,
-    smlal,
-    smlsl,
-    smull,
-    pmull,
+    smlal: SIMDDataProcInstr,
+    smlsl: SIMDDataProcInstr,
+    smull: SIMDDataProcInstr,
+    pmull: SIMDDataProcInstr,
     uaddl,
     uaddw,
     usubl,
@@ -352,9 +361,9 @@ pub const Instruction = union(enum) {
     uabal,
     rsubhn,
     uabdl,
-    umlal,
-    umlsl,
-    umull,
+    umlal: SIMDDataProcInstr,
+    umlsl: SIMDDataProcInstr,
+    umull: SIMDDataProcInstr,
     // Advanced SIMD three same
     vector_add: SIMDDataProcInstr,
     shadd: SIMDDataProcInstr,
@@ -377,7 +386,36 @@ pub const Instruction = union(enum) {
     vector_fmov: SIMDDataProcInstr,
     mvni: SIMDDataProcInstr,
     // Advanced SIMD shift by immediate
+    sshr: SIMDDataProcInstr,
+    ssra: SIMDDataProcInstr,
+    srshr: SIMDDataProcInstr,
+    srsra: SIMDDataProcInstr,
+    shl: SIMDDataProcInstr,
+    sshll: SIMDDataProcInstr,
+    ushll: SIMDDataProcInstr,
+    shrn: SIMDDataProcInstr,
+    rshrn: SIMDDataProcInstr,
+    sqshrn: SIMDDataProcInstr,
+    sqrshrn: SIMDDataProcInstr,
+    ushr: SIMDDataProcInstr,
+    usra: SIMDDataProcInstr,
+    ursha: SIMDDataProcInstr,
+    urshr: SIMDDataProcInstr,
+    ursra: SIMDDataProcInstr,
+    sri: SIMDDataProcInstr,
+    sli: SIMDDataProcInstr,
+    sqshlu: SIMDDataProcInstr,
+    sqshrun: SIMDDataProcInstr,
+    sqrshrun: SIMDDataProcInstr,
+    uqshrn: SIMDDataProcInstr,
+    uqrshrn: SIMDDataProcInstr,
     // Advanced SIMD vector x indexed element
+    sudot,
+    bfdot,
+    usdot,
+    bfmlalb,
+    udot,
+    fcmla,
     // Crypto three register, imm2
     // Crypto three register, SHA512
     // Crypto four register
@@ -887,6 +925,26 @@ pub const Instruction = union(enum) {
             .sqxtun,
             .shll,
             .uqxtn,
+            .smlal,
+            .smlsl,
+            .smull,
+            .sqdmlal,
+            .sqdmlsl,
+            .sqdmull,
+            .umlal,
+            .umlsl,
+            .umull,
+            .shrn,
+            .rshrn,
+            .sqrshrn,
+            .sqrshrun,
+            .sqshrn,
+            .sqshrun,
+            .sshll,
+            .ushll,
+            .uqrshrn,
+            .uqshrn,
+            .pmull,
             => |instr| try std.fmt.format(writer, "{s}{s}{}", .{ @tagName(self.*), if (instr.q != null and instr.q.?) "2" else "", instr }),
             .abs,
             .addp,
@@ -976,6 +1034,19 @@ pub const Instruction = union(enum) {
             .frsqrte,
             .cmle,
             .movi,
+            .mvni,
+            .shl,
+            .sli,
+            .sri,
+            .srshr,
+            .urshr,
+            .srsra,
+            .ursra,
+            .usra,
+            .sshr,
+            .ushr,
+            .sqshlu,
+            .ssra,
             => |instr| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), instr }),
             .fcvtl,
             .fcvtn,
@@ -993,6 +1064,8 @@ pub const Instruction = union(enum) {
             .ld2r,
             .ld3r,
             .ld4r,
+            .tbl,
+            .tbx,
             => |instr| try std.fmt.format(writer, "{s}{}", .{ @tagName(self.*), instr }),
             else => try std.fmt.format(writer, "{s}", .{@tagName(self.*)}),
         }
@@ -2346,6 +2419,7 @@ pub const SIMDArrangement = enum(u4) {
     @"4s" = 0b101,
     @"1d" = 0b110,
     @"2d" = 0b111,
+    @"1q",
     b,
     h,
     s,
@@ -2414,7 +2488,8 @@ pub const SIMDDataProcInstr = struct {
 
 pub const SIMDLoadStoreInstr = struct {
     arrangement: SIMDArrangement,
-    rn: Register,
+    rd: ?Register = null,
+    rn: ?Register = null,
     rt: Register,
     rt2: ?Register = null,
     rt3: ?Register = null,
@@ -2426,7 +2501,10 @@ pub const SIMDLoadStoreInstr = struct {
     } = null,
 
     pub fn format(self: *const @This(), comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        try std.fmt.format(writer, ".{s} {{ {}", .{ @tagName(self.arrangement), self.rt });
+        try std.fmt.format(writer, ".{s} ", .{@tagName(self.arrangement)});
+        if (self.rd) |rd|
+            try std.fmt.format(writer, "{}, ", .{rd});
+        try std.fmt.format(writer, "{{ {}", .{self.rt});
         if (self.rt2) |rt2|
             try std.fmt.format(writer, ", {}", .{rt2});
         if (self.rt3) |rt3|
@@ -2436,7 +2514,8 @@ pub const SIMDLoadStoreInstr = struct {
         try std.fmt.format(writer, " }}", .{});
         if (self.index) |idx|
             try std.fmt.format(writer, "[{}]", .{idx});
-        try std.fmt.format(writer, ", [{}]", .{self.rn});
+        if (self.rn) |rn|
+            try std.fmt.format(writer, ", [{}]", .{rn});
         if (self.payload) |payload|
             switch (payload) {
                 .imm => |imm| try std.fmt.format(writer, ", #{}", .{imm}),
