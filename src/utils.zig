@@ -59,31 +59,27 @@ pub fn matches(imm: anytype, comptime _match: []const u8) bool {
     const imm_size = @bitSizeOf(ImmType);
     comptime {
         const ImmInfo = @typeInfo(ImmType);
-        std.debug.assert(ImmInfo == .Int);
-        std.debug.assert(_match.len == imm_size + 2);
+        if (ImmInfo != .Int) @compileError("matches must be provided an integer type, found" ++ @typeName(ImmType));
+        if (_match.len != imm_size + 2) @compileError("matches must be provided a string which is the length of imm with a `0b` prefix");
     }
     const match = _match[2..];
 
     comptime var start_pos: usize = std.mem.indexOfAnyPos(u8, match, 0, &.{ '0', '1' }) orelse return true;
-    comptime var end_pos: usize = (std.mem.indexOfScalarPos(u8, match, start_pos, 'x') orelse match.len) - 1;
+    comptime var end_pos: usize = std.mem.indexOfScalarPos(u8, match, start_pos, 'x') orelse match.len;
     inline while (true) {
-        const bits_str = match[start_pos .. end_pos + 1];
+        const bits_str = match[start_pos..end_pos];
+
         const len = bits_str.len;
         const LenType = std.meta.Int(.unsigned, len);
-        const shift = imm_size - (end_pos + 1);
+
+        const shift = imm_size - end_pos;
+
         const bits = comptime std.fmt.parseUnsigned(LenType, bits_str, 2) catch unreachable;
-        // std.debug.print("\n\nstr: '{s}', bits_str: '{s}', start_pos: {}, end_pos: {}, len: {}, shift: {}\n\n", .{
-        //     match,
-        //     bits_str,
-        //     start_pos,
-        //     end_pos,
-        //     len,
-        //     shift,
-        // });
+
         if (@truncate(LenType, imm >> shift) != bits)
             return false;
-        start_pos = comptime std.mem.indexOfAnyPos(u8, match, end_pos + 1, &.{ '0', '1' }) orelse return true;
-        end_pos = (comptime std.mem.indexOfScalarPos(u8, match, start_pos, 'x') orelse match.len) - 1;
+        start_pos = comptime std.mem.indexOfAnyPos(u8, match, end_pos, &.{ '0', '1' }) orelse return true;
+        end_pos = comptime std.mem.indexOfScalarPos(u8, match, start_pos, 'x') orelse match.len;
     }
 }
 
